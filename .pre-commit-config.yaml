@@ -45,6 +45,9 @@ repos:
         name: commitlint
         entry: commitlint --edit
         language: node
+        # Su Windows pre-commit scarica sempre Node: senza una versione prende
+        # l'ultima uscita, anche se è di prova, e nodeenv non la sa leggere.
+        language_version: 24.11.0
         additional_dependencies:
           - "@commitlint/cli@20.5.0"
           - "@commitlint/config-conventional@20.5.0"
