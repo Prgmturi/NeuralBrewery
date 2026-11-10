@@ -1,0 +1,252 @@
+[project]
+name = "fastapi_starter"
+version = "0.9.2"
+description = "Fastapi starter with settings, logging, auth"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "alembic>=1.20.1",
+    "asyncpg>=0.32.0",
+    "fastapi>=0.162.0",
+    "httpx>=0.28.1",
+    "pydantic-settings>=2.16.2",
+    "pydantic>=2.12.5",
+    "pyjwt[crypto]>=2.15.1",
+    "sqlalchemy[asyncio]>=2.1.6",
+    "structlog>=26.1.0",
+    "uvicorn[standard]>=0.40.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "import-linter>=2.15",
+    "mypy>=2.4.1",
+    "pre-commit>=4.7.0",
+    "pytest>=9.2.0",
+    "pytest-asyncio>=1.4.1",
+    "pytest-cov>=7.0.0",
+    "pytest-mock>=3.14.0",
+    "pyyaml>=6.0",
+    "ruff>=0.17.3",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fastapi_starter"]
+
+# =============================================================================
+# UV - one version in CI and in the image, checked by tests/test_lockfile.py
+# =============================================================================
+[tool.uv]
+# uv 0.12 and older rewrite uv.lock in an older format as soon as anything in
+# it changes. CI and docker/Dockerfile pin an exact version, at least this one.
+required-version = ">=0.13.0"
+
+# =============================================================================
+# RUFF - Linting & Formatting
+# =============================================================================
+[tool.ruff]
+target-version = "py313"
+line-length = 88
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort 
+    "N",      # pep8-naming
+    "UP",     # pyupgrade 
+    "B",      # flake8-bugbear 
+    "SIM",    # flake8-simplify
+    "PLC0415", # imports at the top of the module, never inside a function
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["fastapi_starter"]
+
+
+# =============================================================================
+# MYPY - Type Checking
+# =============================================================================
+[tool.mypy]
+python_version = "3.13"
+plugins = ["pydantic.mypy"]
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+
+
+# =============================================================================
+# IMPORT-LINTER - Architecture rules, checked in CI with: uv run lint-imports
+# =============================================================================
+[tool.importlinter]
+root_package = "fastapi_starter"
+# Lets the contracts below name third-party packages (jwt, httpx, sqlalchemy)
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Layers: main, serve, healthcheck -> bootstrap, exception_handlers -> features, adapters -> core"
+type = "layers"
+layers = [
+    # The entry points: the app factory and the image's two commands
+    "fastapi_starter.main | fastapi_starter.serve | fastapi_starter.healthcheck",
+    "fastapi_starter.bootstrap | fastapi_starter.exception_handlers",
+    # Siblings that never import each other: a feature reaches an adapter
+    # only through its port, which bootstrap.py fills
+    "fastapi_starter.features | fastapi_starter.adapters",
+    "fastapi_starter.core",
+]
+broken_contract_guidance = """
+A module imports from a layer above its own, or a feature and an adapter
+import each other. core is what features and adapters build on,
+bootstrap.py wires the adapters to their ports, main.py builds the app.
+Move the shared code down a layer, or have the layer above pass it in,
+as bootstrap.py does with the adapters."""
+
+[[tool.importlinter.contracts]]
+name = "Ports import no adapter"
+type = "forbidden"
+source_modules = ["fastapi_starter.**.protocols"]
+forbidden_modules = [
+    # Every adapter, those to come included
+    "fastapi_starter.adapters",
+    # The implementations that stay in core
+    "fastapi_starter.core.auth.service",
+    "fastapi_starter.core.database.manager",
+]
+broken_contract_guidance = """
+A protocol (port) imports an implementation (adapter). Adapters depend
+on ports, never the other way round: put the types a port needs in a
+schemas module. Every module of adapters/ is forbidden here; an
+implementation that stays in core goes in forbidden_modules above."""
+
+[[tool.importlinter.contracts]]
+name = "AuthService knows no JWT or HTTP library"
+type = "forbidden"
+source_modules = ["fastapi_starter.core.auth.service"]
+forbidden_modules = ["jwt", "httpx"]
+broken_contract_guidance = """
+AuthService works only through its ports, TokenDecoder and ClaimExtractor.
+PyJWT and httpx belong in the Keycloak adapters, in adapters/keycloak/."""
+
+[[tool.importlinter.contracts]]
+name = "Auth knows no database"
+type = "forbidden"
+source_modules = ["fastapi_starter.core.auth", "fastapi_starter.adapters.keycloak"]
+forbidden_modules = ["fastapi_starter.core.database", "sqlalchemy"]
+broken_contract_guidance = """
+Validating a token needs no database. If auth ever needs stored data,
+define a port in core/auth/protocols.py and wire its adapter in bootstrap.py."""
+
+[[tool.importlinter.contracts]]
+name = "Routers reach external services only through ports"
+type = "forbidden"
+# Any depth: features/auth/router.py, features/notes/api/router.py
+source_modules = ["fastapi_starter.features.**.router"]
+forbidden_modules = ["httpx"]
+broken_contract_guidance = """
+A router imports the HTTP client. OAuthProvider promises that its
+adapters raise only UnauthorizedError and ExternalServiceError: catch
+those. An httpx exception reaching a router is a bug in the adapter."""
+
+[[tool.importlinter.contracts]]
+name = "The health probe loads only what it needs"
+type = "forbidden"
+source_modules = ["fastapi_starter.healthcheck"]
+# main and serve are left out: the layers contract keeps the entry points apart
+forbidden_modules = [
+    "fastapi_starter.bootstrap",
+    "fastapi_starter.features",
+    "fastapi_starter.adapters",
+    "fastapi",
+    "starlette",
+    "uvicorn",
+    "sqlalchemy",
+    "httpx",
+]
+broken_contract_guidance = """
+Docker runs healthcheck.py every 30 seconds, each time in a new Python
+process, so everything it imports is loaded again on every probe: in the
+image the probe takes about 350 ms to import, the app about 640 ms. The
+probe needs the standard library and ServerSettings: keep the rest out of
+it and out of the modules it imports. tests/test_healthcheck.py checks
+the same list in a running process."""
+
+
+[[tool.importlinter.contracts]]
+name = "The business layer of a feature knows no framework and no database"
+type = "forbidden"
+source_modules = ["fastapi_starter.features.*.domain"]
+forbidden_modules = [
+    "fastapi",
+    "starlette",
+    "pydantic",
+    "sqlalchemy",
+    "httpx",
+    "fastapi_starter.adapters",
+]
+broken_contract_guidance = """
+The domain of a feature holds its rules in plain Python, so that they can
+be tested with a repository kept in memory and read without knowing the
+framework. HTTP belongs in the api layer of the feature, the database in
+its persistence layer, behind a port in domain/protocols.py.
+tests/test_package.py checks the same list in a running process."""
+
+[[tool.importlinter.contracts]]
+name = "Inside a feature: api -> persistence -> domain"
+type = "layers"
+# Every feature, those to come included. A layer in brackets may be missing:
+# features/auth has none of the three, so there is nothing to check in it.
+# tests/test_import_contracts.py checks that each layer exists in a feature.
+containers = ["fastapi_starter.features.*"]
+layers = ["(api)", "(persistence)", "(domain)"]
+broken_contract_guidance = """
+A layer of the feature imports a layer above its own. api may use the two
+below, persistence the domain; the domain uses neither: persistence
+implements the port the domain declares, and api wires the two."""
+
+
+# =============================================================================
+# PYTEST
+# =============================================================================
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+# The integration tests need a real Postgres and the end-to-end ones the
+# running stack, so a plain "pytest" leaves them out. "pytest -m integration"
+# or "pytest -m e2e" runs only those: the last -m wins.
+addopts = ["-v", "--tb=short", "-m", "not integration and not e2e"]
+markers = [
+    "integration: needs a real Postgres (TEST_DATABASE_*); every test in tests/integration/",
+    "e2e: needs the stack of compose.yaml running; every test in tests/e2e/",
+]
+# pytest 9: a typo in a marker or in this section becomes an error instead
+# of a warning (strict_markers, strict_config). Also enables strict_xfail
+# and strict_parametrization_ids.
+strict = true
+
+
+# =============================================================================
+# COVERAGE — CI runs "pytest --cov" and fails below fail_under
+# =============================================================================
+[tool.coverage.run]
+source = ["fastapi_starter"]
+branch = true
+
+[tool.coverage.report]
+# Raised when coverage grows, never lowered. At 99.81%, a margin of about a
+# third of a point leaves room for a branch hard to reach, not for an
+# untested module: without tests/core/test_body_limit.py it falls to 99.12%.
+fail_under = 99.5
+show_missing = true
+skip_covered = true
+exclude_also = [
+    'if __name__ == "__main__":',
+]

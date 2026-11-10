@@ -1,0 +1,60 @@
+# =============================================================================
+# Docker build context
+# =============================================================================
+# Everything listed here stays out of the build context.
+#
+# With BuildKit (the default builder) the client sends only the paths that
+# the COPY instructions use: .venv and the caches at the root never leave.
+# This file decides what stays out INSIDE those paths (the __pycache__ under
+# src/, for example), and it keeps the secrets out even if someone writes
+# COPY . . one day.
+#
+# Patterns start at the root of the context: "__pycache__/" excludes only
+# ./__pycache__. To exclude at any depth, write "**/".
+#
+# WARNING: the build needs README.md, pyproject.toml, uv.lock, src/, alembic/
+# and alembic.ini: do not add them here.
+# =============================================================================
+
+# Virtual environments and Python artifacts
+.venv/
+venv/
+**/__pycache__/
+**/*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info/
+
+# Caches of the tools
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Git and repository metadata
+.git/
+.gitignore
+.github/
+.pre-commit-config.yaml
+
+# Secrets: they must never enter the build context
+**/.env
+**/.env.*
+!**/.env.example
+
+# Tests and documentation: not part of the runtime image
+tests/
+docs/
+
+# docker/ holds the Dockerfile (passed with -f) and the development realm;
+# infra/ is a folder of older versions, still there on some machines
+docker/
+infra/
+
+# Editors and operating system
+.idea/
+.vscode/
+.claude/
+**/.DS_Store
