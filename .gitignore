@@ -21,3 +21,8 @@ htmlcov/
 # The prototype of the AI-plant boundary: a reference to read, not part of
 # the project (AGENTS.md)
 _reference/
+
+# The manufacturers' manuals: scripts/download_manuals.py downloads them,
+# and they are not ours to publish
+data/manuals/*
+!data/manuals/.gitkeep
