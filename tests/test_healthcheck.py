@@ -1,7 +1,7 @@
 """Tests for healthcheck.py — the probe Docker runs in the container.
 
-Module under test: src/fastapi_starter/healthcheck.py
-Layer: Entry point (python -m fastapi_starter.healthcheck)
+Module under test: src/neuralbrewery/healthcheck.py
+Layer: Entry point (python -m neuralbrewery.healthcheck)
 
 WHY these tests exist: Docker's HEALTHCHECK called /health/live with
 Host: localhost:8000. With production trusted hosts TrustedHostMiddleware
@@ -21,22 +21,22 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
-from fastapi_starter import healthcheck
-from fastapi_starter.core.config import ServerSettings, Settings
-from fastapi_starter.main import create_app
+from neuralbrewery import healthcheck
+from neuralbrewery.core.config import ServerSettings, Settings
+from neuralbrewery.main import create_app
 
 DOCKERFILE = Path(__file__).parent.parent / "docker" / "Dockerfile"
 PYPROJECT = Path(__file__).parent.parent / "pyproject.toml"
 
 # Prints every module that importing the probe loads, one per line
-LIST_LOADED = "import sys, fastapi_starter.healthcheck; print(*sys.modules, sep='\\n')"
+LIST_LOADED = "import sys, neuralbrewery.healthcheck; print(*sys.modules, sep='\\n')"
 
 
 def probe_contract() -> dict:
     """The import-linter contract of the probe, in pyproject.toml."""
     importlinter = tomllib.loads(PYPROJECT.read_text())["tool"]["importlinter"]
     for contract in importlinter["contracts"]:
-        if contract.get("source_modules") == ["fastapi_starter.healthcheck"]:
+        if contract.get("source_modules") == ["neuralbrewery.healthcheck"]:
             return contract
     raise AssertionError("pyproject.toml has no import contract for healthcheck.py")
 
@@ -149,5 +149,5 @@ class TestDockerfile:
 
         assert instruction is not None
         assert instruction.group(1).strip() == (
-            '["python", "-m", "fastapi_starter.healthcheck"]'
+            '["python", "-m", "neuralbrewery.healthcheck"]'
         )

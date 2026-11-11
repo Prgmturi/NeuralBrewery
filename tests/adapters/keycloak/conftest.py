@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from fastapi_starter.core.auth.schemas import RoleEnum
+from neuralbrewery.core.auth.schemas import RoleEnum
 
 
 @pytest.fixture

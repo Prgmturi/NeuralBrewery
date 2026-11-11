@@ -1,6 +1,6 @@
 """Tests for JWKSManager — fetching and caching Keycloak's signing keys.
 
-Module under test: src/fastapi_starter/adapters/keycloak/jwks_manager.py
+Module under test: src/neuralbrewery/adapters/keycloak/jwks_manager.py
 Layer: Infrastructure adapter (fake Keycloak behind httpx.MockTransport)
 
 WHY these tests exist: every authenticated request asks this class for a
@@ -18,11 +18,11 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
 from jwt.algorithms import RSAAlgorithm
 
-from fastapi_starter.adapters.keycloak import jwks_manager as jwks_manager_module
-from fastapi_starter.adapters.keycloak.jwks import KeyProvider
-from fastapi_starter.adapters.keycloak.jwks_manager import JWKSManager
-from fastapi_starter.core.config.keycloak import KeycloakSettings
-from fastapi_starter.core.exceptions import ServiceUnavailableError
+from neuralbrewery.adapters.keycloak import jwks_manager as jwks_manager_module
+from neuralbrewery.adapters.keycloak.jwks import KeyProvider
+from neuralbrewery.adapters.keycloak.jwks_manager import JWKSManager
+from neuralbrewery.core.config.keycloak import KeycloakSettings
+from neuralbrewery.core.exceptions import ServiceUnavailableError
 
 
 class FakeCertsEndpoint:

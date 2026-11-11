@@ -1,6 +1,6 @@
 """Tests for the helpers of alembic/env.py — finding the models, the guard.
 
-Module under test: src/fastapi_starter/core/database/migrations.py
+Module under test: src/neuralbrewery/core/database/migrations.py
 Layer: Database infrastructure, no database needed
 
 WHY these tests exist: a model reaches Base.metadata only when its module
@@ -20,9 +20,9 @@ from pathlib import Path
 import pytest
 from sqlalchemy import Column, Integer, MetaData, Table
 
-import fastapi_starter.features
-from fastapi_starter.core.database import Base
-from fastapi_starter.core.database.migrations import (
+import neuralbrewery.features
+from neuralbrewery.core.database import Base
+from neuralbrewery.core.database.migrations import (
     import_models,
     refuse_empty_autogenerate,
 )
@@ -103,9 +103,9 @@ def test_finds_the_model_of_notes():
 
     A membership, not the whole list: adding a feature must not break it.
     """
-    found = import_models(fastapi_starter.features)
+    found = import_models(neuralbrewery.features)
 
-    assert "fastapi_starter.features.notes.persistence.models" in found
+    assert "neuralbrewery.features.notes.persistence.models" in found
     assert "notes" in Base.metadata.tables
 
 
@@ -117,15 +117,15 @@ def test_every_model_is_in_a_module_alembic_imports():
     2 November 2026 with a model in features/tags.py). Every module of the
     app is imported first, so a model is found wherever it is.
     """
-    imported_by_alembic = set(import_models(fastapi_starter.features))
-    for module in pkgutil.walk_packages(fastapi_starter.__path__, "fastapi_starter."):
+    imported_by_alembic = set(import_models(neuralbrewery.features))
+    for module in pkgutil.walk_packages(neuralbrewery.__path__, "neuralbrewery."):
         importlib.import_module(module.name)
 
     misplaced = sorted(
         f"{mapper.class_.__module__}.{mapper.class_.__name__}"
         for mapper in Base.registry.mappers
         # The fake models of the tests live in tests/
-        if mapper.class_.__module__.startswith("fastapi_starter.")
+        if mapper.class_.__module__.startswith("neuralbrewery.")
         and mapper.class_.__module__ not in imported_by_alembic
     )
 
@@ -143,5 +143,5 @@ def test_alembic_env_uses_both():
     """
     env = (Path(__file__).parents[3] / "alembic" / "env.py").read_text()
 
-    assert "import_models(fastapi_starter.features)" in env
+    assert "import_models(neuralbrewery.features)" in env
     assert "refuse_empty_autogenerate(target_metadata)" in env

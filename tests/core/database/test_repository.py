@@ -1,6 +1,6 @@
 """Tests for BaseRepository — generic CRUD operations.
 
-Module under test: src/fastapi_starter/core/database/repository.py
+Module under test: src/neuralbrewery/core/database/repository.py
 Layer: Core logic (mock AsyncSession)
 
 WHY these tests exist: BaseRepository is the generic CRUD base class. Every
@@ -12,7 +12,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from fastapi_starter.core.database.repository import (
+from neuralbrewery.core.database.repository import (
     DEFAULT_PAGE_SIZE,
     MAX_PAGE_SIZE,
     BaseRepository,

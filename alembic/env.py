@@ -6,10 +6,10 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import create_async_engine
 
-import fastapi_starter.features
-from fastapi_starter.core.config import DatabaseSettings
-from fastapi_starter.core.database import Base, database_url
-from fastapi_starter.core.database.migrations import (
+import neuralbrewery.features
+from neuralbrewery.core.config import DatabaseSettings
+from neuralbrewery.core.database import Base, database_url
+from neuralbrewery.core.database.migrations import (
     import_models,
     refuse_empty_autogenerate,
 )
@@ -24,7 +24,7 @@ if config.config_file_name is not None:
 # Every module called models under features, found by its name: a model
 # whose module nobody imports is missing from Base.metadata, so from every
 # migration, without an error.
-import_models(fastapi_starter.features)
+import_models(neuralbrewery.features)
 target_metadata = Base.metadata
 
 if getattr(config.cmd_opts, "autogenerate", False):

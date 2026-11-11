@@ -11,7 +11,7 @@ What it takes:
 - a server with Docker and Docker Compose 2.24 or later (`compose.prod.yaml` uses the `!reset` and `!override` tags);
 - two DNS names pointing at it, one for the API and one for Keycloak (here `api.example.com` and `auth.example.com`), and their certificates, for example from certbot;
 - Nginx on the server, with `docs/nginx.conf`;
-- the image of a release, `ghcr.io/prgmturi/fastapi_starter:<version>`: the version is the one in `compose.prod.yaml`. The release workflow creates the package with the visibility of the repository, so a public repository gives a public image. From a private repository, log the server in to `ghcr.io` with a token that can read packages.
+- the image of a release, `ghcr.io/prgmturi/neuralbrewery:<version>`: the version is the one in `compose.prod.yaml`. The release workflow creates the package with the visibility of the repository, so a public repository gives a public image. From a private repository, log the server in to `ghcr.io` with a token that can read packages.
 
 `compose.prod.yaml` changes what a server needs, and nothing else:
 
@@ -83,10 +83,10 @@ ssh -L 8080:127.0.0.1:8080 user@server
 ```
 
 1. In the realm `master`, create a real administrator (*Users*, *Add user*, then *Credentials* and *Role mapping*: `admin`). Log in with it, and delete the temporary one.
-2. Create the realm `fastapi-starter`, and in it the roles `superadmin`, `admin`, `collaborator` and `user`.
-3. Create the client `fastapi-backend`: *Client authentication* on, *Standard flow* only, *Valid redirect URIs* the frontend's callback URLs, exactly as in `KEYCLOAK_ALLOWED_REDIRECT_URIS`.
+2. Create the realm `neuralbrewery`, and in it the roles `superadmin`, `admin`, `collaborator` and `user`.
+3. Create the client `neuralbrewery`: *Client authentication* on, *Standard flow* only, *Valid redirect URIs* the frontend's callback URLs, exactly as in `KEYCLOAK_ALLOWED_REDIRECT_URIS`.
 4. In *Realm settings*, *Security defenses*, turn on *Brute force detection*.
-5. Copy the client's secret (*Clients*, `fastapi-backend`, *Credentials*) into `.env` as `KEYCLOAK_CLIENT_SECRET`. With a wrong one, `/auth/token` and `/auth/refresh` answer 502, and the log says `keycloak_client_rejected`.
+5. Copy the client's secret (*Clients*, `neuralbrewery`, *Credentials*) into `.env` as `KEYCLOAK_CLIENT_SECRET`. With a wrong one, `/auth/token` and `/auth/refresh` answer 502, and the log says `keycloak_client_rejected`.
 6. Create the users, with their roles.
 
 Do not import `docker/keycloak/realm-dev.json`: its user, password and secret are public.

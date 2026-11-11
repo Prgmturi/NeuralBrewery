@@ -1,6 +1,6 @@
 """Tests for the package itself — what importing it loads.
 
-Module under test: src/fastapi_starter/__init__.py
+Module under test: src/neuralbrewery/__init__.py
 Layer: Package structure
 
 WHY these tests exist: Python runs a package's __init__.py before any of
@@ -23,16 +23,16 @@ IMPORT_ALL_OF_CORE = textwrap.dedent(
     import pkgutil
     import sys
 
-    import fastapi_starter.core as core
+    import neuralbrewery.core as core
 
-    for module in pkgutil.walk_packages(core.__path__, "fastapi_starter.core."):
+    for module in pkgutil.walk_packages(core.__path__, "neuralbrewery.core."):
         __import__(module.name)
 
     loaded = sorted(sys.modules)
     print([
         name
         for name in loaded
-        if name.startswith(("fastapi_starter.features", "fastapi_starter.adapters"))
+        if name.startswith(("neuralbrewery.features", "neuralbrewery.adapters"))
     ])
     """
 )
@@ -71,7 +71,7 @@ IMPORT_ALL_DOMAINS = textwrap.dedent(
     import pkgutil
     import sys
 
-    import fastapi_starter.features as features
+    import neuralbrewery.features as features
 
     domains = []
     for feature in pkgutil.iter_modules(features.__path__, features.__name__ + "."):
@@ -95,7 +95,7 @@ def domain_contract() -> dict:
     """The import-linter contract of the business layers, in pyproject.toml."""
     importlinter = tomllib.loads(PYPROJECT.read_text())["tool"]["importlinter"]
     for contract in importlinter["contracts"]:
-        if contract.get("source_modules") == ["fastapi_starter.features.*.domain"]:
+        if contract.get("source_modules") == ["neuralbrewery.features.*.domain"]:
             return contract
     raise AssertionError("pyproject.toml has no import contract for the domains")
 
@@ -120,7 +120,7 @@ class TestImportDomain:
 
         assert result.returncode == 0, result.stderr
         report = json.loads(result.stdout)
-        assert "fastapi_starter.features.notes.domain" in report["domains"]
+        assert "neuralbrewery.features.notes.domain" in report["domains"]
         assert [
             name
             for name in report["loaded"]

@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from fastapi_starter.core.auth.service import AuthService
+from neuralbrewery.core.auth.service import AuthService
 
 
 @pytest.fixture

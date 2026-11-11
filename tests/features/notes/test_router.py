@@ -1,6 +1,6 @@
 """Tests for the HTTP layer of notes — status codes, schemas, owners.
 
-Module under test: src/fastapi_starter/features/notes/api/
+Module under test: src/neuralbrewery/features/notes/api/
 Layer: HTTP (the real routes and service, the in-memory repository)
 
 WHY these tests exist: the API is the contract with the frontend. A note of
@@ -14,11 +14,11 @@ from uuid import uuid4
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from fastapi_starter.core.auth.dependencies import get_current_user
-from fastapi_starter.core.auth.schemas import User
-from fastapi_starter.core.database import MAX_PAGE_SIZE
-from fastapi_starter.features.notes.api.dependencies import get_note_service
-from fastapi_starter.features.notes.domain.note import TITLE_MAX_LENGTH
+from neuralbrewery.core.auth.dependencies import get_current_user
+from neuralbrewery.core.auth.schemas import User
+from neuralbrewery.core.database import MAX_PAGE_SIZE
+from neuralbrewery.features.notes.api.dependencies import get_note_service
+from neuralbrewery.features.notes.domain.note import TITLE_MAX_LENGTH
 from tests.test_exception_handlers import assert_problem
 
 

@@ -28,7 +28,7 @@ With Postgres and Keycloak from the stack:
 docker compose stop api           # if the whole stack is up: its container holds port 8000
 docker compose up --wait db keycloak
 uv run alembic upgrade head
-uv run uvicorn fastapi_starter.main:create_app --factory --reload
+uv run uvicorn neuralbrewery.main:create_app --factory --reload
 ```
 
 Then open http://localhost:8000/docs. `docker compose up --wait api` starts the container again.
@@ -81,7 +81,7 @@ Commits follow [Conventional Commits](https://www.conventionalcommits.org/). com
 [release-please](https://github.com/googleapis/release-please) keeps a release pull request open, with the next version and the changelog. Merging it:
 
 - tags `vX.Y.Z` and publishes the GitHub release;
-- publishes the image `ghcr.io/prgmturi/fastapi_starter:X.Y.Z`, and `:latest`;
+- publishes the image `ghcr.io/prgmturi/neuralbrewery:X.Y.Z`, and `:latest`;
 - has already raised the version in `pyproject.toml`, `uv.lock` and the `image:` lines of `compose.prod.yaml`.
 
 Under 1.0, `feat` and `fix` raise the patch number, and a breaking change (`!`) the minor one.

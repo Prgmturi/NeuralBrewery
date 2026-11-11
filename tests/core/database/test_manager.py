@@ -1,6 +1,6 @@
 """Tests for DatabaseManager — connection lifecycle and health check.
 
-Module under test: src/fastapi_starter/core/database/manager.py
+Module under test: src/neuralbrewery/core/database/manager.py
 Layer: Infrastructure adapter (real engines: they connect lazily)
 
 WHY these tests exist: DatabaseManager manages the connection lifecycle.
@@ -17,13 +17,13 @@ import asyncpg
 import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
-from fastapi_starter.core.config.database import DatabaseSettings
-from fastapi_starter.core.database import manager as manager_module
-from fastapi_starter.core.database.manager import (
+from neuralbrewery.core.config.database import DatabaseSettings
+from neuralbrewery.core.database import manager as manager_module
+from neuralbrewery.core.database.manager import (
     DatabaseManager,
     connect_or_unavailable,
 )
-from fastapi_starter.core.exceptions import ServiceUnavailableError
+from neuralbrewery.core.exceptions import ServiceUnavailableError
 
 
 @pytest.fixture
@@ -88,7 +88,7 @@ class TestConnect:
             await db_manager.disconnect()
 
     @patch(
-        "fastapi_starter.core.database.manager.create_async_engine",
+        "neuralbrewery.core.database.manager.create_async_engine",
         wraps=create_async_engine,
     )
     async def test_idempotent_when_already_connected(

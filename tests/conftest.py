@@ -19,11 +19,11 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from pydantic_settings import BaseSettings
 
-from fastapi_starter.core.auth.dependencies import get_auth_service, get_current_user
-from fastapi_starter.core.auth.schemas import RoleEnum, User
-from fastapi_starter.core.config import ServerSettings, Settings, get_settings
-from fastapi_starter.core.database.dependencies import get_db_manager
-from fastapi_starter.main import create_app
+from neuralbrewery.core.auth.dependencies import get_auth_service, get_current_user
+from neuralbrewery.core.auth.schemas import RoleEnum, User
+from neuralbrewery.core.config import ServerSettings, Settings, get_settings
+from neuralbrewery.core.database.dependencies import get_db_manager
+from neuralbrewery.main import create_app
 
 # ---------------------------------------------------------------------------
 # Isolation from the machine running the tests

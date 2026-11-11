@@ -1,6 +1,6 @@
 """Tests for configure_logging — levels, processors and library records.
 
-Module under test: src/fastapi_starter/core/logging/config.py
+Module under test: src/neuralbrewery/core/logging/config.py
 Layer: Infrastructure (structlog and stdlib logging setup)
 """
 
@@ -15,7 +15,7 @@ import pytest
 import structlog
 from uvicorn.config import LOGGING_CONFIG
 
-from fastapi_starter.core.logging import configure_logging
+from neuralbrewery.core.logging import configure_logging
 
 # A handler writes to the stream it got when it was created, and capsys
 # gives each phase of a test (setup, call, teardown) streams of its own,
@@ -74,7 +74,7 @@ class TestAppRecords:
         lines must not change.
         """
         configure_logging(
-            environment="production", app_name="fastapi-starter", version="1.2.3"
+            environment="production", app_name="neuralbrewery", version="1.2.3"
         )
 
         structlog.get_logger().info("user_created", user_id=7)
@@ -83,7 +83,7 @@ class TestAppRecords:
         assert record["event"] == "user_created"
         assert record["user_id"] == 7
         assert record["level"] == "info"
-        assert record["service"] == "fastapi-starter"
+        assert record["service"] == "neuralbrewery"
         assert "logger" not in record
 
 
@@ -99,7 +99,7 @@ class TestLibraryRecords:
         """[HP] A uvicorn record is one JSON line, with the app's fields."""
         uvicorn_logging()
         configure_logging(
-            environment="production", app_name="fastapi-starter", version="1.2.3"
+            environment="production", app_name="neuralbrewery", version="1.2.3"
         )
 
         logging.getLogger("uvicorn.error").info("Started server process [%d]", 42)
@@ -108,7 +108,7 @@ class TestLibraryRecords:
         assert record["event"] == "Started server process [42]"
         assert record["level"] == "info"
         assert record["logger"] == "uvicorn.error"
-        assert record["service"] == "fastapi-starter"
+        assert record["service"] == "neuralbrewery"
         assert record["version"] == "1.2.3"
         assert "timestamp" in record
 

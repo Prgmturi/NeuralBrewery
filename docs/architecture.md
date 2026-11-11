@@ -6,7 +6,7 @@ How the code is organised and why, from the first folder to the last check. The 
 - **[Level 2: Understand every choice](#level-2-understand-every-choice)** gives the reason behind each choice, with its [decision record](adr/README.md): [Who builds the adapters](#who-builds-the-adapters), [How the app starts and stops](#how-the-app-starts-and-stops), [One request, all the way](#one-request-all-the-way), [When something fails](#when-something-fails), [The database is not an adapter](#the-database-is-not-an-adapter), [Why the API checks tokens itself](#why-the-api-checks-tokens-itself), [What checks each rule](#what-checks-each-rule), [Add a setting](#add-a-setting), [Add an external service](#add-an-external-service).
 - **At the end:** [Limits and trade-offs](#limits-and-trade-offs), [The files](#the-files), [Words used here](#words-used-here).
 
-Paths start at `src/fastapi_starter/`, unless they begin with `tests/` or name a file in the root of the repository.
+Paths start at `src/neuralbrewery/`, unless they begin with `tests/` or name a file in the root of the repository.
 
 ## Level 1: Use the template
 
@@ -74,15 +74,15 @@ Each height of this schema is a **layer**. The rule is not advice: `pyproject.to
 # pyproject.toml
 layers = [
     # ...
-    "fastapi_starter.main | fastapi_starter.serve | fastapi_starter.healthcheck",
-    "fastapi_starter.bootstrap | fastapi_starter.exception_handlers",
+    "neuralbrewery.main | neuralbrewery.serve | neuralbrewery.healthcheck",
+    "neuralbrewery.bootstrap | neuralbrewery.exception_handlers",
     # ...
-    "fastapi_starter.features | fastapi_starter.adapters",
-    "fastapi_starter.core",
+    "neuralbrewery.features | neuralbrewery.adapters",
+    "neuralbrewery.core",
 ]
 ```
 
-A rule on imports that a tool checks is an **import contract**. `|` puts two parts at the same height, and forbids imports between them. So `from fastapi_starter.adapters.keycloak.client import KeycloakClient` in a router fails the build, and [What checks each rule](#what-checks-each-rule) shows what it prints.
+A rule on imports that a tool checks is an **import contract**. `|` puts two parts at the same height, and forbids imports between them. So `from neuralbrewery.adapters.keycloak.client import KeycloakClient` in a router fails the build, and [What checks each rule](#what-checks-each-rule) shows what it prints.
 
 **Why:** a change can break only the layers above it, never the ones below.
 
@@ -368,13 +368,13 @@ For a feature called `tasks`:
 1. **Copy the code and its tests:**
 
    ```bash
-   cp -r src/fastapi_starter/features/notes src/fastapi_starter/features/tasks
+   cp -r src/neuralbrewery/features/notes src/neuralbrewery/features/tasks
    cp -r tests/features/notes tests/features/tasks
    cp tests/integration/test_notes.py tests/integration/test_tasks.py
    ```
 
    Then replace `notes` and `note` inside the copies, capitals too (`CreateNoteRequest` becomes `CreateTaskRequest`), and rename `domain/note.py` to `domain/task.py`. A plain find and replace is enough.
-2. **Register the router** in `create_app()` of `main.py`: import `tasks_router` from `fastapi_starter.features.tasks.api.router`, and add `app.include_router(tasks_router)` after the others.
+2. **Register the router** in `create_app()` of `main.py`: import `tasks_router` from `neuralbrewery.features.tasks.api.router`, and add `app.include_router(tasks_router)` after the others.
 3. **Write the migration.** Alembic finds the new table by itself, because the module is called `models`:
 
    ```bash
@@ -556,7 +556,7 @@ The `migrate` service starts the same image with another command, `alembic upgra
 
 **Why:** importing a module reads no setting and starts nothing, and a test builds as many apps as it needs.
 
-**Cost:** `uvicorn fastapi_starter.main:app` does not work, because `app` does not exist: uvicorn needs `--factory`. The full reasoning is in [decision record 0004](adr/0004-app-factory.md).
+**Cost:** `uvicorn neuralbrewery.main:app` does not work, because `app` does not exist: uvicorn needs `--factory`. The full reasoning is in [decision record 0004](adr/0004-app-factory.md).
 
 **In short**
 
@@ -806,20 +806,20 @@ A rule written only in a guide does not last: the first hurried commit breaks it
 
 | Rule | Checked by | When broken, it prints |
 |---|---|---|
-| Imports go down | `uv run lint-imports` | `fastapi_starter.features is not allowed to import fastapi_starter.adapters` |
-| Inside a feature, `api` → `persistence` → `domain` | `uv run lint-imports` | `fastapi_starter.features.notes.persistence is not allowed to import fastapi_starter.features.notes.api` |
-| A domain knows no framework and no database | `uv run lint-imports`, `tests/test_package.py` | `fastapi_starter.features.notes.domain is not allowed to import sqlalchemy` |
-| A router does not import httpx | `uv run lint-imports` | `fastapi_starter.features.notes.api.router is not allowed to import httpx` |
-| Ports import no adapter | `uv run lint-imports` | `fastapi_starter.core.protocols is not allowed to import fastapi_starter.adapters` |
-| `AuthService` knows no JWT or HTTP library | `uv run lint-imports` | `fastapi_starter.core.auth.service is not allowed to import jwt` |
-| Auth knows no database | `uv run lint-imports` | `fastapi_starter.core.auth is not allowed to import sqlalchemy` |
-| The health probe loads only what it needs | `uv run lint-imports`, `tests/test_healthcheck.py` | `fastapi_starter.healthcheck is not allowed to import fastapi` |
+| Imports go down | `uv run lint-imports` | `neuralbrewery.features is not allowed to import neuralbrewery.adapters` |
+| Inside a feature, `api` → `persistence` → `domain` | `uv run lint-imports` | `neuralbrewery.features.notes.persistence is not allowed to import neuralbrewery.features.notes.api` |
+| A domain knows no framework and no database | `uv run lint-imports`, `tests/test_package.py` | `neuralbrewery.features.notes.domain is not allowed to import sqlalchemy` |
+| A router does not import httpx | `uv run lint-imports` | `neuralbrewery.features.notes.api.router is not allowed to import httpx` |
+| Ports import no adapter | `uv run lint-imports` | `neuralbrewery.core.protocols is not allowed to import neuralbrewery.adapters` |
+| `AuthService` knows no JWT or HTTP library | `uv run lint-imports` | `neuralbrewery.core.auth.service is not allowed to import jwt` |
+| Auth knows no database | `uv run lint-imports` | `neuralbrewery.core.auth is not allowed to import sqlalchemy` |
+| The health probe loads only what it needs | `uv run lint-imports`, `tests/test_healthcheck.py` | `neuralbrewery.healthcheck is not allowed to import fastapi` |
 | An adapter matches its port | `uv run mypy src/` | `"KeycloakClient" is missing following "OAuthProvider" protocol member` |
 | `app.state` is written through a key | `tests/core/test_state.py` | `Store these through a StateKey (core/state.py): ['bootstrap.py: oauth_provider']` |
 | The names say the direction | `tests/test_main.py` | `AssertionError: assert {'NoteOut'} == set()` |
 | No import inside a function | `uv run ruff check` | ``PLC0415 `import` should be at the top-level of a file`` |
-| `core` loads no feature and no adapter | `tests/test_package.py` | `assert "['fastapi_starter.adapters']" == '[]'` |
-| A contract names modules that exist | `tests/test_import_contracts.py` | `"Ports import no adapter" names fastapi_starter.core.database.gone, which matches no module` |
+| `core` loads no feature and no adapter | `tests/test_package.py` | `assert "['neuralbrewery.adapters']" == '[]'` |
+| A contract names modules that exist | `tests/test_import_contracts.py` | `"Ports import no adapter" names neuralbrewery.core.database.gone, which matches no module` |
 | Every model is in a module called `models` | `tests/core/database/test_migrations.py` | `Alembic never sees [...]: move each to a module called models under features/` |
 | A model does not change without its migration | `alembic check`, in the CI job "Integration tests" | `FAILED: New upgrade operations detected: [('add_column', None, 'notes', ...)]` |
 | No development value outside development | `Settings`, at startup | `refusing to start in staging:`, then one line for each value |
@@ -832,10 +832,10 @@ adapters -> core
 --------------------------------------------------------------------------------
 ---------------
 
-fastapi_starter.features is not allowed to import fastapi_starter.adapters:
+neuralbrewery.features is not allowed to import neuralbrewery.adapters:
 
-- fastapi_starter.features.notes.api.router ->
-fastapi_starter.adapters.keycloak.client (l.1)
+- neuralbrewery.features.notes.api.router ->
+neuralbrewery.adapters.keycloak.client (l.1)
 
 
 A module imports from a layer above its own, or a feature and an adapter
@@ -848,9 +848,9 @@ as bootstrap.py does with the adapters.
 And `KeycloakClient` with `logout` renamed prints, at the line that stores it:
 
 ```text
-src/fastapi_starter/bootstrap.py:154: error: Argument 2 to "set" of "StateKey" has incompatible type "KeycloakClient"; expected "OAuthProvider"  [arg-type]
-src/fastapi_starter/bootstrap.py:154: note: "KeycloakClient" is missing following "OAuthProvider" protocol member:
-src/fastapi_starter/bootstrap.py:154: note:     logout
+src/neuralbrewery/bootstrap.py:154: error: Argument 2 to "set" of "StateKey" has incompatible type "KeycloakClient"; expected "OAuthProvider"  [arg-type]
+src/neuralbrewery/bootstrap.py:154: note: "KeycloakClient" is missing following "OAuthProvider" protocol member:
+src/neuralbrewery/bootstrap.py:154: note:     logout
 ```
 
 Two kinds of test cover what the tools leave out. import-linter reads the import statements of each module, but not what the `__init__.py` of a package pulls in, so `tests/test_package.py` and `tests/test_healthcheck.py` import the modules in a new process and look at what was really loaded. And import-linter stays silent when a forbidden module does not exist, so a contract that names a module after it moved would check nothing: `tests/test_import_contracts.py` catches that.
@@ -922,7 +922,7 @@ Here is a mail service, as an example. The port, where `OutgoingMail`, in `core/
 # core/mail/protocols.py (new)
 from typing import Protocol
 
-from fastapi_starter.core.mail.schemas import OutgoingMail
+from neuralbrewery.core.mail.schemas import OutgoingMail
 
 
 class MailSender(Protocol):
@@ -937,12 +937,12 @@ The adapter, which turns every error of its library into an exception of the app
 # adapters/mail/client.py (new)
 import httpx
 
-from fastapi_starter.core.config.mail import MailSettings
-from fastapi_starter.core.exceptions import (
+from neuralbrewery.core.config.mail import MailSettings
+from neuralbrewery.core.exceptions import (
     ExternalServiceError,
     ServiceUnavailableError,
 )
-from fastapi_starter.core.mail.schemas import OutgoingMail
+from neuralbrewery.core.mail.schemas import OutgoingMail
 
 
 class MailClient:
@@ -1042,7 +1042,7 @@ What the design does not do, or does not check. Each point below was checked on 
 ## The files
 
 ```
-src/fastapi_starter/
+src/neuralbrewery/
 ├── main.py                  # The app factory, create_app(), and the lifespan
 ├── serve.py                 # The image's command: uvicorn with the SERVER_* settings
 ├── healthcheck.py           # The image's health probe
@@ -1096,7 +1096,7 @@ src/fastapi_starter/
 | Port | A `Protocol` that says what a service must be able to do, with no code that does it | `OAuthProvider` |
 | Preflight | The `OPTIONS` request a browser sends first, to ask whether a page of another origin may call the API | `CORSMiddleware` answers it |
 | Problem document | The body of an error, in the format of RFC 9457 | `core/problem_details.py` |
-| Realm | The space in Keycloak that holds the users, the roles and the clients of an app | `fastapi-starter` |
+| Realm | The space in Keycloak that holds the users, the roles and the clients of an app | `neuralbrewery` |
 | Repository | The object that reads and writes the rows of a feature | `SqlNoteRepository` |
 
 More words on tokens and on Keycloak are in [the authentication guide](authentication.md#words).

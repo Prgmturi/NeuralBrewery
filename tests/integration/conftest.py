@@ -14,8 +14,8 @@ from pathlib import Path
 
 import pytest
 
-from fastapi_starter.core.database import DatabaseManager
-from fastapi_starter.core.database.dependencies import get_db_manager
+from neuralbrewery.core.database import DatabaseManager
+from neuralbrewery.core.database.dependencies import get_db_manager
 from tests.integration.settings import IntegrationDatabaseSettings
 
 HERE = Path(__file__).parent

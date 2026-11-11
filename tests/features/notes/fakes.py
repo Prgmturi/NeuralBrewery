@@ -2,7 +2,7 @@
 
 from uuid import UUID
 
-from fastapi_starter.features.notes.domain.note import Note
+from neuralbrewery.features.notes.domain.note import Note
 
 
 class InMemoryNoteRepository:

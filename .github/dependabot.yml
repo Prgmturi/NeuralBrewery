@@ -54,7 +54,7 @@ updates:
       - dependency-name: quay.io/keycloak/keycloak
         update-types: ["version-update:semver-major"]
       # The app's own image: each release moves it (release-please-config.json)
-      - dependency-name: ghcr.io/prgmturi/fastapi_starter
+      - dependency-name: ghcr.io/prgmturi/neuralbrewery
 
   # uv.lock. No groups: Dependabot cannot group uv updates by dependency
   # type, and the type picks the prefix, so one pull request per package.

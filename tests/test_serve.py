@@ -1,7 +1,7 @@
 """Tests for serve.py — the command the Docker image starts.
 
-Module under test: src/fastapi_starter/serve.py
-Layer: Entry point (python -m fastapi_starter.serve)
+Module under test: src/neuralbrewery/serve.py
+Layer: Entry point (python -m neuralbrewery.serve)
 
 WHY these tests exist: the image started uvicorn with --host and --port
 written in its CMD and no limit on shutdown. Measured on 25 October 2026:
@@ -17,9 +17,9 @@ import sys
 import pytest
 import uvicorn
 
-from fastapi_starter import serve
-from fastapi_starter.core.config import ServerSettings
-from fastapi_starter.healthcheck import liveness_request
+from neuralbrewery import serve
+from neuralbrewery.core.config import ServerSettings
+from neuralbrewery.healthcheck import liveness_request
 
 # docker stop sends SIGTERM, then SIGKILL after this many seconds
 DOCKER_STOP_TIMEOUT = 10
@@ -86,16 +86,16 @@ class TestMain:
 
         assert uvicorn_calls == [
             (
-                "fastapi_starter.main:create_app",
+                "neuralbrewery.main:create_app",
                 {"factory": True, **serve.uvicorn_options(ServerSettings(port=9001))},
             )
         ]
 
     def test_runs_as_a_module(self, uvicorn_calls, monkeypatch):
-        """[HP] python -m fastapi_starter.serve, the image's CMD, starts uvicorn."""
+        """[HP] python -m neuralbrewery.serve, the image's CMD, starts uvicorn."""
         # Run it fresh, as python -m does, not the copy imported above
-        monkeypatch.delitem(sys.modules, "fastapi_starter.serve")
+        monkeypatch.delitem(sys.modules, "neuralbrewery.serve")
 
-        runpy.run_module("fastapi_starter.serve", run_name="__main__")
+        runpy.run_module("neuralbrewery.serve", run_name="__main__")
 
         assert len(uvicorn_calls) == 1

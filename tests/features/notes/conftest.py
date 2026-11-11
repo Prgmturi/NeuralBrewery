@@ -2,8 +2,8 @@
 
 import pytest
 
-from fastapi_starter.core.auth.schemas import RoleEnum, User
-from fastapi_starter.features.notes.domain.service import NoteService
+from neuralbrewery.core.auth.schemas import RoleEnum, User
+from neuralbrewery.features.notes.domain.service import NoteService
 from tests.features.notes.fakes import InMemoryNoteRepository
 
 # The owner of the notes in these tests: sample_user of tests/conftest.py

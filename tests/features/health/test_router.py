@@ -1,6 +1,6 @@
 """Tests for health router — /health/* endpoints.
 
-Module under test: src/fastapi_starter/features/health/router.py
+Module under test: src/neuralbrewery/features/health/router.py
 Layer: HTTP endpoints (TestClient)
 
 WHY these tests exist: Health endpoints are called by Kubernetes
@@ -13,9 +13,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from fastapi_starter.core.config import Settings
-from fastapi_starter.core.exceptions import ServiceUnavailableError
-from fastapi_starter.features.health import router as health_router_module
+from neuralbrewery.core.config import Settings
+from neuralbrewery.core.exceptions import ServiceUnavailableError
+from neuralbrewery.features.health import router as health_router_module
 
 
 @pytest.fixture

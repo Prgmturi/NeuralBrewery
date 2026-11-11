@@ -1,6 +1,6 @@
 """Tests for database dependencies — session lifecycle.
 
-Module under test: src/fastapi_starter/core/database/dependencies.py
+Module under test: src/neuralbrewery/core/database/dependencies.py
 Layer: FastAPI integration
 
 WHY these tests exist: get_db_session is a critical dependency that handles
@@ -15,13 +15,13 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
-from fastapi_starter.core.config.database import DatabaseSettings
-from fastapi_starter.core.database.dependencies import (
+from neuralbrewery.core.config.database import DatabaseSettings
+from neuralbrewery.core.database.dependencies import (
     DbSession,
     get_db_manager,
     get_db_session,
 )
-from fastapi_starter.core.database.manager import DatabaseManager
+from neuralbrewery.core.database.manager import DatabaseManager
 
 
 class TestGetDbManager:

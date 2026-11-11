@@ -108,7 +108,7 @@ class TestDependabot:
         assert ignored("docker")["ghcr.io/astral-sh/uv"] == ["all"]
         assert ignored("docker-compose")["postgres"] == majors
         assert ignored("docker-compose")["quay.io/keycloak/keycloak"] == majors
-        assert ignored("docker-compose")["ghcr.io/prgmturi/fastapi_starter"] == ["all"]
+        assert ignored("docker-compose")["ghcr.io/prgmturi/neuralbrewery"] == ["all"]
 
 
 class TestImageScan:
@@ -121,7 +121,7 @@ class TestImageScan:
         """
         scan = ci_step("docker", "anchore/scan-action@")["with"]
 
-        assert scan["image"] == "fastapi-starter:ci"
+        assert scan["image"] == "neuralbrewery:ci"
         assert scan["only-fixed"] is True
         assert scan["severity-cutoff"] == "high"
         assert scan["fail-build"] is True

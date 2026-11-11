@@ -1,7 +1,7 @@
 {
-  "realm": "fastapi-starter",
+  "realm": "neuralbrewery",
   "enabled": true,
-  "displayName": "fastapi-starter (development)",
+  "displayName": "NeuralBrewery (development)",
   "roles": {
     "realm": [
       { "name": "superadmin", "description": "Passes every role check" },
@@ -12,13 +12,13 @@
   },
   "clients": [
     {
-      "clientId": "fastapi-backend",
-      "name": "fastapi-starter API",
+      "clientId": "neuralbrewery",
+      "name": "NeuralBrewery API",
       "enabled": true,
       "protocol": "openid-connect",
       "publicClient": false,
       "clientAuthenticatorType": "client-secret",
-      "secret": "fastapi-backend-dev-secret",
+      "secret": "neuralbrewery-dev-secret",
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": false,
       "implicitFlowEnabled": false,
@@ -37,7 +37,7 @@
       "credentials": [
         { "type": "password", "value": "testuser-dev-password", "temporary": false }
       ],
-      "realmRoles": ["default-roles-fastapi-starter", "user"]
+      "realmRoles": ["default-roles-neuralbrewery", "user"]
     }
   ]
 }

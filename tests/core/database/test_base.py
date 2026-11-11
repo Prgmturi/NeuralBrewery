@@ -1,6 +1,6 @@
 """Tests for Base — the names of indexes and constraints.
 
-Module under test: src/fastapi_starter/core/database/base.py
+Module under test: src/neuralbrewery/core/database/base.py
 Layer: Infrastructure (SQLAlchemy metadata, Alembic autogenerate)
 
 WHY these tests exist: without a naming convention Postgres names each
@@ -33,7 +33,7 @@ from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import InvalidRequestError
 from sqlalchemy.schema import CreateTable
 
-from fastapi_starter.core.database.base import Base
+from neuralbrewery.core.database.base import Base
 
 TABLES = ("convention_customers", "convention_orders")
 

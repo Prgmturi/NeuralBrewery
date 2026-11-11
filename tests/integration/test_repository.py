@@ -1,6 +1,6 @@
 """BaseRepository on a real Postgres — pages stay stable.
 
-Module under test: src/fastapi_starter/core/database/repository.py
+Module under test: src/neuralbrewery/core/database/repository.py
 Layer: Infrastructure, real database
 
 WHY: without ORDER BY, Postgres returns rows in the order it finds them on

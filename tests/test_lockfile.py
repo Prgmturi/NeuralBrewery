@@ -28,7 +28,7 @@ def pyproject() -> dict:
 
 
 def project_name() -> str:
-    """The name uv.lock gives the project: fastapi_starter -> fastapi-starter."""
+    """The name uv.lock gives the project, normalized: My_Package -> my-package."""
     return normalized(pyproject()["project"]["name"])
 
 

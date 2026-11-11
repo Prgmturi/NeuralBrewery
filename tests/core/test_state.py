@@ -1,6 +1,6 @@
 """Tests for core/state.py — StateKey, and the one way into app.state.
 
-Module under test: src/fastapi_starter/core/state.py
+Module under test: src/neuralbrewery/core/state.py
 Layer: Core, no I/O
 
 WHY these tests exist: app.state has no types. bootstrap.py stored each
@@ -16,10 +16,10 @@ from pathlib import Path
 import pytest
 from starlette.datastructures import State
 
-import fastapi_starter
-from fastapi_starter.core.state import StateKey
+import neuralbrewery
+from neuralbrewery.core.state import StateKey
 
-SRC = Path(fastapi_starter.__file__).parent
+SRC = Path(neuralbrewery.__file__).parent
 
 # The one write by hand: the settings are no adapter, and have no port
 ALLOWED = {("main.py", "settings")}

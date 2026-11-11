@@ -20,7 +20,7 @@ from typing import Annotated
 
 from fastapi import Query
 
-from fastapi_starter.core.database import (
+from neuralbrewery.core.database import (
     DEFAULT_PAGE_SIZE,
     MAX_PAGE_SIZE,
     BaseRepository,
@@ -60,7 +60,7 @@ from typing import Annotated
 
 from fastapi import BackgroundTasks, Depends
 
-from fastapi_starter.core.database import DatabaseProvider, get_db_manager
+from neuralbrewery.core.database import DatabaseProvider, get_db_manager
 
 
 async def rebuild_catalog(db: DatabaseProvider) -> None:

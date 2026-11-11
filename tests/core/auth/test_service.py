@@ -1,6 +1,6 @@
 """Tests for AuthService — token validation orchestrator.
 
-Module under test: src/fastapi_starter/core/auth/service.py
+Module under test: src/neuralbrewery/core/auth/service.py
 Layer: Core logic (mock decoder, extractor, health_checker at protocol boundary)
 
 WHY these tests exist: AuthService is the orchestrator. It wires decoder +
@@ -10,8 +10,8 @@ propagate correctly. Every protected endpoint calls this.
 
 import pytest
 
-from fastapi_starter.core.auth.protocols import TokenValidator
-from fastapi_starter.core.exceptions import UnauthorizedError
+from neuralbrewery.core.auth.protocols import TokenValidator
+from neuralbrewery.core.exceptions import UnauthorizedError
 
 
 class TestValidateToken:

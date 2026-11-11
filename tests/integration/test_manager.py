@@ -1,6 +1,6 @@
 """DatabaseManager on a real Postgres — the pool survives a restart.
 
-Module under test: src/fastapi_starter/core/database/manager.py
+Module under test: src/neuralbrewery/core/database/manager.py
 Layer: FastAPI integration, real database
 
 WHY: a restart or a failover of Postgres closes every connection in the
@@ -14,7 +14,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
 
-from fastapi_starter.core.database import DbSession, database_url
+from neuralbrewery.core.database import DbSession, database_url
 from tests.integration.settings import IntegrationDatabaseSettings
 from tests.test_exception_handlers import assert_problem
 

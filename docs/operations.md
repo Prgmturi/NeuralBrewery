@@ -32,7 +32,7 @@ An error response is an [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) probl
 
 ## Health checks
 
-- `GET /health/live` answers 200 while the process runs. Docker's `HEALTHCHECK` calls it with `python -m fastapi_starter.healthcheck`, which sends the first entry of `SERVER_TRUSTED_HOSTS` as `Host`, on the port `SERVER_PORT`. So the probe passes the same host check as the real requests, on the port the image's command listens on.
+- `GET /health/live` answers 200 while the process runs. Docker's `HEALTHCHECK` calls it with `python -m neuralbrewery.healthcheck`, which sends the first entry of `SERVER_TRUSTED_HOSTS` as `Host`, on the port `SERVER_PORT`. So the probe passes the same host check as the real requests, on the port the image's command listens on.
 - `GET /health/ready` answers 200 when the instance can serve requests, and 503 when a check fails. The body is a status report, not a problem document, and gives only the status of each check: `{"status": "unhealthy", "checks": {"database": {"status": "unhealthy"}, "auth": {"status": "healthy"}}}`. The route needs no token, so the cause goes to the logs only, as `readiness_check_failed`. A check that takes more than 2 seconds counts as failed.
 - The auth check does not call Keycloak: it passes while the signing keys are cached. If Keycloak goes down, the instances keep checking tokens with those keys, and stay ready.
 
@@ -71,7 +71,7 @@ SERVER_TIMEOUT_GRACEFUL_SHUTDOWN=5 # seconds open requests get at shutdown, belo
 SERVER_FORWARDED_ALLOW_IPS=["127.0.0.1"]  # the proxy, behind one: see Logs
 ```
 
-- **The image's command.** It is `python -m fastapi_starter.serve`, which runs uvicorn with the `SERVER_*` settings: host, port, workers, keep-alive, the shutdown time and the trusted proxies. Another command replaces it whole, as for the migrations: `docker run <image> alembic upgrade head`.
+- **The image's command.** It is `python -m neuralbrewery.serve`, which runs uvicorn with the `SERVER_*` settings: host, port, workers, keep-alive, the shutdown time and the trusted proxies. Another command replaces it whole, as for the migrations: `docker run <image> alembic upgrade head`.
 - **The image's environment.** The image sets `APP_ENVIRONMENT=production`, so started without settings it refuses to start and lists what to set. `compose.yaml` sets `development`.
 - **The documentation pages.** `/docs`, `/redoc` and `/openapi.json` exist only with `APP_ENVIRONMENT=development`.
 - **Staging and production refuse development values.** With `APP_ENVIRONMENT` set to `staging` or `production`, the app refuses to start while one of these is left: `APP_DEBUG=true`, the public address of Keycloak on http, an empty or example `KEYCLOAK_CLIENT_SECRET`, `AUTH_COOKIE_SECURE=false`, no `KEYCLOAK_ALLOWED_REDIRECT_URIS`, the default or example `DATABASE_PASSWORD`, `DATABASE_ECHO=true`, `*` in `SERVER_CORS_ORIGINS`, `SERVER_TRUSTED_HOSTS` or `SERVER_FORWARDED_ALLOW_IPS`, an origin on localhost or 127.0.0.1 in `SERVER_CORS_ORIGINS`, or only localhost in `SERVER_TRUSTED_HOSTS`. The error lists every variable to change at once, without their values. The checks are in `core/config/production.py`.

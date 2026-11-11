@@ -14,16 +14,16 @@ from pathlib import Path
 
 import pytest
 
-import fastapi_starter
+import neuralbrewery
 
 PYPROJECT = Path(__file__).parent.parent / "pyproject.toml"
 CONTRACTS = tomllib.loads(PYPROJECT.read_text())["tool"]["importlinter"]["contracts"]
 
 # Every module and package of ours. walk_packages imports the packages, not
 # the modules, to find what they hold.
-MODULES = {"fastapi_starter"} | {
+MODULES = {"neuralbrewery"} | {
     module.name
-    for module in pkgutil.walk_packages(fastapi_starter.__path__, "fastapi_starter.")
+    for module in pkgutil.walk_packages(neuralbrewery.__path__, "neuralbrewery.")
 }
 
 
@@ -37,7 +37,7 @@ def our_names(contract: dict) -> list[str]:
     names += contract.get("containers", [])  # the packages that hold the layers
     names += contract.get("source_modules", []) + contract.get("forbidden_modules", [])
     # The others are packages such as httpx, there only to be forbidden
-    return [name for name in names if name.split(".")[0] == "fastapi_starter"]
+    return [name for name in names if name.split(".")[0] == "neuralbrewery"]
 
 
 def matching_modules(name: str) -> list[str]:
@@ -106,17 +106,17 @@ def test_patterns_are_read_as_import_linter_does():
 
     Memberships, not whole lists: adding a feature must not break the test.
     """
-    one_part = matching_modules("fastapi_starter.features.*.router")
-    assert "fastapi_starter.features.auth.router" in one_part
-    assert "fastapi_starter.features.notes.api.router" not in one_part
+    one_part = matching_modules("neuralbrewery.features.*.router")
+    assert "neuralbrewery.features.auth.router" in one_part
+    assert "neuralbrewery.features.notes.api.router" not in one_part
 
-    any_depth = matching_modules("fastapi_starter.**.router")
-    assert "fastapi_starter.features.notes.api.router" in any_depth
+    any_depth = matching_modules("neuralbrewery.**.router")
+    assert "neuralbrewery.features.notes.api.router" in any_depth
 
     # The ports that "Ports import no adapter" covers, the feature's included
     assert {
-        "fastapi_starter.core.auth.protocols",
-        "fastapi_starter.core.database.protocols",
-        "fastapi_starter.core.protocols",
-        "fastapi_starter.features.notes.domain.protocols",
-    } <= set(matching_modules("fastapi_starter.**.protocols"))
+        "neuralbrewery.core.auth.protocols",
+        "neuralbrewery.core.database.protocols",
+        "neuralbrewery.core.protocols",
+        "neuralbrewery.features.notes.domain.protocols",
+    } <= set(matching_modules("neuralbrewery.**.protocols"))
