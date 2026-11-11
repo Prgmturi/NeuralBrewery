@@ -814,6 +814,7 @@ A rule written only in a guide does not last: the first hurried commit breaks it
 | `AuthService` knows no JWT or HTTP library | `uv run lint-imports` | `neuralbrewery.core.auth.service is not allowed to import jwt` |
 | Auth knows no database | `uv run lint-imports` | `neuralbrewery.core.auth is not allowed to import sqlalchemy` |
 | The health probe loads only what it needs | `uv run lint-imports`, `tests/test_healthcheck.py` | `neuralbrewery.healthcheck is not allowed to import fastapi` |
+| The simulated plant is plain Python | `uv run lint-imports`, `tests/test_package.py` | `neuralbrewery.adapters.plant_sim is not allowed to import fastapi` |
 | An adapter matches its port | `uv run mypy src/` | `"KeycloakClient" is missing following "OAuthProvider" protocol member` |
 | `app.state` is written through a key | `tests/core/test_state.py` | `Store these through a StateKey (core/state.py): ['bootstrap.py: oauth_provider']` |
 | The names say the direction | `tests/test_main.py` | `AssertionError: assert {'NoteOut'} == set()` |

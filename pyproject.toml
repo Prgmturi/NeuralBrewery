@@ -211,6 +211,19 @@ A layer of the feature imports a layer above its own. api may use the two
 below, persistence the domain; the domain uses neither: persistence
 implements the port the domain declares, and api wires the two."""
 
+[[tool.importlinter.contracts]]
+name = "The simulated plant is plain Python"
+type = "forbidden"
+source_modules = ["neuralbrewery.adapters.plant_sim"]
+forbidden_modules = ["fastapi", "httpx", "sqlalchemy"]
+broken_contract_guidance = """
+adapters/plant_sim/ is the plant itself: its model, its instruments, its
+interlocks and its faults, in plain Python, so that tests and evals run it
+in process and the same seed gives the same state. HTTP and the database
+belong outside it: in the service that serves the plant, and in the
+adapter that calls that service. tests/test_package.py checks the same
+list in a running process."""
+
 
 # =============================================================================
 # PYTEST

@@ -128,3 +128,69 @@ class TestImportDomain:
                 name == module or name.startswith(f"{module}.") for module in forbidden
             )
         ] == []
+
+
+# Imports every module of the simulated plant, then prints every module loaded.
+IMPORT_ALL_OF_PLANT_SIM = textwrap.dedent(
+    """
+    import importlib
+    import json
+    import pkgutil
+    import sys
+
+    import neuralbrewery.adapters.plant_sim as plant_sim
+
+    prefix = plant_sim.__name__ + "."
+    for module in pkgutil.walk_packages(plant_sim.__path__, prefix):
+        importlib.import_module(module.name)
+
+    print(json.dumps(sorted(sys.modules)))
+    """
+)
+
+
+def plant_sim_contract() -> dict:
+    """The import-linter contract of the simulated plant, in pyproject.toml."""
+    importlinter = tomllib.loads(PYPROJECT.read_text())["tool"]["importlinter"]
+    for contract in importlinter["contracts"]:
+        if contract.get("source_modules") == ["neuralbrewery.adapters.plant_sim"]:
+            return contract
+    raise AssertionError("pyproject.toml has no import contract for plant_sim")
+
+
+class TestImportPlantSim:
+    def test_the_contract_forbids_the_frameworks(self):
+        """[EC] FastAPI, httpx and SQLAlchemy are all in the contract.
+
+        WHY: the simulated plant is plain Python (AGENTS.md). A name taken
+        off the list would leave every check green.
+        """
+        forbidden = plant_sim_contract()["forbidden_modules"]
+
+        assert {"fastapi", "httpx", "sqlalchemy"} <= set(forbidden)
+
+    def test_the_simulated_plant_loads_no_framework(self, tmp_path):
+        """[EC] The plant loads none of the packages its contract forbids.
+
+        WHY: tests and evals run the plant in process, with no service around
+        it. The contract reads the import statements, not what an __init__.py
+        pulls in on the way to adapters/plant_sim.
+        """
+        forbidden = plant_sim_contract()["forbidden_modules"]
+
+        result = subprocess.run(
+            [sys.executable, "-c", IMPORT_ALL_OF_PLANT_SIM],
+            cwd=tmp_path,  # no .env in this directory
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert [
+            name
+            for name in json.loads(result.stdout)
+            if any(
+                name == module or name.startswith(f"{module}.") for module in forbidden
+            )
+        ] == []
