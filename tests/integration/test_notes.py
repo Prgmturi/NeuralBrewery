@@ -1,6 +1,6 @@
 """Notes on a real Postgres — through HTTP, read back from the table.
 
-Module under test: src/fastapi_starter/features/notes/
+Module under test: src/neuralbrewery/features/notes/
 Layer: FastAPI integration, real database (the schema of the migrations)
 
 WHY: tests/features/notes/ proves the rules on a repository in memory, and
@@ -15,10 +15,10 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select, text
 
-from fastapi_starter.core.auth.dependencies import get_current_user
-from fastapi_starter.core.auth.schemas import RoleEnum, User
-from fastapi_starter.core.database import DatabaseManager
-from fastapi_starter.features.notes.persistence.models import NoteRow
+from neuralbrewery.core.auth.dependencies import get_current_user
+from neuralbrewery.core.auth.schemas import RoleEnum, User
+from neuralbrewery.core.database import DatabaseManager
+from neuralbrewery.features.notes.persistence.models import NoteRow
 from tests.test_exception_handlers import assert_problem
 
 OTHER_USER = User(

@@ -2,7 +2,7 @@
 # The whole stack, for development: docker compose up --build
 # =============================================================================
 # The API, its migrations, Postgres, and Keycloak with its own Postgres and
-# the realm of docker/keycloak/realm-dev.json: client fastapi-backend, the
+# the realm of docker/keycloak/realm-dev.json: client neuralbrewery, the
 # four roles, and testuser. From a clean clone it needs no .env: every value
 # has a development default.
 #
@@ -67,7 +67,7 @@ services:
       KEYCLOAK_PUBLIC_URL: http://localhost:${KEYCLOAK_PORT:-8080}
       # The secret of the client in docker/keycloak/realm-dev.json, not read
       # from .env: it must match the imported realm. Production refuses it.
-      KEYCLOAK_CLIENT_SECRET: fastapi-backend-dev-secret
+      KEYCLOAK_CLIENT_SECRET: neuralbrewery-dev-secret
       SERVER_TRUSTED_HOSTS: '["localhost", "127.0.0.1"]'
     ports:
       - "${SERVER_PORT:-8000}:8000"

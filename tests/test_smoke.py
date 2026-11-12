@@ -18,7 +18,7 @@ import yaml
 from fastapi import FastAPI
 from starlette.routing import NoMatchFound
 
-from fastapi_starter import main
+from neuralbrewery import main
 
 CI_WORKFLOW = Path(__file__).parent.parent / ".github" / "workflows" / "ci.yml"
 

@@ -1,6 +1,6 @@
 """Tests for UnhandledExceptionMiddleware — unexpected errors inside the stack.
 
-Module under test: src/fastapi_starter/core/error_middleware.py
+Module under test: src/neuralbrewery/core/error_middleware.py
 Layer: ASGI unit (fake app, recorded messages)
 
 WHY these tests exist: this middleware turns a crash into the 500 the
@@ -14,8 +14,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from fastapi_starter.core import error_middleware
-from fastapi_starter.core.error_middleware import UnhandledExceptionMiddleware
+from neuralbrewery.core import error_middleware
+from neuralbrewery.core.error_middleware import UnhandledExceptionMiddleware
 
 HTTP_SCOPE = {"type": "http", "method": "GET", "path": "/orders", "headers": []}
 

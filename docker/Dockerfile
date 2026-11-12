@@ -75,13 +75,13 @@ USER appuser
 
 EXPOSE 8000
 
-# Docker's probe: python -m fastapi_starter.healthcheck (urllib, since the
+# Docker's probe: python -m neuralbrewery.healthcheck (urllib, since the
 # slim image has no curl or wget). It sends the first SERVER_TRUSTED_HOSTS
 # entry as Host, which TrustedHostMiddleware accepts, to SERVER_PORT, the
-# port fastapi_starter.serve listens on. The start period covers the startup:
+# port neuralbrewery.serve listens on. The start period covers the startup:
 # connecting to the database and fetching Keycloak's signing keys.
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD ["python", "-m", "fastapi_starter.healthcheck"]
+    CMD ["python", "-m", "neuralbrewery.healthcheck"]
 
 # uvicorn with the SERVER_* settings: host, port, keep-alive, the proxies
 # trusted with X-Forwarded-For, and the seconds open requests get when
@@ -89,4 +89,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
 # docker stop waits before it kills the process). Another command replaces
 # this one whole, as the migrations do:
 #   docker run <image> alembic upgrade head
-CMD ["python", "-m", "fastapi_starter.serve"]
+CMD ["python", "-m", "neuralbrewery.serve"]

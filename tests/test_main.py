@@ -1,6 +1,6 @@
 """Tests for main.py — application factory and lifespan.
 
-Module under test: src/fastapi_starter/main.py
+Module under test: src/neuralbrewery/main.py
 Layer: Application integration (composition of settings, routers, services)
 
 WHY these tests exist: create_app() decides what the app exposes, and
@@ -18,9 +18,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import FastAPI
 
-from fastapi_starter import main
-from fastapi_starter.core.config import AppSettings, Settings
-from fastapi_starter.main import create_app, lifespan
+from neuralbrewery import main
+from neuralbrewery.core.config import AppSettings, Settings
+from neuralbrewery.main import create_app, lifespan
 
 
 def schema_names(content: dict) -> set[str]:
@@ -161,7 +161,7 @@ class TestImport:
         }
 
         result = subprocess.run(
-            [sys.executable, "-c", "import fastapi_starter.main"],
+            [sys.executable, "-c", "import neuralbrewery.main"],
             cwd=tmp_path,  # no .env in this directory
             env=env,
             capture_output=True,
@@ -180,7 +180,7 @@ def main_logger(monkeypatch) -> MagicMock:
     (cache_logger_on_first_use), so capture_logs cannot see them.
     """
     fake = MagicMock()
-    monkeypatch.setattr("fastapi_starter.main.logger", fake)
+    monkeypatch.setattr("neuralbrewery.main.logger", fake)
     return fake
 
 
@@ -189,9 +189,9 @@ def logged_events(logger: MagicMock) -> list[str]:
 
 
 # start_services() in bootstrap.py calls them: patched where it looks them up
-@patch("fastapi_starter.bootstrap.init_oauth_provider")
-@patch("fastapi_starter.bootstrap.init_auth_service")
-@patch("fastapi_starter.bootstrap.init_database")
+@patch("neuralbrewery.bootstrap.init_oauth_provider")
+@patch("neuralbrewery.bootstrap.init_auth_service")
+@patch("neuralbrewery.bootstrap.init_database")
 class TestLifespan:
     """lifespan() — service startup and shutdown.
 

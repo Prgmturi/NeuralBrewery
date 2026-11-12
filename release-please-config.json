@@ -4,7 +4,7 @@
   "packages": {
     ".": {
       "release-type": "python",
-      "package-name": "fastapi-starter",
+      "package-name": "neuralbrewery",
       "version-file": "pyproject.toml",
       "changelog-path": "CHANGELOG.md",
       "bump-minor-pre-major": true,
@@ -71,7 +71,7 @@
         {
           "type": "toml",
           "path": "uv.lock",
-          "jsonpath": "$.package[?(@.name.value=='fastapi-starter')].version"
+          "jsonpath": "$.package[?(@.name.value=='neuralbrewery')].version"
         },
         {
           "type": "generic",

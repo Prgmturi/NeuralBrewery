@@ -1,6 +1,6 @@
 """Tests for settings — configuration loading, URL construction, defaults.
 
-Module under test: src/fastapi_starter/core/config/
+Module under test: src/neuralbrewery/core/config/
 Layer: Pure domain (Pydantic settings)
 
 WHY these tests exist: Configuration errors are silent and catastrophic.
@@ -14,13 +14,13 @@ from pathlib import Path
 import pydantic
 import pytest
 
-from fastapi_starter.core.config import Settings
-from fastapi_starter.core.config import app as app_module
-from fastapi_starter.core.config.app import AppSettings
-from fastapi_starter.core.config.auth_cookie import AuthCookieSettings
-from fastapi_starter.core.config.database import DatabaseSettings
-from fastapi_starter.core.config.keycloak import KeycloakSettings
-from fastapi_starter.core.config.server import ServerSettings
+from neuralbrewery.core.config import Settings
+from neuralbrewery.core.config import app as app_module
+from neuralbrewery.core.config.app import AppSettings
+from neuralbrewery.core.config.auth_cookie import AuthCookieSettings
+from neuralbrewery.core.config.database import DatabaseSettings
+from neuralbrewery.core.config.keycloak import KeycloakSettings
+from neuralbrewery.core.config.server import ServerSettings
 from tests.conftest import SETTINGS_CLASSES
 
 ENV_EXAMPLE = Path(__file__).parents[3] / ".env.example"
@@ -36,7 +36,7 @@ class TestAppSettings:
     def test_default_values(self):
         """[HP] Defaults are development-friendly."""
         settings = AppSettings()
-        assert settings.name == "fastapi_starter"
+        assert settings.name == "neuralbrewery"
         assert settings.environment == "development"
         assert settings.debug is False
 
@@ -47,7 +47,7 @@ class TestAppSettings:
         release-please bumps pyproject.toml: from 0.2.0 on, every release
         still answered 0.1.0.
         """
-        assert AppSettings().version == importlib.metadata.version("fastapi_starter")
+        assert AppSettings().version == importlib.metadata.version("neuralbrewery")
 
     def test_version_unknown_without_an_installed_package(self, monkeypatch):
         """[EC] Source on PYTHONPATH, never installed: "unknown", not a crash."""

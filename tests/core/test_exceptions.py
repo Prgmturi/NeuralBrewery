@@ -1,6 +1,6 @@
 """Tests for custom exceptions — status codes, messages, and hierarchy.
 
-Module under test: src/fastapi_starter/core/exceptions.py
+Module under test: src/neuralbrewery/core/exceptions.py
 Layer: Pure domain (no I/O, no mocks needed)
 
 WHY these tests exist: Exception classes carry status codes and structured
@@ -11,7 +11,7 @@ code = wrong HTTP response. Wrong hierarchy = exception handler misses it.
 import subprocess
 import sys
 
-from fastapi_starter.core.exceptions import (
+from neuralbrewery.core.exceptions import (
     AppExceptionError,
     ConflictError,
     ExternalServiceError,
@@ -260,7 +260,7 @@ class TestNoWebFramework:
         imported the whole app.
         """
         code = (
-            "import sys, fastapi_starter.core.exceptions; "
+            "import sys, neuralbrewery.core.exceptions; "
             "print(sorted({name.split('.')[0] for name in sys.modules} "
             "& {'fastapi', 'starlette'}))"
         )

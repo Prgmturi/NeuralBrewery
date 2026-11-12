@@ -180,7 +180,7 @@ jobs:
       # pyproject.toml names README.md as readme, and the builder did not copy
       # it. No job checked what is shipped; this one does.
       - name: Build image
-        run: docker build -f docker/Dockerfile -t fastapi-starter:ci .
+        run: docker build -f docker/Dockerfile -t neuralbrewery:ci .
 
       # Smoke test without external services: create_app() builds settings,
       # logging, middleware and routes, as uvicorn does when the process
@@ -191,16 +191,16 @@ jobs:
       # In development: production would refuse the default settings.
       - name: Smoke test
         run: |
-          docker run --rm -e APP_ENVIRONMENT=development fastapi-starter:ci python -c \
-            "from fastapi_starter.main import create_app; app = create_app(); print('routes found:', *(app.url_path_for(name) for name in ('root', 'liveness', 'get_me', 'list_notes')))"
+          docker run --rm -e APP_ENVIRONMENT=development neuralbrewery:ci python -c \
+            "from neuralbrewery.main import create_app; app = create_app(); print('routes found:', *(app.url_path_for(name) for name in ('root', 'liveness', 'get_me', 'list_notes')))"
 
       # The image runs as production unless told otherwise: started without
       # settings, the app must refuse and name what to set, not run as
       # development with /docs open.
       - name: The image refuses to start without settings
         run: |
-          if docker run --rm fastapi-starter:ci python -c \
-            "from fastapi_starter.main import create_app; create_app()" 2> refusal.txt; then
+          if docker run --rm neuralbrewery:ci python -c \
+            "from neuralbrewery.main import create_app; create_app()" 2> refusal.txt; then
             echo "The image started without settings"
             exit 1
           fi
@@ -211,8 +211,8 @@ jobs:
       # restarted container would run the rewritten copy.
       - name: The app cannot change its code
         run: |
-          docker run --rm fastapi-starter:ci python -c \
-            "import os, fastapi_starter as p; d = os.path.dirname(p.__file__); assert not os.access(d, os.W_OK), d; print(d, 'is read-only for', os.getuid())"
+          docker run --rm neuralbrewery:ci python -c \
+            "import os, neuralbrewery as p; d = os.path.dirname(p.__file__); assert not os.access(d, os.W_OK), d; print(d, 'is read-only for', os.getuid())"
 
       # Grype on the image just built, Debian packages and Python ones: it
       # fails on a High or Critical vulnerability that has a fix. On 25
@@ -222,7 +222,7 @@ jobs:
         id: scan
         uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2
         with:
-          image: fastapi-starter:ci
+          image: neuralbrewery:ci
           only-fixed: true
           severity-cutoff: high
           fail-build: true

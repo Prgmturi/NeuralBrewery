@@ -40,7 +40,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
   # The image of the release on GitHub's registry, with the version and
-  # latest: ghcr.io/prgmturi/fastapi_starter, the image compose.prod.yaml
+  # latest: ghcr.io/prgmturi/neuralbrewery, the image compose.prod.yaml
   # runs. It belongs here: the tag release-please pushes with GITHUB_TOKEN
   # starts no other workflow (tests/test_release.py).
   image:

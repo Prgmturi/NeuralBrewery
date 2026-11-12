@@ -1,6 +1,6 @@
 """Tests for auth router — /auth/* endpoints.
 
-Module under test: src/fastapi_starter/features/auth/router.py
+Module under test: src/neuralbrewery/features/auth/router.py
 Layer: HTTP endpoints (AsyncClient with mocked OAuthProvider)
 
 WHY these tests exist: Auth endpoints are the public API surface for the
@@ -13,15 +13,15 @@ from unittest.mock import AsyncMock, MagicMock
 import httpx
 import pytest
 
-from fastapi_starter.adapters.keycloak.client import KeycloakClient
-from fastapi_starter.core.config import ServerSettings, Settings
-from fastapi_starter.core.config.keycloak import KeycloakSettings
-from fastapi_starter.core.exceptions import (
+from neuralbrewery.adapters.keycloak.client import KeycloakClient
+from neuralbrewery.core.config import ServerSettings, Settings
+from neuralbrewery.core.config.keycloak import KeycloakSettings
+from neuralbrewery.core.exceptions import (
     ExternalServiceError,
     ServiceUnavailableError,
     UnauthorizedError,
 )
-from fastapi_starter.features.auth import router as router_module
+from neuralbrewery.features.auth import router as router_module
 from tests.features.auth.conftest import TEST_COOKIE_NAME
 from tests.test_exception_handlers import assert_problem
 

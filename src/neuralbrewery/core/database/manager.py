@@ -1,0 +1,149 @@
+from typing import Any
+
+from sqlalchemy import event, text
+from sqlalchemy.engine import Dialect
+from sqlalchemy.engine.interfaces import DBAPIConnection
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
+from sqlalchemy.pool import ConnectionPoolEntry
+
+from neuralbrewery.core.config.database import DatabaseSettings
+from neuralbrewery.core.database.url import database_url
+from neuralbrewery.core.exceptions import ServiceUnavailableError
+from neuralbrewery.core.logging import get_logger
+
+logger = get_logger(__name__)
+
+# Retry-After of the 503 while the database cannot be reached: a few
+# seconds, so that clients do not retry in a tight loop.
+RETRY_AFTER_SECONDS = 5
+
+
+def connect_or_unavailable(
+    dialect: Dialect,
+    conn_rec: ConnectionPoolEntry,
+    cargs: tuple[Any, ...],
+    cparams: dict[str, Any],
+) -> DBAPIConnection:
+    """Open a connection. If Postgres cannot be reached: a 503.
+
+    asyncpg raises an OSError when the connection is refused or the host
+    is unknown, and a TimeoutError, also an OSError, when Postgres does not
+    answer within connect_timeout. SQLAlchemy does not wrap them, so each
+    request got a 500 and logged a traceback. Only the opening of a
+    connection passes here: an OSError raised by a route stays a 500.
+    """
+    try:
+        return dialect.connect(*cargs, **cparams)
+    except OSError as e:
+        logger.error("database_unavailable", error_type=type(e).__name__, error=str(e))
+        raise ServiceUnavailableError(
+            "database", retry_after=RETRY_AFTER_SECONDS
+        ) from e
+
+
+class DatabaseManager:
+    """
+    Manages database connections and sessions.
+
+    Usage:
+        manager = DatabaseManager(settings.database)
+        await manager.connect()
+        await manager.health_check()
+
+        # Use sessions via dependency injection
+
+        await manager.disconnect()
+    """
+
+    def __init__(self, settings: DatabaseSettings) -> None:
+        self._settings = settings
+        self._engine: AsyncEngine | None = None
+        self._session_factory: async_sessionmaker[AsyncSession] | None = None
+
+    @property
+    def engine(self) -> AsyncEngine:
+        """The database engine. RuntimeError before connect()."""
+        if self._engine is None:
+            raise RuntimeError("Database not connected. Call connect() first.")
+        return self._engine
+
+    @property
+    def session_factory(self) -> async_sessionmaker[AsyncSession]:
+        """Get the session factory. Requires engine to be created."""
+        if self._session_factory is None:
+            raise RuntimeError("Database not connected. Call connect() first.")
+        return self._session_factory
+
+    async def connect(self) -> None:
+        """
+        Initialize the database connection.
+
+        Creates the engine and session factory.
+        Should be called once at application startup.
+        """
+        if self._engine is not None:
+            return  # Already connected
+
+        self._engine = create_async_engine(
+            database_url(self._settings),
+            # Postgres can close a pooled connection (a restart, a failover,
+            # a proxy's idle timeout). The pool tests each connection before
+            # handing it out and replaces a dead one, so no request gets it.
+            # Costs one round trip per checkout.
+            pool_pre_ping=True,
+            pool_size=self._settings.pool_size,
+            max_overflow=self._settings.pool_max_overflow,
+            pool_timeout=self._settings.pool_timeout,
+            pool_recycle=self._settings.pool_recycle,
+            echo=self._settings.echo,
+            # asyncpg's limits. Without them it waits 60 s for a connection
+            # and lets a query run forever. A query over the limit raises
+            # TimeoutError, and asyncpg cancels it on the server too.
+            connect_args={
+                "timeout": self._settings.connect_timeout,
+                "command_timeout": self._settings.command_timeout,
+            },
+        )
+
+        # Every new connection of the pool opens through it
+        event.listen(self._engine.sync_engine, "do_connect", connect_or_unavailable)
+
+        self._session_factory = async_sessionmaker(
+            bind=self._engine,
+            class_=AsyncSession,
+            expire_on_commit=False,
+            autoflush=False,
+        )
+
+    async def disconnect(self) -> None:
+        """
+        Close the database connection.
+
+        Disposes the engine and clears references.
+        Should be called once at application shutdown.
+        """
+        if self._engine is not None:
+            await self._engine.dispose()
+            self._engine = None
+            self._session_factory = None
+
+    async def health_check(self) -> bool:
+        """
+        Check if database is reachable.
+
+        Returns:
+            True if database responds to a simple query.
+
+        Raises:
+            RuntimeError: If not connected.
+            ServiceUnavailableError: If the database cannot be reached.
+            SQLAlchemyError: If the database answers with an error.
+        """
+        async with self.session_factory() as session:
+            await session.execute(text("SELECT 1"))
+        return True

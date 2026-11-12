@@ -86,12 +86,12 @@ class TestRuntimeStage:
         )
 
     def test_starts_through_serve(self):
-        """[HP] The image starts python -m fastapi_starter.serve.
+        """[HP] The image starts python -m neuralbrewery.serve.
 
         WHY a CMD and no ENTRYPOINT: another command replaces it whole, as
         the migrations do (docker run <image> alembic upgrade head).
         """
         steps = self.runtime()
 
-        assert steps[-1] == 'CMD ["python", "-m", "fastapi_starter.serve"]'
+        assert steps[-1] == 'CMD ["python", "-m", "neuralbrewery.serve"]'
         assert [step for step in steps if step.startswith("ENTRYPOINT")] == []

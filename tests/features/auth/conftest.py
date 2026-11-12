@@ -6,11 +6,11 @@ from unittest.mock import AsyncMock
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from fastapi_starter.core.auth.dependencies import get_current_user
-from fastapi_starter.core.auth.schemas import TokenResponse
-from fastapi_starter.core.config.auth_cookie import AuthCookieSettings
-from fastapi_starter.core.config.keycloak import KeycloakSettings
-from fastapi_starter.features.auth.router import (
+from neuralbrewery.core.auth.dependencies import get_current_user
+from neuralbrewery.core.auth.schemas import TokenResponse
+from neuralbrewery.core.config.auth_cookie import AuthCookieSettings
+from neuralbrewery.core.config.keycloak import KeycloakSettings
+from neuralbrewery.features.auth.router import (
     get_cookie_settings,
     get_keycloak_settings,
     get_oauth_provider,

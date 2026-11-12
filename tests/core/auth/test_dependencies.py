@@ -1,6 +1,6 @@
 """Tests for auth dependencies — get_current_user, require_roles.
 
-Module under test: src/fastapi_starter/core/auth/dependencies.py
+Module under test: src/neuralbrewery/core/auth/dependencies.py
 Layer: FastAPI integration (test dependency functions directly)
 
 WHY these tests exist: These dependencies are the gateway to every
@@ -13,7 +13,7 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi.security import HTTPAuthorizationCredentials
 
-from fastapi_starter.core.auth.dependencies import (
+from neuralbrewery.core.auth.dependencies import (
     AdminUser,
     CollabUser,
     SuperAdminUser,
@@ -21,8 +21,8 @@ from fastapi_starter.core.auth.dependencies import (
     get_optional_user,
     require_roles,
 )
-from fastapi_starter.core.auth.schemas import RoleEnum, User
-from fastapi_starter.core.exceptions import (
+from neuralbrewery.core.auth.schemas import RoleEnum, User
+from neuralbrewery.core.exceptions import (
     ForbiddenError,
     ServiceUnavailableError,
     UnauthorizedError,

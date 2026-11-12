@@ -1,6 +1,6 @@
 """DbSession on a real Postgres — the commit decides the response.
 
-Module under test: src/fastapi_starter/core/database/dependencies.py
+Module under test: src/neuralbrewery/core/database/dependencies.py
 Layer: FastAPI integration, real database
 
 WHY: TestDbSessionInRequest (tests/core/database/test_dependencies.py)
@@ -12,7 +12,7 @@ import pytest
 from sqlalchemy import String, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-from fastapi_starter.core.database import DatabaseManager, DbSession
+from neuralbrewery.core.database import DatabaseManager, DbSession
 from tests.test_exception_handlers import assert_problem
 
 

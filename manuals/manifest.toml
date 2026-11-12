@@ -1,0 +1,138 @@
+# Elenco dei documenti tecnici per il RAG.
+#
+# Ogni [[doc]] è un documento. I campi `component` e `tags` diventano metadati
+# dei chunk: permettono di filtrare la ricerca ("solo documenti di TT3")
+# senza estrarre relazioni con un LLM.
+#
+# source:
+#   ufficiale    -> sito del produttore
+#   distributore -> copia ospitata da un distributore autorizzato
+#   terzi        -> copia su un sito di manuali: meglio sostituirla con l'originale
+#
+# auto = false -> lo script non lo scarica: va preso a mano da `page` e messo
+#                 in data/manuals/ con il nome `<id>.pdf`.
+
+[[doc]]
+id = "pt100-itherm-tm411"
+component = "Sonda di temperatura PT100 igienica"
+product = "Endress+Hauser iTHERM TM411"
+tags = ["TT1", "TT2", "TT3", "TT5a", "TT5b"]
+doc_type = "technical_information"
+source = "ufficiale"
+auto = true
+url = "https://bdih-download.endress.com/file/7e91c565ef521b3ea3b77de520205908/TI01038TEN_1025-00.pdf"
+
+[[doc]]
+id = "transmitter-itemp-tmt80"
+component = "Trasmettitore in testa 4-20 mA per PT100"
+product = "Endress+Hauser iTEMP TMT80"
+tags = ["TT1", "TT2", "TT3", "TT5a", "TT5b"]
+doc_type = "technical_information"
+source = "distributore"
+auto = true
+url = "https://www.mouser.lt/datasheet/2/1507/TI00153REN_0621_00-3359081.pdf"
+page = "https://www.endress.com/en/field-instruments-overview/temperature-measurement-thermometers-transmitters/Universal-temperature-head-transmitter-tmt80"
+
+[[doc]]
+id = "level-sick-lfp-cubic-datasheet"
+component = "Sensore di livello igienico a radar guidato"
+product = "SICK LFP Cubic"
+tags = ["LT1", "LT2", "LT3", "LT4"]
+doc_type = "datasheet"
+source = "ufficiale"
+auto = true
+url = "https://www.sick.com/media/pdf/3/53/153/dataSheet_LFP3000-F4CMB_1072026_en.pdf"
+note = "Variante con sonda da 3 m: per i nostri recipienti serve una sonda più corta, i dati di funzionamento sono gli stessi."
+
+[[doc]]
+id = "level-sick-lfp-cubic-instructions"
+component = "Sensore di livello igienico a radar guidato"
+product = "SICK LFP Cubic"
+tags = ["LT1", "LT2", "LT3", "LT4"]
+doc_type = "operating_instructions"
+source = "terzi"
+auto = false
+page = "https://manualmachine.com/sick/lfpcubic/20309393-operating-instructions-manual"
+note = "Cercare l'originale su sick.com (pagina prodotto LFP Cubic, sezione Downloads)."
+
+[[doc]]
+id = "hydrometer-ispindel"
+component = "Mostimetro wireless"
+product = "iSpindel"
+tags = ["DT1"]
+doc_type = "readme"
+source = "ufficiale"
+auto = true
+url = "https://raw.githubusercontent.com/universam1/iSpindel/master/docs/README_en.md"
+
+[[doc]]
+id = "pump-blichmann-riptide"
+component = "Pompa a trascinamento magnetico per mosto caldo"
+product = "Blichmann RipTide"
+tags = ["P1", "P2"]
+doc_type = "operation_maintenance"
+source = "distributore"
+auto = true
+url = "https://www.buyfittingsonline.com/content/Manual-Blichmann-RipTide-Pump-V4-0.pdf"
+
+[[doc]]
+id = "valve-ussolid-motorized"
+component = "Valvola a sfera motorizzata inox"
+product = "U.S. Solid motorized ball valve"
+tags = ["EV2a", "EV2b", "EV3", "EV4", "EV5", "EV6", "EV7", "EV9"]
+doc_type = "user_manual"
+source = "terzi"
+auto = true
+url = "https://manuals.plus/asin/B0BQBV93S5.pdf"
+page = "https://ussolid.com/collections/motorized-ball-valves-html"
+
+[[doc]]
+id = "ssr-crydom-d2425"
+component = "Relè statico per le resistenze"
+product = "Sensata Crydom D2425"
+tags = ["R1", "R2", "R3", "R4"]
+doc_type = "datasheet"
+source = "terzi"
+auto = false
+page = "https://www.datasheets.com/crydom/d2425"
+note = "Cercare l'originale su sensata.com (Crydom Series 1)."
+
+[[doc]]
+id = "vfd-siemens-v20-getting-started"
+component = "Inverter dell'agitatore"
+product = "Siemens SINAMICS V20"
+tags = ["M1"]
+doc_type = "getting_started"
+source = "ufficiale"
+auto = true
+url = "https://cache.industry.siemens.com/dl/files/829/67274829/att_106714/v1/v20_getting_started_400v__230v_en-US_en-US.pdf"
+
+[[doc]]
+id = "glycol-chiller-blichmann"
+component = "Chiller a glicole del fermentatore"
+product = "Blichmann Glycol Chiller"
+tags = ["EV9", "FERM"]
+doc_type = "operation_maintenance"
+source = "ufficiale"
+auto = true
+url = "https://blichmannengineering.com/media/manuals/glycol-chiller.pdf"
+
+[[doc]]
+id = "fermenter-blichmann-g4"
+component = "Fermentatore"
+product = "Blichmann Fermenator G4"
+tags = ["FERM", "LT4", "TT5a", "TT5b", "DT1"]
+doc_type = "operation_maintenance"
+source = "ufficiale"
+auto = true
+url = "https://blichmannengineering.com/media/manuals/g4-fermenator.pdf"
+
+[[doc]]
+id = "fermenter-blichmann-g4-cooling"
+component = "Sistema di raffreddamento del fermentatore"
+product = "Blichmann Fermenator G4 Cooling System"
+tags = ["FERM", "EV9"]
+doc_type = "operation_maintenance"
+source = "ufficiale"
+auto = true
+url = "https://blichmannengineering.com/media/manuals/g4-cooling-system.pdf"

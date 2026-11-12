@@ -11,7 +11,7 @@ A normal module, not conftest.py, so that tests can import the class.
 from pydantic import field_validator
 from pydantic_settings import SettingsConfigDict
 
-from fastapi_starter.core.config.database import DatabaseSettings
+from neuralbrewery.core.config.database import DatabaseSettings
 
 
 class IntegrationDatabaseSettings(DatabaseSettings):

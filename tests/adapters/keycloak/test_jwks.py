@@ -1,6 +1,6 @@
 """Tests for JWKSTokenDecoder — JWT decoding and verification.
 
-Module under test: src/fastapi_starter/adapters/keycloak/jwks.py
+Module under test: src/neuralbrewery/adapters/keycloak/jwks.py
 Layer: Core logic (mock KeyProvider at protocol boundary)
 
 WHY these tests exist: JWKSTokenDecoder wraps PyJWT and converts all library
@@ -20,10 +20,10 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
 from jwt.utils import base64url_encode
 
-from fastapi_starter.adapters.keycloak.jwks import JWKSTokenDecoder
-from fastapi_starter.core.auth.protocols import TokenDecoder
-from fastapi_starter.core.exceptions import ServiceUnavailableError, UnauthorizedError
-from fastapi_starter.core.protocols import HealthCheckable
+from neuralbrewery.adapters.keycloak.jwks import JWKSTokenDecoder
+from neuralbrewery.core.auth.protocols import TokenDecoder
+from neuralbrewery.core.exceptions import ServiceUnavailableError, UnauthorizedError
+from neuralbrewery.core.protocols import HealthCheckable
 
 ISSUER = "http://localhost:8080/realms/test-realm"
 CLIENT_ID = "test-client"

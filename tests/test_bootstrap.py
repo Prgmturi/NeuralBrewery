@@ -1,6 +1,6 @@
 """Tests for bootstrap.py — composition root service initialization.
 
-Module under test: src/fastapi_starter/bootstrap.py
+Module under test: src/neuralbrewery/bootstrap.py
 Layer: Application integration (composition root)
 
 WHY these tests exist: bootstrap.py wires all the concrete implementations
@@ -23,8 +23,8 @@ from jwt.algorithms import RSAAlgorithm
 from starlette.datastructures import State
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
-from fastapi_starter.adapters.keycloak.client import KeycloakClient
-from fastapi_starter.bootstrap import (
+from neuralbrewery.adapters.keycloak.client import KeycloakClient
+from neuralbrewery.bootstrap import (
     create_keycloak_http_client,
     init_auth_service,
     init_database,
@@ -32,18 +32,18 @@ from fastapi_starter.bootstrap import (
     register_middleware,
     shutdown_services,
 )
-from fastapi_starter.core.body_limit import BodySizeLimitMiddleware
-from fastapi_starter.core.config import (
+from neuralbrewery.core.body_limit import BodySizeLimitMiddleware
+from neuralbrewery.core.config import (
     DatabaseSettings,
     KeycloakSettings,
     ServerSettings,
 )
-from fastapi_starter.core.database import DatabaseManager
-from fastapi_starter.core.error_middleware import UnhandledExceptionMiddleware
-from fastapi_starter.core.exceptions import ServiceUnavailableError
-from fastapi_starter.core.logging import LoggingMiddleware
-from fastapi_starter.core.security import SecureHeadersMiddleware
-from fastapi_starter.main import create_app, lifespan
+from neuralbrewery.core.database import DatabaseManager
+from neuralbrewery.core.error_middleware import UnhandledExceptionMiddleware
+from neuralbrewery.core.exceptions import ServiceUnavailableError
+from neuralbrewery.core.logging import LoggingMiddleware
+from neuralbrewery.core.security import SecureHeadersMiddleware
+from neuralbrewery.main import create_app, lifespan
 
 
 @pytest.fixture
@@ -60,7 +60,7 @@ class TestInitDatabase:
     with a half-initialized database connection.
     """
 
-    @patch("fastapi_starter.bootstrap.DatabaseManager")
+    @patch("neuralbrewery.bootstrap.DatabaseManager")
     async def test_creates_manager_and_connects(self, mock_database_manager):
         """[HP] Creates DatabaseManager, calls connect(), stores in state."""
         mock_manager = AsyncMock()
@@ -77,7 +77,7 @@ class TestInitDatabase:
         assert state.db_manager is mock_manager
         assert result is mock_manager
 
-    @patch("fastapi_starter.bootstrap.DatabaseManager")
+    @patch("neuralbrewery.bootstrap.DatabaseManager")
     async def test_health_check_failure_disconnects_and_raises(
         self, mock_database_manager
     ):
@@ -98,7 +98,7 @@ class TestInitDatabase:
 
         mock_manager.disconnect.assert_called_once()
 
-    @patch("fastapi_starter.bootstrap.DatabaseManager")
+    @patch("neuralbrewery.bootstrap.DatabaseManager")
     async def test_failure_logs_the_cause_without_traceback(
         self, mock_database_manager, monkeypatch
     ):
@@ -109,7 +109,7 @@ class TestInitDatabase:
         on 3 November 2026). uvicorn still prints it once.
         """
         logger = MagicMock()
-        monkeypatch.setattr("fastapi_starter.bootstrap.logger", logger)
+        monkeypatch.setattr("neuralbrewery.bootstrap.logger", logger)
         unavailable = ServiceUnavailableError("database", retry_after=5)
         unavailable.__cause__ = ConnectionRefusedError(111, "Connection refused")
         mock_manager = AsyncMock()
@@ -126,7 +126,7 @@ class TestInitDatabase:
         )
         logger.exception.assert_not_called()
 
-    @patch("fastapi_starter.bootstrap.DatabaseManager")
+    @patch("neuralbrewery.bootstrap.DatabaseManager")
     async def test_logs_the_url_without_the_password(
         self, mock_database_manager, monkeypatch
     ):
@@ -137,7 +137,7 @@ class TestInitDatabase:
         """
         mock_database_manager.return_value = AsyncMock()
         logger = MagicMock()
-        monkeypatch.setattr("fastapi_starter.bootstrap.logger", logger)
+        monkeypatch.setattr("neuralbrewery.bootstrap.logger", logger)
 
         await init_database(State(), DatabaseSettings(password="db-secret-value"))
 
@@ -165,10 +165,10 @@ class TestInitAuthService:
     Pre-fetches JWKS keys. If JWKS fetch fails, app must not start.
     """
 
-    @patch("fastapi_starter.bootstrap.AuthService")
-    @patch("fastapi_starter.bootstrap.KeycloakClaimExtractor")
-    @patch("fastapi_starter.bootstrap.JWKSTokenDecoder")
-    @patch("fastapi_starter.bootstrap.JWKSManager")
+    @patch("neuralbrewery.bootstrap.AuthService")
+    @patch("neuralbrewery.bootstrap.KeycloakClaimExtractor")
+    @patch("neuralbrewery.bootstrap.JWKSTokenDecoder")
+    @patch("neuralbrewery.bootstrap.JWKSManager")
     async def test_creates_service_and_stores_in_state(
         self,
         mock_jwks_manager,
@@ -193,17 +193,17 @@ class TestInitAuthService:
         mock_jwks_manager.assert_called_once_with(settings, http_client)
         mock_decoder.assert_called_once_with(
             key_provider=mock_jwks,
-            issuer="http://localhost:8080/realms/fastapi-starter",
-            allowed_clients=["fastapi-backend"],
+            issuer="http://localhost:8080/realms/neuralbrewery",
+            allowed_clients=["neuralbrewery"],
             audience=None,
         )
         mock_jwks.refresh_keys.assert_called_once()
         assert state.auth_service is mock_auth_service.return_value
 
-    @patch("fastapi_starter.bootstrap.AuthService")
-    @patch("fastapi_starter.bootstrap.KeycloakClaimExtractor")
-    @patch("fastapi_starter.bootstrap.JWKSTokenDecoder")
-    @patch("fastapi_starter.bootstrap.JWKSManager")
+    @patch("neuralbrewery.bootstrap.AuthService")
+    @patch("neuralbrewery.bootstrap.KeycloakClaimExtractor")
+    @patch("neuralbrewery.bootstrap.JWKSTokenDecoder")
+    @patch("neuralbrewery.bootstrap.JWKSManager")
     async def test_token_policy_from_settings_reaches_decoder(
         self,
         mock_jwks_manager,
@@ -216,19 +216,19 @@ class TestInitAuthService:
         mock_jwks_manager.return_value = AsyncMock()
 
         settings = KeycloakSettings(
-            allowed_clients=["fastapi-backend", "web-frontend"],
-            audience="fastapi-backend",
+            allowed_clients=["neuralbrewery", "web-frontend"],
+            audience="neuralbrewery",
         )
         await init_auth_service(State(), settings, http_client)
 
         _, kwargs = mock_decoder.call_args
-        assert kwargs["allowed_clients"] == ["fastapi-backend", "web-frontend"]
-        assert kwargs["audience"] == "fastapi-backend"
+        assert kwargs["allowed_clients"] == ["neuralbrewery", "web-frontend"]
+        assert kwargs["audience"] == "neuralbrewery"
 
-    @patch("fastapi_starter.bootstrap.AuthService")
-    @patch("fastapi_starter.bootstrap.KeycloakClaimExtractor")
-    @patch("fastapi_starter.bootstrap.JWKSTokenDecoder")
-    @patch("fastapi_starter.bootstrap.JWKSManager")
+    @patch("neuralbrewery.bootstrap.AuthService")
+    @patch("neuralbrewery.bootstrap.KeycloakClaimExtractor")
+    @patch("neuralbrewery.bootstrap.JWKSTokenDecoder")
+    @patch("neuralbrewery.bootstrap.JWKSManager")
     async def test_issuer_is_the_public_url(
         self,
         mock_jwks_manager,
@@ -250,12 +250,12 @@ class TestInitAuthService:
         await init_auth_service(State(), settings, http_client)
 
         _, kwargs = mock_decoder.call_args
-        assert kwargs["issuer"] == "https://auth.example.com/realms/fastapi-starter"
+        assert kwargs["issuer"] == "https://auth.example.com/realms/neuralbrewery"
 
-    @patch("fastapi_starter.bootstrap.AuthService")
-    @patch("fastapi_starter.bootstrap.KeycloakClaimExtractor")
-    @patch("fastapi_starter.bootstrap.JWKSTokenDecoder")
-    @patch("fastapi_starter.bootstrap.JWKSManager")
+    @patch("neuralbrewery.bootstrap.AuthService")
+    @patch("neuralbrewery.bootstrap.KeycloakClaimExtractor")
+    @patch("neuralbrewery.bootstrap.JWKSTokenDecoder")
+    @patch("neuralbrewery.bootstrap.JWKSManager")
     async def test_jwks_refresh_failure_raises_and_leaves_client_open(
         self,
         mock_jwks_manager,
@@ -281,10 +281,10 @@ class TestInitAuthService:
         assert not hasattr(state, "auth_service")
         assert not http_client.is_closed
 
-    @patch("fastapi_starter.bootstrap.AuthService")
-    @patch("fastapi_starter.bootstrap.KeycloakClaimExtractor")
-    @patch("fastapi_starter.bootstrap.JWKSTokenDecoder")
-    @patch("fastapi_starter.bootstrap.JWKSManager")
+    @patch("neuralbrewery.bootstrap.AuthService")
+    @patch("neuralbrewery.bootstrap.KeycloakClaimExtractor")
+    @patch("neuralbrewery.bootstrap.JWKSTokenDecoder")
+    @patch("neuralbrewery.bootstrap.JWKSManager")
     async def test_jwks_refresh_failure_logs_one_line(
         self,
         mock_jwks_manager,
@@ -300,7 +300,7 @@ class TestInitAuthService:
         jwks_refresh_failed line before this one names the cause.
         """
         logger = MagicMock()
-        monkeypatch.setattr("fastapi_starter.bootstrap.logger", logger)
+        monkeypatch.setattr("neuralbrewery.bootstrap.logger", logger)
         mock_jwks = AsyncMock()
         mock_jwks.refresh_keys = AsyncMock(
             side_effect=ServiceUnavailableError("auth", retry_after=30)
@@ -381,10 +381,10 @@ class TestServicesReachTheRoutes:
             return httpx.AsyncClient(transport=transport)
 
         monkeypatch.setattr(
-            "fastapi_starter.bootstrap.DatabaseManager", OfflineDatabaseManager
+            "neuralbrewery.bootstrap.DatabaseManager", OfflineDatabaseManager
         )
         monkeypatch.setattr(
-            "fastapi_starter.bootstrap.create_keycloak_http_client",
+            "neuralbrewery.bootstrap.create_keycloak_http_client",
             keycloak_http_client,
         )
         app = create_app(settings)

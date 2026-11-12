@@ -1,6 +1,6 @@
 """Tests for KeycloakClient — HTTP token operations.
 
-Module under test: src/fastapi_starter/adapters/keycloak/client.py
+Module under test: src/neuralbrewery/adapters/keycloak/client.py
 Layer: Infrastructure adapter (mock httpx responses)
 
 WHY these tests exist: KeycloakClient makes HTTP calls to Keycloak.
@@ -14,12 +14,12 @@ from urllib.parse import parse_qs, urlparse
 import httpx
 import pytest
 
-from fastapi_starter.adapters.keycloak import client as client_module
-from fastapi_starter.adapters.keycloak.client import KeycloakClient
-from fastapi_starter.core.auth.protocols import OAuthProvider
-from fastapi_starter.core.auth.schemas import TokenResponse
-from fastapi_starter.core.config.keycloak import KeycloakSettings
-from fastapi_starter.core.exceptions import (
+from neuralbrewery.adapters.keycloak import client as client_module
+from neuralbrewery.adapters.keycloak.client import KeycloakClient
+from neuralbrewery.core.auth.protocols import OAuthProvider
+from neuralbrewery.core.auth.schemas import TokenResponse
+from neuralbrewery.core.config.keycloak import KeycloakSettings
+from neuralbrewery.core.exceptions import (
     ExternalServiceError,
     ServiceUnavailableError,
     UnauthorizedError,

@@ -1,6 +1,6 @@
 """Tests for BodySizeLimitMiddleware — 413 for request bodies over the limit.
 
-Module under test: src/fastapi_starter/core/body_limit.py
+Module under test: src/neuralbrewery/core/body_limit.py
 Layer: ASGI unit (fake app, recorded messages) and HTTP (the real stack)
 
 WHY these tests exist: uvicorn sets no limit on the request body. Without
@@ -11,8 +11,8 @@ server's memory.
 import pytest
 from starlette.exceptions import HTTPException
 
-from fastapi_starter.core.body_limit import BodySizeLimitMiddleware
-from fastapi_starter.core.config import ServerSettings, Settings
+from neuralbrewery.core.body_limit import BodySizeLimitMiddleware
+from neuralbrewery.core.config import ServerSettings, Settings
 from tests.test_exception_handlers import assert_problem
 
 LIMIT = 100

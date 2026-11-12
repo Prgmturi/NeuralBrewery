@@ -1,6 +1,6 @@
 """Tests for auth schemas — User model, RoleEnum, and TokenResponse.
 
-Module under test: src/fastapi_starter/core/auth/schemas.py
+Module under test: src/neuralbrewery/core/auth/schemas.py
 Layer: Pure domain (no I/O, no mocks needed)
 
 WHY these tests exist: User and RoleEnum are the core domain models.
@@ -12,7 +12,7 @@ logic so that changes are deliberate and visible.
 import pytest
 from pydantic import ValidationError
 
-from fastapi_starter.core.auth.schemas import RoleEnum, TokenResponse, User
+from neuralbrewery.core.auth.schemas import RoleEnum, TokenResponse, User
 
 
 def _make_user(**overrides) -> User:

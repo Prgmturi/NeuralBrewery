@@ -36,8 +36,8 @@ Why the API stands between the frontend and Keycloak:
 
 | Word | What it means |
 |---|---|
-| Realm | A space in Keycloak with its own users, roles and clients. The stack's realm is `fastapi-starter` |
-| Client | An app registered in the realm, which may ask Keycloak for logins. Here it is `fastapi-backend`, the API |
+| Realm | A space in Keycloak with its own users, roles and clients. The stack's realm is `neuralbrewery` |
+| Client | An app registered in the realm, which may ask Keycloak for logins. Here it is `neuralbrewery`, the API |
 | JWT | The format of the access token: a small JSON object and its signature, encoded as text |
 | Claim | A field of the token: `sub` is the user's id, `exp` the expiry, `iss` who issued it, `azp` the client it was issued to |
 | JWKS | The public keys of the realm, which Keycloak publishes so that anyone can check its signatures |
@@ -129,8 +129,8 @@ The refresh token never travels in a body, only in an `HttpOnly` cookie, which J
 
 On its first start, the `keycloak` service of `compose.yaml` imports the realm of `docker/keycloak/realm-dev.json`:
 
-- the realm `fastapi-starter`, with the roles `superadmin`, `admin`, `collaborator` and `user`;
-- the client `fastapi-backend`, with the secret `fastapi-backend-dev-secret`. It is *confidential*: Keycloak gives tokens for a code only with that secret. Users log in only on Keycloak's page, and the redirect URIs it allows are `http://localhost:*`;
+- the realm `neuralbrewery`, with the roles `superadmin`, `admin`, `collaborator` and `user`;
+- the client `neuralbrewery`, with the secret `neuralbrewery-dev-secret`. It is *confidential*: Keycloak gives tokens for a code only with that secret. Users log in only on Keycloak's page, and the redirect URIs it allows are `http://localhost:*`;
 - the user `testuser`, password `testuser-dev-password`, role `user`.
 
 These values are public, so the realm is for development only: staging and production refuse that secret.
@@ -141,24 +141,24 @@ The console of Keycloak is at http://localhost:8080, user `admin`, password `adm
 
 A token can name the apps it is meant for, in its `aud` claim, the audience. In the realm of the stack Keycloak does not name the API there, so the API does not check `aud` by default: the check on `azp` already refuses the tokens of the other clients. It matters once `KEYCLOAK_ALLOWED_CLIENTS` lists other clients, whose tokens may be meant for other APIs too, and would pass here ([decision record 0002](adr/0002-keycloak.md)).
 
-To check it as well: in the console, open the client `fastapi-backend`, tab *Client scopes*, then `fastapi-backend-dedicated`, and add a mapper of type *Audience*, with *Included Client Audience* `fastapi-backend` and *Add to access token* on. Then set `KEYCLOAK_AUDIENCE=fastapi-backend`. From then on, a token without the API in `aud` gets 401.
+To check it as well: in the console, open the client `neuralbrewery`, tab *Client scopes*, then `neuralbrewery-dedicated`, and add a mapper of type *Audience*, with *Included Client Audience* `neuralbrewery` and *Add to access token* on. Then set `KEYCLOAK_AUDIENCE=neuralbrewery`. From then on, a token without the API in `aud` gets 401.
 
 ## Roles
 
-Keycloak writes the user's roles in the access token: those of the realm, and those of the client `fastapi-backend`. The API reads them into `user.roles`, and a route asks for them:
+Keycloak writes the user's roles in the access token: those of the realm, and those of the client `neuralbrewery`. The API reads them into `user.roles`, and a route asks for them:
 
 ```python
 from typing import Annotated
 
 from fastapi import Depends, status
 
-from fastapi_starter.core.auth.dependencies import (
+from neuralbrewery.core.auth.dependencies import (
     AdminUser,
     CollabUser,
     CurrentUser,
     require_roles,
 )
-from fastapi_starter.core.auth.schemas import RoleEnum, User
+from neuralbrewery.core.auth.schemas import RoleEnum, User
 
 
 # Any user who is logged in

@@ -1,8 +1,8 @@
 """Tests for protocols — runtime_checkable verification.
 
 Modules under test:
-  src/fastapi_starter/core/protocols.py
-  src/fastapi_starter/core/auth/protocols.py
+  src/neuralbrewery/core/protocols.py
+  src/neuralbrewery/core/auth/protocols.py
 Layer: Pure domain (structural typing verification)
 
 WHY these tests exist: runtime_checkable protocols enable isinstance checks.
@@ -10,13 +10,13 @@ If @runtime_checkable is accidentally removed, isinstance() calls silently
 return False. These tests detect that at test time.
 """
 
-from fastapi_starter.core.auth.protocols import (
+from neuralbrewery.core.auth.protocols import (
     ClaimExtractor,
     OAuthProvider,
     TokenDecoder,
     TokenValidator,
 )
-from fastapi_starter.core.protocols import HealthCheckable
+from neuralbrewery.core.protocols import HealthCheckable
 
 
 class TestCoreProtocols:

@@ -1,11 +1,11 @@
-# fastapi-starter
+# NeuralBrewery
 
 ![Python](https://img.shields.io/badge/python-3.13-blue?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
-![CI](https://github.com/Prgmturi/fastapi_starter/actions/workflows/ci.yml/badge.svg)
-![License](https://img.shields.io/github/license/Prgmturi/fastapi_starter)
+![CI](https://github.com/Prgmturi/NeuralBrewery/actions/workflows/ci.yml/badge.svg)
+![License](https://img.shields.io/github/license/Prgmturi/NeuralBrewery)
 
-A starting point for a backend in FastAPI, built to teach as much as to be used. Login, database, logs, errors, tests and deployment are already in place. A new feature goes on top of them, and the structure shows where each piece of code belongs.
+A multi-agent system for a simulated brewing plant: it monitors the sensors, diagnoses problems with RAG on the manuals and the memory of past brews, and proposes actions that run only with the brewer's approval, with guardrails and an audit trail on every step.
 
 ## What is included
 
@@ -22,8 +22,8 @@ A starting point for a backend in FastAPI, built to teach as much as to be used.
 It takes Docker.
 
 ```bash
-git clone https://github.com/Prgmturi/fastapi_starter.git
-cd fastapi_starter
+git clone https://github.com/Prgmturi/NeuralBrewery.git
+cd NeuralBrewery
 docker compose up --build --wait
 ```
 
@@ -108,7 +108,7 @@ Then copy the example, rename it, register its router and write its migration. T
 ### Protect a route
 
 ```python
-from fastapi_starter.core.auth.dependencies import AdminUser, CurrentUser
+from neuralbrewery.core.auth.dependencies import AdminUser, CurrentUser
 
 
 @router.get("/profile")  # any user who is logged in
@@ -126,7 +126,7 @@ Without a token the route answers 401, and without the role 403. The roles, and 
 ### Return an error
 
 ```python
-from fastapi_starter.core.exceptions import NotFoundError
+from neuralbrewery.core.exceptions import NotFoundError
 
 raise NotFoundError("Note", note_id)  # 404, with a body the client can read
 ```
@@ -138,8 +138,8 @@ Which exception fits: [When something fails](docs/architecture.md#when-something
 The simple way, for a feature with no rules of its own:
 
 ```python
-from fastapi_starter.core.database import BaseRepository, DbSession
-from fastapi_starter.core.exceptions import NotFoundError
+from neuralbrewery.core.database import BaseRepository, DbSession
+from neuralbrewery.core.exceptions import NotFoundError
 
 
 class ProductRepository(BaseRepository[Product]):
@@ -190,7 +190,7 @@ cp .env.example .env
 docker compose stop api           # if the whole stack is up: its container holds port 8000
 docker compose up --wait db keycloak
 uv run alembic upgrade head
-uv run uvicorn fastapi_starter.main:create_app --factory --reload
+uv run uvicorn neuralbrewery.main:create_app --factory --reload
 ```
 
 ## Configuration

@@ -1,6 +1,6 @@
 """Tests for LoggingMiddleware — the request id and the request log lines.
 
-Module under test: src/fastapi_starter/core/logging/middleware.py
+Module under test: src/neuralbrewery/core/logging/middleware.py
 Also exercised: setup.register_middleware (CORS headers, quiet probes)
 Layer: Infrastructure (HTTP middleware, through the real app)
 
@@ -21,7 +21,7 @@ from structlog.contextvars import merge_contextvars
 from structlog.testing import capture_logs
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
-from fastapi_starter.core.logging import LoggingMiddleware
+from neuralbrewery.core.logging import LoggingMiddleware
 
 REQUEST_LINES = ("request_started", "request_completed")
 

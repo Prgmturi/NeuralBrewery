@@ -1,6 +1,6 @@
 """Tests for exception handlers — every error as an RFC 9457 problem.
 
-Module under test: src/fastapi_starter/exception_handlers.py
+Module under test: src/neuralbrewery/exception_handlers.py
 Also exercised: core/problem_details.py (the body) and
 core/error_middleware.py (500s from the routes)
 Layer: Application integration (HTTP client against the real app)
@@ -20,8 +20,8 @@ from fastapi import HTTPException
 from pydantic import BaseModel, Field
 from structlog.testing import capture_logs
 
-from fastapi_starter.core.auth.dependencies import AdminUser, CurrentUser
-from fastapi_starter.core.exceptions import (
+from neuralbrewery.core.auth.dependencies import AdminUser, CurrentUser
+from neuralbrewery.core.exceptions import (
     AppExceptionError,
     ConflictError,
     ExternalServiceError,

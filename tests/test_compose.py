@@ -18,14 +18,14 @@ import pydantic
 import pytest
 import yaml
 
-from fastapi_starter.core.config import KeycloakSettings, Settings
+from neuralbrewery.core.config import KeycloakSettings, Settings
 
 ROOT = Path(__file__).parent.parent
 COMPOSE = ROOT / "compose.yaml"
 COMPOSE_PROD = ROOT / "compose.prod.yaml"
 DEV_REALM = ROOT / "docker" / "keycloak" / "realm-dev.json"
 REALM_IMPORT_DIR = "/opt/keycloak/data/import/"
-RELEASED_IMAGE = "ghcr.io/prgmturi/fastapi_starter"
+RELEASED_IMAGE = "ghcr.io/prgmturi/neuralbrewery"
 # A variable the server's .env must set: ${NAME:?message}
 REQUIRED = re.compile(r"\$\{\w+:\?[^}]+\}")
 

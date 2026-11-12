@@ -1,6 +1,6 @@
 """Tests for the wiring of notes — the service of a request.
 
-Module under test: src/fastapi_starter/features/notes/api/dependencies.py
+Module under test: src/neuralbrewery/features/notes/api/dependencies.py
 Layer: HTTP wiring (mock session)
 
 WHY this test exists: the other tests replace get_note_service, so without
@@ -10,8 +10,8 @@ pass them all.
 
 from unittest.mock import AsyncMock, MagicMock
 
-from fastapi_starter.features.notes.api.dependencies import get_note_service
-from fastapi_starter.features.notes.domain.service import NoteService
+from neuralbrewery.features.notes.api.dependencies import get_note_service
+from neuralbrewery.features.notes.domain.service import NoteService
 from tests.features.notes.conftest import OWNER
 
 

@@ -1,6 +1,6 @@
 """Tests for the persistence of notes — the SQL the repository builds.
 
-Module under test: src/fastapi_starter/features/notes/persistence/
+Module under test: src/neuralbrewery/features/notes/persistence/
 Layer: Adapter of the domain's port (mock session, SQL compiled for Postgres)
 
 WHY these tests exist: the owner check lives in the SQL itself. A query
@@ -16,10 +16,10 @@ from uuid import UUID
 import pytest
 from sqlalchemy.dialects import postgresql
 
-from fastapi_starter.features.notes.domain.note import Note
-from fastapi_starter.features.notes.domain.protocols import NoteRepository
-from fastapi_starter.features.notes.persistence.models import NoteRow
-from fastapi_starter.features.notes.persistence.repository import (
+from neuralbrewery.features.notes.domain.note import Note
+from neuralbrewery.features.notes.domain.protocols import NoteRepository
+from neuralbrewery.features.notes.persistence.models import NoteRow
+from neuralbrewery.features.notes.persistence.repository import (
     SqlNoteRepository,
     to_note,
 )

@@ -1,6 +1,6 @@
 """Tests for database_url — the URL the engine and Alembic connect to.
 
-Module under test: src/fastapi_starter/core/database/url.py
+Module under test: src/neuralbrewery/core/database/url.py
 Layer: Pure function (settings in, SQLAlchemy URL out)
 
 WHY these tests exist: a wrong URL means the app cannot reach the database,
@@ -8,8 +8,8 @@ and a URL printed in full leaks the password. How a password with URL
 characters reaches the engine is in test_manager.py (TestConnectionUrl).
 """
 
-from fastapi_starter.core.config.database import DatabaseSettings
-from fastapi_starter.core.database.url import database_url
+from neuralbrewery.core.config.database import DatabaseSettings
+from neuralbrewery.core.database.url import database_url
 
 SETTINGS = {
     "driver": "postgresql+asyncpg",

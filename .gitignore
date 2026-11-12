@@ -17,3 +17,7 @@ htmlcov/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+
+# The prototype of the AI-plant boundary: a reference to read, not part of
+# the project (AGENTS.md)
+_reference/

@@ -15,7 +15,7 @@ import yaml
 ROOT = Path(__file__).parent.parent
 RELEASE_WORKFLOW = ROOT / ".github" / "workflows" / "release.yml"
 COMPOSE_PROD = ROOT / "compose.prod.yaml"
-RELEASED_IMAGE = "ghcr.io/prgmturi/fastapi_starter"
+RELEASED_IMAGE = "ghcr.io/prgmturi/neuralbrewery"
 # release-please's generic updater changes the version on lines with this
 VERSION_MARKER = "# x-release-please-version"
 

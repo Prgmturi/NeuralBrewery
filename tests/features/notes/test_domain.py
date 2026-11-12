@@ -1,6 +1,6 @@
 """Tests for the business layer of notes — the Note and the rules.
 
-Module under test: src/fastapi_starter/features/notes/domain/
+Module under test: src/neuralbrewery/features/notes/domain/
 Layer: Pure domain (an in-memory repository, no HTTP, no database)
 
 WHY these tests exist: the rule of the feature is that each user reaches
@@ -14,8 +14,8 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from fastapi_starter.core.exceptions import NotFoundError
-from fastapi_starter.features.notes.domain.note import Note
+from neuralbrewery.core.exceptions import NotFoundError
+from neuralbrewery.features.notes.domain.note import Note
 from tests.features.notes.conftest import OWNER
 
 OTHER = "someone-else"

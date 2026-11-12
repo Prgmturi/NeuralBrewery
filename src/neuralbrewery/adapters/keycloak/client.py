@@ -1,0 +1,286 @@
+from urllib.parse import urlencode
+
+import httpx
+
+from neuralbrewery.core.auth.schemas import TokenResponse
+from neuralbrewery.core.config.keycloak import KeycloakSettings
+from neuralbrewery.core.exceptions import (
+    ExternalServiceError,
+    ServiceUnavailableError,
+    UnauthorizedError,
+)
+from neuralbrewery.core.logging import get_logger
+
+logger = get_logger(__name__)
+
+# Keycloak cannot be reached: refused, unknown host, no answer in time.
+# The same call can succeed once it is back.
+UNREACHABLE = (httpx.NetworkError, httpx.TimeoutException)
+
+# Retry-After of the 503 while Keycloak cannot be reached: a few seconds,
+# so that clients do not retry in a tight loop.
+RETRY_AFTER_SECONDS = 5
+
+
+def _client_rejected(operation: str) -> ExternalServiceError:
+    """The error when Keycloak answers 401: it rejects the API's own client.
+
+    That is a wrong client id or secret; a wrong code or refresh token is a
+    400 (RFC 6749, section 5.2). The user cannot fix it: a 502, and a log
+    line that says what to check, without the values.
+    """
+    logger.error(
+        "keycloak_client_rejected",
+        operation=operation,
+        hint="check KEYCLOAK_CLIENT_ID and KEYCLOAK_CLIENT_SECRET",
+    )
+    return ExternalServiceError("Keycloak")
+
+
+class KeycloakClient:
+    """
+    Client for Keycloak token operations.
+
+    Handles:
+    - Authorization code exchange (with PKCE)
+    - Token refresh (with rotation)
+    - Token revocation (logout)
+    """
+
+    def __init__(
+        self, settings: KeycloakSettings, http_client: httpx.AsyncClient
+    ) -> None:
+        """
+        Args:
+            settings: Keycloak realm and client credentials.
+            http_client: Client for the calls to Keycloak. The caller owns it
+                and closes it at shutdown (start_services in bootstrap.py).
+        """
+        self._settings = settings
+        self._client = http_client
+
+    @property
+    def token_url(self) -> str:
+        """Keycloak token endpoint."""
+        return self._settings.token_url
+
+    @property
+    def logout_url(self) -> str:
+        """Keycloak logout endpoint."""
+        return self._settings.logout_url
+
+    @property
+    def auth_url(self) -> str:
+        """Keycloak authorization endpoint."""
+        return self._settings.auth_url
+
+    def build_authorization_url(
+        self,
+        redirect_uri: str,
+        code_challenge: str,
+        state: str | None = None,
+        scope: str = "openid profile email",
+    ) -> str:
+        """
+        Build authorization URL for OAuth flow.
+
+        Args:
+            redirect_uri: Where Keycloak redirects after login
+            code_challenge: PKCE code challenge (SHA256 hash of verifier)
+            state: Optional state parameter for CSRF protection
+            scope: OAuth scopes to request
+
+        Returns:
+            Full authorization URL
+        """
+        params = {
+            "client_id": self._settings.client_id,
+            "response_type": "code",
+            "redirect_uri": redirect_uri,
+            "code_challenge": code_challenge,
+            "code_challenge_method": "S256",
+            "scope": scope,
+        }
+
+        if state:
+            params["state"] = state
+
+        return f"{self.auth_url}?{urlencode(params)}"
+
+    async def exchange_code(
+        self,
+        code: str,
+        code_verifier: str,
+        redirect_uri: str,
+    ) -> TokenResponse:
+        """
+        Exchange authorization code for tokens.
+
+        Args:
+            code: Authorization code from Keycloak callback
+            code_verifier: PKCE code verifier (original, not hashed)
+            redirect_uri: Must match the one used in authorization request
+
+        Returns:
+            Token response with access and refresh tokens
+
+        Raises:
+            UnauthorizedError: If code is invalid or expired
+            ServiceUnavailableError: If Keycloak cannot be reached
+            ExternalServiceError: If Keycloak rejects the API's client, or
+                answers in an unexpected way
+        """
+        data = {
+            "grant_type": "authorization_code",
+            "client_id": self._settings.client_id,
+            "client_secret": self._settings.client_secret.get_secret_value(),
+            "code": code,
+            "code_verifier": code_verifier,
+            "redirect_uri": redirect_uri,
+        }
+
+        return await self._token_request(data, "code_exchange")
+
+    async def refresh_token(self, refresh_token: str) -> TokenResponse:
+        """
+        Refresh access token using refresh token.
+
+        With rotation enabled, returns new refresh token too.
+
+        Args:
+            refresh_token: Current refresh token
+
+        Returns:
+            New tokens (access + refresh with rotation)
+
+        Raises:
+            UnauthorizedError: If refresh token is invalid or expired
+            ServiceUnavailableError: If Keycloak cannot be reached
+            ExternalServiceError: If Keycloak rejects the API's client, or
+                answers in an unexpected way
+        """
+        data = {
+            "grant_type": "refresh_token",
+            "client_id": self._settings.client_id,
+            "client_secret": self._settings.client_secret.get_secret_value(),
+            "refresh_token": refresh_token,
+        }
+
+        return await self._token_request(data, "token_refresh")
+
+    async def logout(self, refresh_token: str) -> None:
+        """
+        Revoke refresh token (logout).
+
+        Args:
+            refresh_token: Refresh token to revoke
+
+        Raises:
+            ServiceUnavailableError: If Keycloak cannot be reached
+            ExternalServiceError: If Keycloak answers with an unexpected status
+        """
+        data = {
+            "client_id": self._settings.client_id,
+            "client_secret": self._settings.client_secret.get_secret_value(),
+            "refresh_token": refresh_token,
+        }
+
+        try:
+            response = await self._client.post(self.logout_url, data=data)
+        except UNREACHABLE as e:
+            logger.error(
+                "logout_request_failed", error_type=type(e).__name__, error=str(e)
+            )
+            raise ServiceUnavailableError(
+                "auth", retry_after=RETRY_AFTER_SECONDS
+            ) from e
+        except httpx.HTTPError as e:
+            logger.error("logout_request_failed", error=str(e))
+            raise ExternalServiceError("Keycloak") from e
+
+        if response.status_code == 401:
+            raise _client_rejected("logout")
+
+        # 204 = success, 400 = token already invalid (ok)
+        if response.status_code not in (200, 204, 400):
+            logger.warning(
+                "logout_failed",
+                status_code=response.status_code,
+                response=response.text,
+            )
+            raise ExternalServiceError("Keycloak")
+
+        logger.info("user_logged_out")
+
+    async def _token_request(
+        self,
+        data: dict[str, str],
+        operation: str,
+    ) -> TokenResponse:
+        """
+        Make token request to Keycloak.
+
+        Args:
+            data: Form data for token request
+            operation: Operation name for logging
+
+        Returns:
+            Token response
+
+        Raises:
+            UnauthorizedError: If Keycloak rejects the code or the token (400)
+            ServiceUnavailableError: If Keycloak cannot be reached
+            ExternalServiceError: If Keycloak rejects the API's client (401),
+                or answers in an unexpected way
+        """
+        try:
+            response = await self._client.post(self.token_url, data=data)
+
+            if response.status_code == 400:
+                error_data = response.json()
+                error_desc = error_data.get("error_description", "Invalid request")
+                logger.warning(
+                    "token_request_failed",
+                    operation=operation,
+                    error=error_data.get("error"),
+                    description=error_desc,
+                )
+                raise UnauthorizedError(error_desc)
+
+            if response.status_code == 401:
+                raise _client_rejected(operation)
+
+            response.raise_for_status()
+
+            token_data = response.json()
+            logger.debug("token_request_success", operation=operation)
+
+            return TokenResponse(
+                access_token=token_data["access_token"],
+                refresh_token=token_data["refresh_token"],
+                token_type=token_data.get("token_type", "Bearer"),
+                expires_in=token_data.get("expires_in", 300),
+                refresh_expires_in=token_data.get("refresh_expires_in", 0),
+            )
+
+        except (UnauthorizedError, ExternalServiceError):
+            raise
+        except UNREACHABLE as e:
+            # The type too: the text of a timeout is often empty
+            logger.error(
+                "token_request_failed",
+                operation=operation,
+                error_type=type(e).__name__,
+                error=str(e),
+            )
+            raise ServiceUnavailableError(
+                "auth", retry_after=RETRY_AFTER_SECONDS
+            ) from e
+        except httpx.HTTPError as e:
+            # The cause goes to the log only. The message becomes the detail
+            # of the 502, and httpx's text names Keycloak's internal URL.
+            logger.error("token_request_failed", operation=operation, error=str(e))
+            raise ExternalServiceError("Keycloak") from e
+        except Exception as e:
+            logger.error("token_request_unexpected", operation=operation, error=str(e))
+            raise ExternalServiceError("Keycloak") from e
