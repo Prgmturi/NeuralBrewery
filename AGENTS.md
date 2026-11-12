@@ -56,8 +56,8 @@ src/neuralbrewery/
    l'orologio reale.
 6. **Determinismo.** Stesso seed e stesse azioni devono dare lo stesso stato: gli eval ci contano.
 7. **`adapters/plant_sim/` è Python puro**: niente FastAPI, httpx, SQLAlchemy (import contract).
-8. **I manuali dei produttori non vanno nel repo.** Si scaricano con
-   `scripts/download_manuals.py` in `data/manuals/`, che è in `.gitignore`.
+8. **I manuali dei produttori stanno nel repo**, in `data/manuals/`: chi usa il progetto li
+   trova già pronti. Solo documenti pubblici, ognuno con la sua fonte in `manuals/manifest.toml`.
 
 ## Convenzioni del codice (dal template)
 
@@ -99,7 +99,7 @@ uv run pytest                 # unit test
 uv run pytest --cov           # come la CI
 uv run pytest -m integration  # serve Postgres, vedi docs/development.md
 uv run pytest -m e2e          # serve lo stack: docker compose up --build --wait
-python scripts/download_manuals.py
+python scripts/download_manuals.py   # scarica in data/manuals/ i manuali che mancano
 ```
 
 ## Come lavorare

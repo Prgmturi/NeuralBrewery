@@ -6,7 +6,7 @@ Solo libreria standard (Python 3.11+): gira ovunque, senza installare nulla.
     python scripts/download_manuals.py --force    # riscarica tutto
 
 Risultato in data/manuals/:
-- <id>.pdf / <id>.md   i documenti (NON vanno nel repo: sono del produttore)
+- <id>.pdf / <id>.md   i documenti (stanno nel repo, vedi AGENTS.md)
 - index.json           cosa c'è, da dove viene, hash sha256: è l'input del RAG
 """
 
