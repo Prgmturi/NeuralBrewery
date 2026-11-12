@@ -27,8 +27,10 @@ su ogni passaggio.
 - **Agenti**: orchestratore (parla con l'utente), agente impianto (unico che propone azioni),
   agente analista (dati, calcoli, diagnosi). *Perché*: privilegi separati; chi legge testo non
   fidato non deve poter proporre azioni.
-- **Codice, non LLM**: approvazione ed esecuzione, allarmi (sorvegliante a regole fisse),
-  interlock. *Perché*: devono funzionare anche se l'LLM sbaglia, è lento o viene manipolato.
+- **Codice, non LLM**: approvazione ed esecuzione, allarmi, interlock. *Perché*: devono
+  funzionare anche se l'LLM sbaglia, è lento o viene manipolato. Gli allarmi hanno due
+  fonti: il controllore dell'impianto riporta fatti ("sonda guasta", "K1 aperto"), il
+  sorvegliante a regole fisse giudica il processo ("le due sonde non concordano").
 - **Diagnosi su allarme come flusso fisso**. *Perché*: prevedibile, economico, facile da valutare.
   L'agente libero resta per la chat.
 - **Memory**: lezioni strutturate (evento, causa, intervento, esito), scritte solo a caso chiuso.
@@ -37,12 +39,28 @@ su ogni passaggio.
   tra componenti sono già note dalla configurazione dell'impianto, non serve estrarle con un LLM.
   Tabelle dei codici di errore spezzate una riga per chunk.
 - **Impianto**: vedi `docs/impianto.md`. Componenti reali con manuali pubblici, tenuti nel repo
-  in `data/manuals/`. Versione ridotta: un percorso alla volta, niente evaporazione, riempimento
-  della HLT, sonda TT4 e deriva. *Perché*: i requisiti del corso stanno tutti nella parte AI, e
-  i guasti rimasti bastano per la diagnosi e per gli eval.
-- **Simulatore**: servizio separato, un solo worker, modalità a passi per test ed eval. Tiene
-  uno storico breve delle letture, che si legge dalla porta `PlantReader`. *Perché*: diagnosi
-  ed eval girano senza database.
+  in `data/manuals/`. Cotta da 20 L: le taglie dei recipienti vengono dal fermentatore reale e
+  dai conti dell'acqua. Un percorso alla volta; niente riempimento della HLT, sonda TT4,
+  deriva, chimica. *Perché*: i requisiti del corso stanno tutti nella parte AI. Un dettaglio
+  si simula solo se crea un sintomo che l'agente può vedere, o la conseguenza di un'azione
+  che può proporre.
+- **Controllore tra AI e impianto**: l'impianto è governato da un controllore simulato (un PLC
+  generico). Agenti, sorvegliante ed esecutore vedono e comandano solo attraverso di lui; lui
+  conosce solo i segnali dei dispositivi, e ogni dispositivo dice solo ciò che il suo manuale
+  prevede. Fuori dal controllore resta la sicurezza cablata (K1), l'unica che agisce sui valori
+  veri. *Perché*: è come sono fatti gli impianti veri, e fissa con precisione che cosa un
+  agente può osservare. Le tre porte sono l'interfaccia del controllore: con un impianto vero
+  cambierebbe solo l'adattatore.
+- **Programma della cotta nel controllore**: una ricetta a passi, con conferme del birraio e un
+  tempo massimo per passo. *Perché*: dà alla diagnosi il contesto ("siamo nella sosta, minuto
+  25 di 60") e un allarme tipico degli impianti veri, il passo in ritardo.
+- **Comandi con una fine certa**: un travaso è a quantità e si ferma da solo. *Perché*: tra la
+  proposta e l'esecuzione c'è un'approvazione umana; uno stop che dipende da una seconda
+  approvazione arriverebbe tardi.
+- **Simulatore**: servizio separato, un solo worker, modalità a passi per test ed eval, con un
+  passo di calcolo fisso. Tiene uno storico breve delle letture e dei comandi, che si legge
+  dalla porta `PlantReader`. *Perché*: diagnosi ed eval girano senza database, e lo stesso
+  scenario dà sempre lo stesso risultato.
 - **Confine AI–impianto**: porte e adattatori (vedi `AGENTS.md`).
 - **Base del codice**: template `fastapi_starter` (FastAPI, PostgreSQL, Alembic, structlog,
   SQLAlchemy async, Keycloak, uv, import-linter, CI, release-please).
@@ -78,8 +96,10 @@ su ogni passaggio.
 - Keycloak: utile per l'identità di chi approva; da valutare il peso nel compose per il tester.
 - MQTT: solo se serve, dopo.
 - UI e notifiche.
-- Ordine dopo M1: il servizio plant-sim subito (M2), oppure dopo il primo agente, gli eval e
+- Ordine dopo M1b: il servizio plant-sim subito (M2), oppure dopo il primo agente, gli eval e
   la memory, che girano anche senza il servizio.
+- Adattatore verso un controllore vero (per esempio OPC UA): le letture hanno già la sua forma
+  (valore, qualità, tempo). Non serve al corso: solo se avanza tempo.
 - CI su GitHub: il controllo "Build container image" è rosso anche su `master`. La scansione
   trova due vulnerabilità in `zlib1g` dell'immagine base, e il rapporto non si carica da un
   repo privato. Rimandato: non è un errore della sessione in corso.
@@ -89,7 +109,8 @@ su ogni passaggio.
 | # | Milestone | Fatto quando |
 |---|---|---|
 | M0 | Rinomina del package, posti vuoti per l'impianto, contract, script manuali | Controlli della CI verdi |
-| M1 | Vocabolario, porte e modello dell'impianto ridotto, con storico breve (Python puro) | Test di plausibilità, interlock e guasti verdi |
+| M1 | Vocabolario, porte, processo, dispositivi e controllore con comandi manuali, interlock, allarmi e storico breve (Python puro) | Test di plausibilità, interlock e guasti verdi |
+| M1b | Programma della cotta nel controllore | Una cotta intera simulata, con 20 L nel fermentatore |
 | M2 | Servizio plant-sim, adapter REST, impostazioni, compose, sorvegliante | Test di contratto in-process e REST verdi |
 | M3 | Storico su Postgres + Grafana (facoltativo, solo se avanza tempo) | Grafici di una cotta simulata |
 | M4 | Server MCP (lettura + proposta) + coda approvazioni ed esecutore; via l'esempio notes | Proposta → approvazione → esecuzione da Claude Desktop |
