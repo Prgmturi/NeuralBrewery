@@ -36,8 +36,13 @@ su ogni passaggio.
 - **RAG classico** (ibrido + rerank) con metadati per componente e sigla. *Perché*: le relazioni
   tra componenti sono già note dalla configurazione dell'impianto, non serve estrarle con un LLM.
   Tabelle dei codici di errore spezzate una riga per chunk.
-- **Impianto**: vedi `docs/impianto.md`. Componenti reali con manuali pubblici.
-- **Simulatore**: servizio separato, un solo worker, modalità a passi per test ed eval.
+- **Impianto**: vedi `docs/impianto.md`. Componenti reali con manuali pubblici, tenuti nel repo
+  in `data/manuals/`. Versione ridotta: un percorso alla volta, niente evaporazione, riempimento
+  della HLT, sonda TT4 e deriva. *Perché*: i requisiti del corso stanno tutti nella parte AI, e
+  i guasti rimasti bastano per la diagnosi e per gli eval.
+- **Simulatore**: servizio separato, un solo worker, modalità a passi per test ed eval. Tiene
+  uno storico breve delle letture, che si legge dalla porta `PlantReader`. *Perché*: diagnosi
+  ed eval girano senza database.
 - **Confine AI–impianto**: porte e adattatori (vedi `AGENTS.md`).
 - **Base del codice**: template `fastapi_starter` (FastAPI, PostgreSQL, Alembic, structlog,
   SQLAlchemy async, Keycloak, uv, import-linter, CI, release-please).
@@ -73,15 +78,20 @@ su ogni passaggio.
 - Keycloak: utile per l'identità di chi approva; da valutare il peso nel compose per il tester.
 - MQTT: solo se serve, dopo.
 - UI e notifiche.
+- Ordine dopo M1: il servizio plant-sim subito (M2), oppure dopo il primo agente, gli eval e
+  la memory, che girano anche senza il servizio.
+- CI su GitHub: il controllo "Build container image" è rosso anche su `master`. La scansione
+  trova due vulnerabilità in `zlib1g` dell'immagine base, e il rapporto non si carica da un
+  repo privato. Rimandato: non è un errore della sessione in corso.
 
 ## Roadmap
 
 | # | Milestone | Fatto quando |
 |---|---|---|
 | M0 | Rinomina del package, posti vuoti per l'impianto, contract, script manuali | Controlli della CI verdi |
-| M1 | Vocabolario, porte e modello dell'impianto (Python puro) | Test di plausibilità, interlock e guasti verdi |
-| M2 | Servizio plant-sim, adapter REST, impostazioni, compose | Test di contratto in-process e REST verdi |
-| M3 | Storico su Postgres + Grafana | Grafici di una cotta simulata |
+| M1 | Vocabolario, porte e modello dell'impianto ridotto, con storico breve (Python puro) | Test di plausibilità, interlock e guasti verdi |
+| M2 | Servizio plant-sim, adapter REST, impostazioni, compose, sorvegliante | Test di contratto in-process e REST verdi |
+| M3 | Storico su Postgres + Grafana (facoltativo, solo se avanza tempo) | Grafici di una cotta simulata |
 | M4 | Server MCP (lettura + proposta) + coda approvazioni ed esecutore; via l'esempio notes | Proposta → approvazione → esecuzione da Claude Desktop |
 | M5 | Primo agente (impianto) + tracing + primo eval | Eval pass/fail su 3 scenari |
 | M6 | RAG sui manuali + RAGAS | RAGAS sopra soglia |

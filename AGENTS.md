@@ -112,3 +112,6 @@ python scripts/download_manuals.py   # scarica in data/manuals/ i manuali che ma
 - Se una decisione cambia, aggiorna `docs/decisioni.md` o `docs/impianto.md` nello stesso commit
   e segnalalo.
 - Fine sessione: tutti i controlli della CI verdi, commit, elenco breve di cosa è cambiato.
+- Fine fase: di' a chi sviluppa cosa deve controllare e quali dubbi restano, guardando lo stato
+  vero (PR e CI su GitHub, non solo i controlli locali). Il prompt della fase successiva, in
+  `docs/prompts/`, si scrive solo quando quei punti sono risolti.
