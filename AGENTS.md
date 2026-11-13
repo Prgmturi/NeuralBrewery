@@ -51,6 +51,8 @@ src/neuralbrewery/
    esegue solo proposte approvate. L'approvazione è codice, mai una decisione dell'LLM.
 2. **La sicurezza dell'impianto sta nel simulatore**: negli interlock del controllore e nella
    sicurezza cablata (K1). Il guardrail dell'agente è un secondo livello, non l'unico.
+   Il controllore non riparte mai da solo dopo un intervento: riarma solo il birraio, o
+   l'esecutore con un'azione approvata.
 3. **Comandi ad alto livello.** Percorsi predefiniti, quantità e setpoint, mai "apri la
    valvola X". Ogni comando ha una fine certa.
 4. **Valore vero e valore misurato sono separati.** Il processo non sa come viene misurato;
@@ -112,6 +114,8 @@ python scripts/download_manuals.py   # scarica in data/manuals/ i manuali che ma
 - Una milestone per sessione (roadmap in `docs/decisioni.md`). Niente lavoro fuori scope.
 - Prima proponi il piano (file e test), aspetta l'ok, poi scrivi.
 - Prima i test, poi il codice: plausibilità fisica, interlock, contratto delle porte.
+  Per l'impianto solo scenari attraverso le porte, non test strato per strato
+  (`docs/decisioni.md`).
 - Nessuna nuova dipendenza senza chiedere.
 - KISS: la soluzione più semplice che rispetta le regole sopra.
 - Se una decisione cambia, aggiorna `docs/decisioni.md` o `docs/impianto.md` nello stesso commit

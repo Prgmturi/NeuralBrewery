@@ -110,7 +110,12 @@ Il controllore sa *che* lo strumento è guasto, non *perché*.
   lo può leggere il birraio, non il controllore. Ha anche un collegamento digitale IO-Link,
   che qui non usiamo.
 - **Nel tino** il livello vede il liquido più il volume dei grani.
-- **iSpindel**: nessun messaggio da più di 30 minuti → qualità `STALE`.
+- **iSpindel**: quattro letture per messaggio (`DT1` la densità, poi `DT1.temperature`,
+  `DT1.battery`, `DT1.rssi`). Nessun messaggio da più di 30 minuti → qualità `STALE`, con
+  l'ultimo valore ricevuto. Nel giorno di cotta è spento, perché non è ancora nel
+  fermentatore: le sue letture sono vuote, senza allarme.
+- Una lettura guasta (`BAD`) non ha valore: restano la corrente e il motivo. Un numero
+  ricavato da una corrente di guasto (21,5 mA sarebbero 164 °C) ingannerebbe chi legge.
 - Ogni lettura porta il tempo simulato dell'ultima misura.
 
 ### Attuatori
@@ -160,7 +165,7 @@ temperatura **vera** supera il limite, K1 si apre e toglie corrente a tutte le r
 - **Bollitura**: con setpoint a 100 °C, arrivata a 99,5 °C la resistenza R3 passa alla
   potenza di bollitura (75 %).
 - **Sonda di regolazione non valida**: uscita a zero e allarme. Il fermentatore passa a
-  TT5b e lo segnala.
+  TT5b e lo segnala. Resta così fino al riarmo, anche se la sonda torna valida.
 
 ### Comandi (porta `PlantCommander`)
 
@@ -178,9 +183,27 @@ un motivo. Un comando rifiutato non è un errore.
 | `pause_program()`, `resume_program()` | Mette in pausa e riprende |
 | `abort_program()` | Chiude il programma e spegne il lato caldo |
 | `stop_all()` | Ferma il lato caldo: travaso, R1–R3, agitatore; programma in pausa. **Non tocca il fermentatore** |
-| `reset()` | Riarmo: richiude K1, conferma il guasto dell'inverter |
+| `reset()` | Riarmo: richiude K1, conferma il guasto dell'inverter, sblocca ciò che il controllore aveva fermato |
 
-Ogni comando approvato ha una fine certa: per questo il travaso è a quantità.
+- Ogni comando approvato ha una fine certa: per questo il travaso è a quantità.
+- **Un comando è rifiutato se un interlock lo fermerebbe subito**: scaldare un recipiente
+  vuoto, o il tino con il mosto fermo. Il motivo è nella risposta.
+- I comandi che fermano (`stop_route`, `stop_all`, un setpoint tolto) sono sempre accettati.
+- `reset` è sempre accettato: il controllore manda l'impulso e poi guarda. Se K1 resta
+  aperto lo dice l'allarme; il controllore non sa quale termostato lo tiene aperto.
+
+| Codice del rifiuto | Quando |
+|---|---|
+| `route_busy` | C'è già un travaso in corso |
+| `invalid_quantity` | Travaso senza litri o con zero litri; ricircolo con i litri |
+| `source_low` | Sorgente sotto 2 L |
+| `no_room` | La quantità non entra nella destinazione |
+| `level_unknown` | Il livello che serve non è valido |
+| `level_low` | Livello sotto il minimo della resistenza o dell'agitatore |
+| `setpoint_out_of_range` | Setpoint fuori dai limiti del recipiente |
+| `wort_not_moving` | Tino: né agitatore in marcia né ricircolo |
+| `probe_fault` | Nessuna sonda valida con cui regolare |
+| `drive_fault` | Inverter in guasto: serve prima `reset` |
 
 ### Percorsi
 
@@ -198,6 +221,11 @@ Un travaso procede così: apre le valvole, aspetta i contatti di fine corsa (al 
 10 s), avvia la pompa, conta i litri sul livello misurato della sorgente, ferma la pompa
 alla quantità chiesta, richiude le valvole. Portata delle pompe: 10 L/min.
 
+- I litri si contano sul livello, che è preciso a mezzo litro. Se il livello si ferma
+  quando mancano meno di 0,5 L, il travaso è **finito**, senza allarme: i due scarichi del
+  tino chiedono tutto il liquido che il tino può dare.
+- La pompa si ferma un passo dopo la misura: un travaso può dare fino a 0,2 L in più.
+
 ### Interlock (sulle misure del controllore)
 
 1. Resistenza accesa solo se il livello misurato copre l'elemento (HLT 8 L, MASH 6 L,
@@ -207,11 +235,23 @@ alla quantità chiesta, richiude le valvole. Portata delle pompe: 10 L/min.
 4. Travaso solo se la sorgente ha almeno 2 L e la quantità chiesta entra nella destinazione.
    Durante il travaso: si ferma se la sorgente scende sotto 2 L o la destinazione è piena.
 5. Un solo percorso attivo alla volta.
-6. Travaso senza avanzamento: livello della sorgente fermo per 60 s → pompa ferma e allarme.
-7. Valvola che non raggiunge la posizione in 10 s → travaso annullato e allarme.
+6. Travaso senza avanzamento: livello della sorgente fermo per 60 s (meno di 0,5 L) quando
+   mancano ancora almeno 0,5 L → pompa ferma e allarme.
+7. Valvola i cui contatti non concordano con il comando da 10 s → allarme; se è di un
+   travaso che sta partendo, il travaso è annullato. Vale per tutte le valvole, anche EV9,
+   e anche in chiusura.
 8. Setpoint entro i limiti del recipiente (tabella della sicurezza cablata; FERM da 0 a 30 °C).
 9. Livello non valido: vale come "livello sconosciuto", quindi resistenza spenta e travaso rifiutato.
 10. Ogni intervento automatico produce un evento, con tempo simulato, codice e motivo.
+
+**Il controllore non riparte da solo.** Quando un interlock ferma qualcosa (una resistenza,
+l'agitatore, la regolazione, un travaso), resta fermo con il suo allarme anche se la causa
+sparisce. Lo sblocca solo il birraio, o l'esecutore con un'azione approvata:
+
+- con `reset`: riparte ciò che non ha più la sua causa, il resto resta bloccato;
+- con un nuovo comando sulla stessa cosa (un setpoint, l'agitatore, un altro travaso).
+
+La richiesta del birraio resta: un setpoint bloccato si vede ancora nella regolazione.
 
 ### Programma della cotta
 
@@ -247,24 +287,30 @@ controllore dà l'allarme `step_late` e prosegue.
 
 ### Allarmi ed eventi
 
-Il controllore riporta **fatti**. Un allarme resta attivo finché la causa c'è.
+Il controllore riporta **fatti**. Gli allarmi sono di due tipi:
 
-| Codice | Quando | Su cosa |
-|---|---|---|
-| `signal_fault` | Segnale 4–20 mA guasto o assente | TT, LT |
-| `hydrometer_silent` | Nessun messaggio dall'iSpindel da più di 30 min | DT1 |
-| `control_probe_fault` | Regolazione sospesa, o passata alla sonda di riserva | Recipiente |
-| `valve_not_reached` | Valvola non arrivata in 10 s | EV |
-| `transfer_no_progress` | Livello fermo per 60 s durante un travaso | Percorso |
-| `transfer_stopped` | Travaso fermato: sorgente bassa o destinazione piena | Percorso |
-| `heater_blocked` | Resistenza bloccata: livello basso o mosto fermo | R |
-| `agitator_blocked` | Agitatore bloccato: livello basso | M1 |
-| `drive_fault` | L'inverter segnala un guasto, con il suo codice | M1 |
-| `safety_open` | K1 aperto | K1 |
-| `step_late` | Passo oltre il tempo massimo | Programma |
-| `program_paused` | Programma in pausa per un allarme | Programma |
+- **avviso**: non ferma niente, e finisce da solo quando finisce la causa;
+- **blocco**: il controllore ha fermato qualcosa. Resta attivo fino al riarmo (vedi sopra,
+  "Il controllore non riparte da solo").
 
-Sono eventi: ogni allarme che nasce o finisce, ogni comando accettato, ogni cambio di passo.
+| Codice | Tipo | Quando | Su cosa |
+|---|---|---|---|
+| `signal_fault` | avviso | Segnale 4–20 mA guasto o assente | TT, LT |
+| `hydrometer_silent` | avviso | Nessun messaggio dall'iSpindel da più di 30 min | DT1 |
+| `drive_fault` | avviso | L'inverter segnala un guasto, con il suo codice. È l'inverter a restare in guasto fino a `reset` | M1 |
+| `safety_open` | avviso | K1 aperto. È K1 a restare aperto fino a `reset` | K1 |
+| `control_probe_fault` | blocco | Regolazione sospesa, o passata alla sonda di riserva | Recipiente |
+| `heater_blocked` | blocco | Resistenza bloccata: livello basso o sconosciuto, mosto fermo | R |
+| `agitator_blocked` | blocco | Agitatore bloccato: livello basso o sconosciuto | M1 |
+| `valve_not_reached` | blocco | Contatti della valvola diversi dal comando da 10 s | EV |
+| `transfer_no_progress` | blocco | Livello fermo per 60 s durante un travaso | Percorso |
+| `transfer_stopped` | blocco | Travaso fermato: sorgente bassa, destinazione piena, livello non valido | Percorso |
+| `step_late` | (M1b) | Passo oltre il tempo massimo | Programma |
+| `program_paused` | (M1b) | Programma in pausa per un allarme | Programma |
+
+Sono eventi: ogni allarme che nasce o finisce, ogni comando accettato, ogni travaso
+completato, ogni cambio di passo. Ogni evento ha un numero progressivo: due eventi dello
+stesso istante restano in ordine.
 
 I **giudizi sul processo** non sono del controllore ma del sorvegliante (M2): due sonde che
 non concordano, temperatura lontana dal setpoint, livelli che cambiano senza un travaso,
@@ -281,7 +327,7 @@ densità ferma.
 | Nella fotografia | Contenuto |
 |---|---|
 | Tempo | Tempo simulato |
-| Letture | Per sigla: valore, unità, qualità e motivo, corrente in mA (se 4–20 mA), tempo dell'ultima misura. Per l'iSpindel quattro letture: densità, temperatura, batteria, segnale |
+| Letture | Per sigla: valore (vuoto se la lettura è guasta), unità, qualità e motivo, corrente in mA (se 4–20 mA), tempo dell'ultima misura. Per l'iSpindel quattro letture: densità, temperatura, batteria, segnale |
 | Dispositivi | Per sigla: comando e, dove esiste, ritorno. Per M1 anche frequenza, corrente e codice di guasto |
 | Regolazione | Per recipiente: setpoint, sonda in uso |
 | Travaso | Percorso attivo, litri chiesti, litri fatti |
@@ -291,17 +337,26 @@ densità ferma.
 **Storico breve**: letture e comandi di resistenze, pompe ed EV9, con finestra e passo
 configurabili (24 ore e 60 s). Basta per la diagnosi e per gli eval, senza database.
 
+- Una lettura è salvata com'era in quell'istante.
+- Un comando è salvato come **media dall'ultimo campione**, in percento: una resistenza
+  accesa 24 secondi su 60 vale 40. Il valore dell'istante perderebbe quasi tutto: a
+  temperatura raggiunta la resistenza della HLT sta accesa mezzo minuto ogni cinque.
+
 ### Simulazione (porta `SimulationControl`)
 
 Non fa parte del controllore: è la mano di chi prova. Solo test, eval e demo.
 
 - **Tempo**: `advance(secondi)`. Il passo di calcolo è fisso, scelto alla creazione del
   simulatore (1 s; 10 s per le fermentazioni lunghe), e il tempo si conta in passi interi.
+  Un tempo che non è un numero intero di passi è un errore, non viene arrotondato.
+- **Ordine di un passo**: i dispositivi eseguono le uscite e la sicurezza cablata guarda
+  le temperature vere; il processo avanza; i dispositivi misurano; il controllore legge
+  e decide. Un comando ha quindi effetto sull'impianto dal passo successivo.
 - **Guasti**: `inject_fault`, `clear_faults`. Un guasto su una sigla che non lo ammette è
   un errore, non viene ignorato.
 - **Partenze con nome**:
   - *giorno di cotta*: HLT con 35 L, tino con 4,5 kg di grani asciutti, bollitore e
-    fermentatore vuoti;
+    fermentatore vuoti, iSpindel spento;
   - *fermentazione*: lato caldo vuoto e spento, fermentatore con 20 L a 19 °C in
     fermentazione, con l'avanzamento come parametro.
 - La temperatura della stanza è un parametro della partenza (20 °C se non detto).
@@ -316,6 +371,8 @@ Non fa parte del controllore: è la mano di chi prova. Solo test, eval e demo.
 | Bollitura | A 100 °C la potenza che avanza fa evaporare l'acqua (2257 kJ/kg) |
 | Travaso | 10 L/min; le temperature si mescolano; il mosto esce dallo scambiatore a 20 °C |
 | Troppo pieno | Ciò che supera la capacità trabocca ed è perso |
+| Recipiente vuoto | Ha la capacità termica del suo acciaio (1 kJ/°C): una resistenza a secco lo scalda di gradi al secondo |
+| Più vie aperte | La pompa divide la portata tra i percorsi che hanno tutte le valvole aperte. Succede solo con una valvola bloccata aperta |
 | Fermentazione | Da 1.050 a 1.010 in circa 5 giorni a 19 °C, curva a S, più veloce al caldo. Parte all'inoculo |
 | Calore del lievito | Circa 50 kJ per litro in tutto, con un picco di circa 0,25 W/L |
 | Agitatore | Non cambia la fisica: il suo effetto passa dall'interlock 2 |
@@ -324,27 +381,30 @@ Non fa parte del controllore: è la mano di chi prova. Solo test, eval e demo.
 
 **Di misura** (lo strumento mente; il controllore agisce sulla misura, quindi il processo ne risente)
 
-| Guasto | Su | Cosa vede il controllore |
-|---|---|---|
-| PT100 filo rotto | TT | Corrente ad almeno 21,5 mA, `signal_fault`. Se è la sonda di regolazione: `control_probe_fault` |
-| PT100 starata (offset fisso) | TT | Niente di anomalo. Il recipiente va alla temperatura sbagliata; nel fermentatore le due sonde non concordano |
-| Cavo del segnale interrotto | TT, LT | 0 mA, `signal_fault` con "segnale assente" |
-| Livello bloccato su un valore | LT | Valore fermo con qualità buona. Gli interlock sono ingannati |
-| Livello disturbato dalla schiuma | LT | Salti ogni tanto verso un valore più alto (manuale SICK, 11.4) |
-| iSpindel batteria scarica | DT1 | Tensione che cala, poi silenzio: `hydrometer_silent` |
-| iSpindel WiFi perso | DT1 | Silenzio di colpo, con batteria buona |
+| Guasto | Codice | Su | Cosa vede il controllore |
+|---|---|---|---|
+| PT100 filo rotto | `probe_broken` | TT | Corrente ad almeno 21,5 mA, `signal_fault`. Se è la sonda di regolazione: `control_probe_fault` |
+| PT100 starata (offset fisso) | `probe_offset`, con i gradi | TT | Niente di anomalo. Il recipiente va alla temperatura sbagliata; nel fermentatore le due sonde non concordano |
+| Cavo del segnale interrotto | `signal_cable_broken` | TT, LT | 0 mA, `signal_fault` con "segnale assente" |
+| Livello bloccato su un valore | `level_stuck`, con il valore o senza (resta dov'è) | LT | Valore fermo con qualità buona. Gli interlock sono ingannati |
+| Livello disturbato dalla schiuma | `level_foam` | LT | Salti ogni tanto verso un valore più alto (manuale SICK, 11.4): una misura su venti, da 1 a 5 L |
+| iSpindel batteria scarica | `hydrometer_battery_low` | DT1 | Tensione che cala (0,1 V l'ora), poi silenzio sotto 3,3 V: `hydrometer_silent` |
+| iSpindel WiFi perso | `hydrometer_wifi_lost` | DT1 | Silenzio di colpo, con batteria buona |
 
 **Di processo** (la misura è giusta, l'impianto no)
 
-| Guasto | Su | Cosa vede il controllore |
-|---|---|---|
-| Pompa bloccata o disinnescata | P1, P2 | Pompa comandata, livelli fermi: `transfer_no_progress` |
-| Valvola bloccata | EV | Contatto non raggiunto: `valve_not_reached` |
-| Relè statico in corto | R | Resistenza comandata a 0 % e temperatura che sale. HLT e tino: scatta K1. Bollitore: bolle senza comando e il livello cala. Fermentatore: il glicole compensa, EV9 resta aperta molto più del solito |
-| Resistenza interrotta | R | Comandata al 100 %, temperatura ferma; con il programma, `step_late` |
-| Glicole guasto | Chiller | EV9 aperta e contatto regolare, temperatura che sale |
-| Inverter in guasto | M1 | `drive_fault` con il codice (F1 sovracorrente, F11 motore surriscaldato...: V20, pagina 55). Agitatore fermo, R2 bloccata |
-| Fermentazione bloccata | FERM | Densità ferma sopra 1.010 |
+| Guasto | Codice | Su | Cosa vede il controllore |
+|---|---|---|---|
+| Pompa bloccata o disinnescata | `pump_blocked` | P1, P2 | Pompa comandata, livelli fermi: `transfer_no_progress` |
+| Valvola bloccata (ferma dove si trova) | `valve_stuck` | EV | Contatto non raggiunto: `valve_not_reached`. Se è rimasta aperta, il travaso dopo va a metà portata |
+| Relè statico in corto | `ssr_shorted` | R | Resistenza comandata a 0 % e temperatura che sale. HLT e tino: scatta K1. Bollitore: bolle senza comando e il livello cala. Fermentatore: il glicole compensa, EV9 resta aperta molto più del solito |
+| Resistenza interrotta | `heater_open` | R | Comandata al 100 %, temperatura ferma; con il programma, `step_late` |
+| Glicole guasto | `glycol_failed` | `CHILLER` | EV9 aperta e contatto regolare, temperatura che sale |
+| Inverter in guasto | `drive_fault`, con il codice | M1 | `drive_fault` con il codice (F1 sovracorrente, F11 motore surriscaldato...: V20, pagina 55). Agitatore fermo, R2 bloccata |
+| Fermentazione bloccata | `fermentation_stuck` | FERM | Densità ferma sopra 1.010 |
+
+Togliere i guasti (`clear_faults`) non cancella ciò che hanno già fatto: K1 resta aperto e
+l'inverter resta in guasto fino a `reset`. Una batteria tolta dai guasti è una batteria nuova.
 
 Una pompa bloccata, una pompa disinnescata e una sorgente che non scarica danno lo stesso
 allarme: l'agente deve proporre verifiche, non tirare a indovinare.
@@ -352,7 +412,8 @@ allarme: l'agente deve proporre verifiche, non tirare a indovinare.
 ## Controlli di plausibilità (test)
 
 1. HLT, 35 L da 20 a 72 °C con 3 kW: circa 42 minuti senza perdite, poco di più con le perdite.
-2. Impasto: 13,5 L a 72 °C su 4,5 kg di grani a 20 °C danno circa 66 °C.
+2. Impasto: 13,5 L a 72 °C su 4,5 kg di grani a 20 °C danno circa 65 °C (66 senza
+   contare l'acciaio del tino). Il passo 3 del programma porta poi il tino a 66 °C.
 3. Bollitura: TT3 si ferma a 100 °C e in 60 minuti evaporano tra 3 e 4 L.
 4. Fermentazione a 19 °C da 1.050 a 1.010 in circa 5 giorni, con curva a S.
 5. Travaso: il volume totale si conserva, tolti evaporazione e traboccamenti.
@@ -363,6 +424,9 @@ allarme: l'agente deve proporre verifiche, non tirare a indovinare.
 9. Stesso seed, stessa partenza e stesse azioni → stesso stato.
 10. Un guasto su uno strumento non cambia il rumore degli altri.
 11. Ogni guasto mostra al controllore ciò che dice la sua riga nelle tabelle qui sopra.
+
+I test fanno girare l'impianto intero attraverso le tre porte, in
+`tests/adapters/plant_sim/`. Non ci sono test strato per strato: ripeterebbero questi.
 
 ## Semplificazioni volute
 
@@ -387,6 +451,10 @@ allarme: l'agente deve proporre verifiche, non tirare a indovinare.
 - **Valvole**: il manuale oggi in `data/manuals/` è del modello a 3 fili, che ha solo un
   indicatore visivo. Per i contatti di fine corsa serve il manuale della versione a 5 fili.
 - **iSpindel**: tensione di spegnimento e velocità di scarica della batteria non sono nel
-  suo README.
+  suo README. Valori scelti da noi: 4,1 V da carica, spento sotto 3,3 V, 0,1 V l'ora con
+  il guasto.
+- **Schiuma sul livello**: il manuale SICK descrive l'effetto, non quanto. Valori scelti da
+  noi: una misura su venti, da 1 a 5 L in più.
+- **Inverter**: 50 Hz e 1,2 A in marcia sono valori fissi, non presi dal manuale.
 - **Pompa e chiller**: "nessun ritorno" viene dalla conoscenza dei prodotti, non dai manuali.
 - **Dispersioni dei recipienti**: valori di partenza, da tarare con i controlli di plausibilità.

@@ -224,6 +224,40 @@ belong outside it: in the service that serves the plant, and in the
 adapter that calls that service. tests/test_package.py checks the same
 list in a running process."""
 
+[[tool.importlinter.contracts]]
+name = "The controller of the plant sees signals, never true values"
+type = "forbidden"
+source_modules = ["neuralbrewery.adapters.plant_sim.controller"]
+forbidden_modules = [
+    "neuralbrewery.adapters.plant_sim.process",
+    "neuralbrewery.adapters.plant_sim.devices",
+    "neuralbrewery.adapters.plant_sim.faults",
+    "neuralbrewery.adapters.plant_sim.simulator",
+]
+broken_contract_guidance = """
+The controller knows the plant only through adapters/plant_sim/signals.py:
+the currents, the contacts and the messages the devices send it. A true
+value read from the process, or a fault read from a device, would let it
+see what no real controller can, and the agents would see it too. If the
+controller needs to know something, a device has to be wired to tell it:
+add the signal to signals.py."""
+
+[[tool.importlinter.contracts]]
+name = "The process of the plant does not know how it is measured"
+type = "forbidden"
+source_modules = ["neuralbrewery.adapters.plant_sim.process"]
+forbidden_modules = [
+    "neuralbrewery.adapters.plant_sim.signals",
+    "neuralbrewery.adapters.plant_sim.devices",
+    "neuralbrewery.adapters.plant_sim.controller",
+]
+broken_contract_guidance = """
+The process holds the true values: liquids, temperatures, fermentation.
+Noise, tolerances and faults of measure belong in adapters/plant_sim/devices/,
+which reads the process; regulation and interlocks belong in the
+controller, which reads the devices. The process is told the power and the
+flows of each step, and nothing else."""
+
 
 # =============================================================================
 # PYTEST

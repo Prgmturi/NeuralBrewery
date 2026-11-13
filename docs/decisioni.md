@@ -57,6 +57,14 @@ su ogni passaggio.
 - **Comandi con una fine certa**: un travaso è a quantità e si ferma da solo. *Perché*: tra la
   proposta e l'esecuzione c'è un'approvazione umana; uno stop che dipende da una seconda
   approvazione arriverebbe tardi.
+- **Il controllore non riparte da solo**: ciò che un interlock ferma resta fermo, con il suo
+  allarme, finché il birraio o l'esecutore non riarma (`reset`, o un nuovo comando sulla
+  stessa cosa). *Perché*: proseguire dopo un allarme è una decisione di chi ne risponde, e
+  dà alla parte AI un flusso completo: allarme, diagnosi, proposta di riarmo, approvazione.
+- **Test dell'impianto**: solo scenari sull'impianto intero, attraverso le porte (un test per
+  guasto, per interlock e per K1, più i conti della cotta e il determinismo). Niente test
+  strato per strato. *Perché*: sono i comportamenti su cui poggiano gli eval; il resto
+  toglierebbe tempo alla parte AI. La soglia di copertura della CI non cambia.
 - **Simulatore**: servizio separato, un solo worker, modalità a passi per test ed eval, con un
   passo di calcolo fisso. Tiene uno storico breve delle letture e dei comandi, che si legge
   dalla porta `PlantReader`. *Perché*: diagnosi ed eval girano senza database, e lo stesso
