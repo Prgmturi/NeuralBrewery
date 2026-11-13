@@ -89,6 +89,23 @@ class TestMashHeater:
         assert state.devices.heaters["R2"].commanded_pct == 100
         assert state.alarms == ()
 
+    async def test_the_agitator_counts_from_its_command(self, mashed):
+        """[HP] Interlock 2: "agitator on" and at once "heat the tun".
+
+        WHY: the executor gives the actions of an approved plan one after
+        the other. The run signal of the drive comes a scan later: going by
+        it, the second command was refused.
+        """
+        assert (await mashed.set_agitator(True)).accepted
+
+        assert (await mashed.set_temperature(Vessel.MASH, 66)).accepted
+
+        await mashed.advance(2)
+        state = await mashed.snapshot()
+        assert state.devices.agitator.running
+        assert state.devices.heaters["R2"].commanded_pct == 100
+        assert state.alarms == ()
+
     async def test_a_blocked_heater_waits_for_the_brewer(self, mashed):
         """[EC] Interlock 2, while heating; then only reset lets it go on.
 

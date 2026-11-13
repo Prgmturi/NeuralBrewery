@@ -4,7 +4,8 @@
 - regulation.py: on/off temperature regulation
 - journal.py: the alarms active now, and the log of what happened
 - history.py: the short history of readings and commands
-- controller.py: the scan cycle, the commands, the interlocks
+- program.py: the recipe of the brew program, and where the program is
+- controller.py: the scan cycle, the commands, the interlocks, the program
 
 It knows the plant only through signals.py. An import contract in
 pyproject.toml keeps this package away from the process and the devices:

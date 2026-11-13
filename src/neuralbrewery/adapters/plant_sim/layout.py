@@ -70,3 +70,4 @@ AGITATOR = "M1"
 AGITATOR_COVERED_L = 8.0  # below this level in the tun the blades are dry
 CONTACTOR = "K1"
 HYDROMETER = "DT1"
+PROGRAM = "PROGRAM"  # the brew program: what its alarms and events are about

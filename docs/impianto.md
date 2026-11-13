@@ -57,15 +57,19 @@ Le taglie dei recipienti vengono da qui. Si parte dal fermentatore, che è un pr
 | Acqua di impasto (3 L/kg) | 13,5 L |
 | Acqua trattenuta dai grani (1 L/kg) | 4,5 L |
 | Primo mosto | 9 L |
-| Acqua di lavaggio dei grani | 17 L |
-| Nel bollitore prima della bollitura | 26 L |
+| Acqua di lavaggio dei grani | 18 L |
+| Nel bollitore prima della bollitura | 27 L |
 | Evaporata in 60 minuti | circa 3,4 L |
 | Nel fermentatore | 20 L |
-| Resta sul fondo del bollitore | circa 2,6 L |
-| Acqua usata, su 35 L nella HLT | 30,5 L |
+| Resta sul fondo del bollitore | circa 3,6 L |
+| Acqua usata, su 35 L nella HLT | 31,5 L |
 
 Il lavaggio dei grani si fa in due riprese (prima si svuota il tino, poi lo si riempie di
 nuovo): è un metodo vero, e richiede un solo percorso alla volta.
+
+Il fondo del bollitore è di 3,6 L per restare lontani dal minimo di 2 L sotto cui un travaso
+si ferma. Con 17 L di lavaggio ne restavano 2,4–2,9: provando la cotta su 50 seed, in un caso
+l'ultimo travaso finiva in allarme. Con 18 L arrivano in fondo 200 seed su 200.
 
 ## Recipienti
 
@@ -188,7 +192,9 @@ un motivo. Un comando rifiutato non è un errore.
 - Ogni comando approvato ha una fine certa: per questo il travaso è a quantità.
 - **Un comando è rifiutato se un interlock lo fermerebbe subito**: scaldare un recipiente
   vuoto, o il tino con il mosto fermo. Il motivo è nella risposta.
-- I comandi che fermano (`stop_route`, `stop_all`, un setpoint tolto) sono sempre accettati.
+- I comandi che fermano (`stop_route`, `stop_all`, un setpoint tolto, agitatore spento,
+  `pause_program`, `abort_program`) sono sempre accettati. Con il programma in corso, un
+  comando manuale che ferma lo mette in pausa.
 - `reset` è sempre accettato: il controllore manda l'impulso e poi guarda. Se K1 resta
   aperto lo dice l'allarme; il controllore non sa quale termostato lo tiene aperto.
 
@@ -204,6 +210,9 @@ un motivo. Un comando rifiutato non è un errore.
 | `wort_not_moving` | Tino: né agitatore in marcia né ricircolo |
 | `probe_fault` | Nessuna sonda valida con cui regolare |
 | `drive_fault` | Inverter in guasto: serve prima `reset` |
+| `program_running` | Comando manuale che avvia qualcosa sul lato caldo, con il programma in corso |
+| `program_state` | Il programma non è nello stato che il comando chiede: avvio con un programma già aperto, ripresa senza pausa, conferma senza un passo in attesa |
+| `alarm_active` | Avvio o ripresa del programma con un blocco attivo, K1 aperto o inverter in guasto: serve prima `reset` |
 
 ### Percorsi
 
@@ -230,13 +239,16 @@ alla quantità chiesta, richiude le valvole. Portata delle pompe: 10 L/min.
 
 1. Resistenza accesa solo se il livello misurato copre l'elemento (HLT 8 L, MASH 6 L,
    BOIL 6 L, FERM 4 L).
-2. R2 accesa solo se il mosto si muove: agitatore in marcia o ricircolo attivo.
+2. R2 accesa solo se il mosto si muove: agitatore comandato e inverter senza guasto, oppure
+   ricircolo attivo. Vale il comando, non il ritorno di marcia, che arriva un ciclo dopo:
+   così "accendi l'agitatore" e subito dopo "scalda il tino" funzionano.
 3. Agitatore acceso solo se il livello misurato copre le pale (MASH 8 L).
 4. Travaso solo se la sorgente ha almeno 2 L e la quantità chiesta entra nella destinazione.
    Durante il travaso: si ferma se la sorgente scende sotto 2 L o la destinazione è piena.
 5. Un solo percorso attivo alla volta.
 6. Travaso senza avanzamento: livello della sorgente fermo per 60 s (meno di 0,5 L) quando
-   mancano ancora almeno 0,5 L → pompa ferma e allarme.
+   mancano ancora almeno 0,5 L → pompa ferma e allarme. Con il rumore del livello
+   l'allarme arriva da uno a due minuti dopo che il liquido si è fermato.
 7. Valvola i cui contatti non concordano con il comando da 10 s → allarme; se è di un
    travaso che sta partendo, il travaso è annullato. Vale per tutte le valvole, anche EV9,
    e anche in chiusura.
@@ -255,34 +267,62 @@ La richiesta del birraio resta: un setpoint bloccato si vede ancora nella regola
 
 ### Programma della cotta
 
-Una sola ricetta, quella dei conti qui sopra. Ogni passo ha un tempo massimo: oltre, il
-controllore dà l'allarme `step_late` e prosegue.
+Una sola ricetta, quella dei conti qui sopra. Il programma è il controllore che fa il
+birraio: a ogni passo preme gli stessi pulsanti. Gli rispondono gli stessi interlock, e
+ogni suo comando è un evento.
 
 | # | Passo | Cosa fa il controllore | Finisce quando | Tempo massimo |
 |---|---|---|---|---|
 | 1 | Scalda l'acqua | HLT a 72 °C | TT1 arriva a 72 °C | 60 min |
-| 2 | Impasto | `hlt_to_mash` 13,5 L; agitatore acceso | Travaso finito | 5 min |
-| 3 | Porta il tino a 66 °C | MASH a 66 °C; HLT a 78 °C | TT2 arriva a 66 °C | 15 min |
+| 2 | Impasto | `hlt_to_mash` 13,5 L | Travaso finito | 5 min |
+| 3 | Porta il tino a 66 °C | Agitatore acceso; HLT a 78 °C; MASH a 66 °C | TT2 arriva a 66 °C | 15 min |
 | 4 | Sosta | Mantiene | Passati 60 min | — |
 | 5 | Fine sosta | MASH a 76 °C | TT2 arriva a 76 °C | 15 min |
-| 6 | Ricircolo | Agitatore spento; `mash_recirc` | Passati 10 min | — |
+| 6 | Ricircolo | `mash_recirc`; agitatore spento | Passati 10 min | — |
 | 7 | Primo mosto | MASH spento; `mash_to_boil` 9 L | Travaso finito | 5 min |
-| 8 | Lavaggio | HLT spenta; `hlt_to_mash` 17 L | Travaso finito | 5 min |
+| 8 | Lavaggio | HLT spenta; `hlt_to_mash` 18 L | Travaso finito | 5 min |
 | 9 | Ricircolo | `mash_recirc` | Passati 10 min | — |
-| 10 | Secondo mosto | `mash_to_boil` 17 L | Travaso finito | 5 min |
+| 10 | Secondo mosto | `mash_to_boil` 18 L | Travaso finito | 5 min |
 | 11 | Porta a bollore | BOIL a 100 °C | TT3 arriva a 99,5 °C | 30 min |
 | 12 | Bollitura | Potenza di bollitura | Passati 60 min | — |
 | 13 | Pronto al travaso | BOIL spento; aspetta il birraio | `confirm_step` | — |
 | 14 | Al fermentatore | `boil_to_ferm` 20 L | Travaso finito | 5 min |
-| 15 | Lievito | Aspetta il birraio; poi FERM a 19 °C | `confirm_step` | — |
+| 15 | Lievito | FERM a 19 °C; aspetta il birraio | `confirm_step` | — |
 
 - **Stati**: fermo, in corso, in attesa di conferma, in pausa, finito, annullato.
-- **Pausa automatica**: se un allarme impedisce il passo (travaso annullato, K1 aperto,
-  sonda di regolazione guasta, inverter in guasto) il programma va in pausa e dice perché.
-- **In pausa** le temperature restano, i travasi e il conteggio del tempo si fermano.
-  `resume_program` riprende il passo; un travaso riparte dai litri che mancano.
-- **Con il programma in corso** i comandi manuali del lato caldo sono rifiutati; in pausa
-  sono ammessi.
+- **L'agitatore parte al passo 3**: durante l'impasto il livello del tino è sotto le pale.
+- **Passo 15**: il fermentatore è tenuto a 19 °C mentre aspetta il lievito. La conferma
+  del birraio è l'inoculo, e chiude il programma.
+- **Un passo descrive tutto il lato caldo**: setpoint di HLT, MASH e BOIL, agitatore,
+  percorso con i litri. La tabella mostra solo ciò che cambia; la ricetta nel codice ha lo
+  stato intero. Quando il passo comincia, e a ogni ripresa, il programma porta l'impianto
+  a quello stato:
+  - dà solo i comandi che mancano: uno già a posto non viene ridato, quindi il programma
+    non riarma mai ciò che un interlock ha fermato;
+  - li dà in quest'ordine: setpoint da togliere, percorso, agitatore, setpoint da
+    mettere. Così nessun interlock scatta per l'ordine dei comandi.
+- **Passo in ritardo**: oltre il tempo massimo il controllore dà l'avviso `step_late`. Il
+  passo continua: non viene saltato né fermato. L'avviso finisce con il passo.
+- **Pausa automatica**, con l'allarme `program_paused` e il motivo. Scatta con un blocco
+  attivo (un allarme di tipo blocco), con K1 aperto, con l'inverter in guasto, o quando
+  l'impianto rifiuta un comando del programma.
+- **In pausa** i setpoint restano e il tempo del passo si ferma. Un travaso a quantità si
+  ferma, e i litri già fatti restano contati. Il ricircolo resta acceso: è ciò che
+  permette al tino di tenere la temperatura.
+- **Ripresa**: `resume_program` è rifiutato finché c'è un blocco attivo, K1 è aperto o
+  l'inverter è in guasto. Prima `reset`, poi la ripresa; i due comandi dati uno dopo
+  l'altro funzionano. Se la causa c'è ancora il programma torna in pausa. Un travaso
+  riparte dai litri che mancano.
+- **Comandi manuali con il programma in corso**:
+  - quelli che avviano qualcosa sul lato caldo sono rifiutati (`program_running`);
+  - quelli che fermano (`stop_route`, un setpoint tolto, agitatore spento, `stop_all`)
+    sono eseguiti e mettono il programma in pausa, senza allarme;
+  - il fermentatore si comanda sempre;
+  - in pausa i comandi manuali sono ammessi. Alla ripresa il programma rimette lo stato
+    del passo, anche dopo uno `stop_all`.
+- **Avvio**: `start_program` è rifiutato con un programma già aperto, e negli stessi casi
+  della ripresa. I comandi del primo passo arrivano con il ciclo successivo: se l'impianto
+  ne rifiuta uno (per esempio la HLT è vuota) il programma va in pausa e dice perché.
 - Una cotta intera dura circa 3 ore e 40 minuti simulati.
 
 ### Allarmi ed eventi
@@ -305,12 +345,12 @@ Il controllore riporta **fatti**. Gli allarmi sono di due tipi:
 | `valve_not_reached` | blocco | Contatti della valvola diversi dal comando da 10 s | EV |
 | `transfer_no_progress` | blocco | Livello fermo per 60 s durante un travaso | Percorso |
 | `transfer_stopped` | blocco | Travaso fermato: sorgente bassa, destinazione piena, livello non valido | Percorso |
-| `step_late` | (M1b) | Passo oltre il tempo massimo | Programma |
-| `program_paused` | (M1b) | Programma in pausa per un allarme | Programma |
+| `step_late` | avviso | Passo del programma oltre il tempo massimo. Finisce con il passo | `PROGRAM` |
+| `program_paused` | blocco | Il controllore ha messo in pausa il programma: il testo dice perché. Resta fino a `resume_program` o `abort_program` | `PROGRAM` |
 
-Sono eventi: ogni allarme che nasce o finisce, ogni comando accettato, ogni travaso
-completato, ogni cambio di passo. Ogni evento ha un numero progressivo: due eventi dello
-stesso istante restano in ordine.
+Sono eventi: ogni allarme che nasce o finisce, ogni comando accettato (anche quelli che dà
+il programma), ogni travaso completato, ogni passo che comincia, la fine del programma.
+Ogni evento ha un numero progressivo: due eventi dello stesso istante restano in ordine.
 
 I **giudizi sul processo** non sono del controllore ma del sorvegliante (M2): due sonde che
 non concordano, temperatura lontana dal setpoint, livelli che cambiano senza un travaso,
@@ -331,7 +371,7 @@ densità ferma.
 | Dispositivi | Per sigla: comando e, dove esiste, ritorno. Per M1 anche frequenza, corrente e codice di guasto |
 | Regolazione | Per recipiente: setpoint, sonda in uso |
 | Travaso | Percorso attivo, litri chiesti, litri fatti |
-| Programma | Stato, numero e nome del passo, tempo trascorso e tempo massimo |
+| Programma | Stato, numero e nome del passo, tempo trascorso nel passo (pause escluse) e tempo massimo, motivo della pausa |
 | Allarmi | Quelli attivi: codice, sigla, testo, da quando |
 
 **Storico breve**: letture e comandi di resistenze, pompe ed EV9, con finestra e passo
@@ -418,7 +458,7 @@ allarme: l'agente deve proporre verifiche, non tirare a indovinare.
 4. Fermentazione a 19 °C da 1.050 a 1.010 in circa 5 giorni, con curva a S.
 5. Travaso: il volume totale si conserva, tolti evaporazione e traboccamenti.
 6. Una cotta intera con il programma finisce con 20 L nel fermentatore, entro la
-   tolleranza dei livelli.
+   tolleranza dei livelli, in circa 3 ore e 40 minuti e senza allarmi.
 7. Ogni interlock ha almeno un test che lo fa scattare; lo stesso per K1.
 8. Due sonde sane nel fermentatore restano entro la somma delle loro tolleranze.
 9. Stesso seed, stessa partenza e stesse azioni → stesso stato.
@@ -440,7 +480,8 @@ I test fanno girare l'impianto intero attraverso le tre porte, in
 - Le valvole si muovono in un passo: il tempo di corsa (3–5 s) non è simulato.
 - Regolazione acceso / spento, non PID.
 - Le azioni a mano: i grani sono già nel tino, il luppolo non esiste, e la conferma del
-  birraio al passo "Lievito" vale come inoculo.
+  birraio al passo "Lievito" vale come inoculo: il lievito entra nel mosto e l'iSpindel
+  con lui. Lo fa il simulatore, non il controllore.
 - Una sola ricetta.
 - Il controllore non si guasta. Se il servizio non risponde, l'app vede "impianto non
   raggiungibile".

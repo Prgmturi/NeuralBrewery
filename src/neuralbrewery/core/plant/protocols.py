@@ -63,8 +63,28 @@ class PlantCommander(Protocol):
 
     async def set_agitator(self, on: bool) -> CommandResult: ...
 
+    async def start_program(self) -> CommandResult:
+        """Start the brew program from its first step."""
+        ...
+
+    async def confirm_step(self) -> CommandResult:
+        """The brewer's go-ahead, at a step that waits for it."""
+        ...
+
+    async def pause_program(self) -> CommandResult:
+        """Hold the step: temperatures stay, transfers and time stop."""
+        ...
+
+    async def resume_program(self) -> CommandResult:
+        """Take the step up again. Refused while something is still blocked."""
+        ...
+
+    async def abort_program(self) -> CommandResult:
+        """Close the program and switch the hot side off."""
+        ...
+
     async def stop_all(self) -> CommandResult:
-        """Stop the hot side. The fermenter is left as it is."""
+        """Stop the hot side and pause the program. The fermenter is left as it is."""
         ...
 
     async def reset(self) -> CommandResult:

@@ -18,7 +18,7 @@ from neuralbrewery.adapters.plant_sim.controller.controller import Controller
 from neuralbrewery.adapters.plant_sim.devices.field import Field
 from neuralbrewery.adapters.plant_sim.process import Process
 from neuralbrewery.core.exceptions import ValidationError
-from neuralbrewery.core.plant.schemas import Fault
+from neuralbrewery.core.plant.schemas import CommandResult, Fault, ProgramStatus
 
 HISTORY_WINDOW_S = 24 * 3600
 HISTORY_PERIOD_S = 60
@@ -69,6 +69,20 @@ class PlantSimulator:
         self.process.step(self.step_s, heat_w, flows)
         self._steps += 1
         self.controller.scan(self.field.measure(self.process, self.time_s), self.time_s)
+
+    def confirm_step(self) -> CommandResult:
+        """The brewer confirms a step of the program.
+
+        The last confirm is the pitch, and that is done by hand: the yeast
+        goes into the wort, and the hydrometer with it. The controller only
+        hears the button.
+        """
+        result = self.controller.confirm_step()
+        program = self.controller.snapshot().program
+        if result.accepted and program.status is ProgramStatus.DONE:
+            self.process.fermentation.pitch()
+            self.field.hydrometer.on = True
+        return result
 
     def inject_fault(self, fault: Fault) -> None:
         """Raises ValidationError for a fault its target cannot have."""

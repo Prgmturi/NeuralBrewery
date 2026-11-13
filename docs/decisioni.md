@@ -54,6 +54,11 @@ su ogni passaggio.
 - **Programma della cotta nel controllore**: una ricetta a passi, con conferme del birraio e un
   tempo massimo per passo. *Perché*: dà alla diagnosi il contesto ("siamo nella sosta, minuto
   25 di 60") e un allarme tipico degli impianti veri, il passo in ritardo.
+- **Il programma è un birraio fatto di codice**: preme i pulsanti del pannello, quindi gli
+  rispondono gli stessi interlock, e non riarma mai un blocco. Quando qualcosa è bloccato va
+  in pausa da solo; riprende solo con `reset` e `resume_program`. *Perché*: è la regola del
+  controllore che non riparte da solo, e dà alla parte AI un flusso completo: programma in
+  pausa, diagnosi, proposta di riarmo e ripresa, approvazione.
 - **Comandi con una fine certa**: un travaso è a quantità e si ferma da solo. *Perché*: tra la
   proposta e l'esecuzione c'è un'approvazione umana; uno stop che dipende da una seconda
   approvazione arriverebbe tardi.

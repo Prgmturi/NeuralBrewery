@@ -56,6 +56,22 @@ class InProcessPlant:
     async def set_agitator(self, on: bool) -> CommandResult:
         return self._controller.set_agitator(on)
 
+    async def start_program(self) -> CommandResult:
+        return self._controller.start_program()
+
+    async def confirm_step(self) -> CommandResult:
+        # Through the simulator: at the last step the brewer's hands act too
+        return self._simulator.confirm_step()
+
+    async def pause_program(self) -> CommandResult:
+        return self._controller.pause_program()
+
+    async def resume_program(self) -> CommandResult:
+        return self._controller.resume_program()
+
+    async def abort_program(self) -> CommandResult:
+        return self._controller.abort_program()
+
     async def stop_all(self) -> CommandResult:
         return self._controller.stop_all()
 

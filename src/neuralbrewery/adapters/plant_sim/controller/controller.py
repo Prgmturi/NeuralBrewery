@@ -13,9 +13,14 @@ Two rules shape the code (docs/impianto.md, "Interlock"):
 
 So `_latched` is two things at once: the alarms that wait for the brewer,
 and the list of what may not run.
+
+The brew program (program.py) is a brewer made of code: it presses the same
+buttons, so the same two rules answer it.
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass
+from functools import partial
 
 from neuralbrewery.adapters.plant_sim.controller.history import History
 from neuralbrewery.adapters.plant_sim.controller.journal import AlarmKey, Journal
@@ -26,6 +31,7 @@ from neuralbrewery.adapters.plant_sim.controller.measurements import (
     from_current,
     from_hydrometer,
 )
+from neuralbrewery.adapters.plant_sim.controller.program import Progress, Step
 from neuralbrewery.adapters.plant_sim.controller.regulation import Loop
 from neuralbrewery.adapters.plant_sim.layout import (
     AGITATOR,
@@ -35,6 +41,7 @@ from neuralbrewery.adapters.plant_sim.layout import (
     GLYCOL_VALVE,
     HEATERS,
     HYDROMETER,
+    PROGRAM,
     PUMPS,
     ROUTES,
     VALVES,
@@ -57,6 +64,7 @@ from neuralbrewery.core.plant.schemas import (
     HeaterState,
     HistorySample,
     PlantState,
+    ProgramStatus,
     PumpState,
     Quality,
     Reading,
@@ -86,6 +94,7 @@ def _refused(code: CommandCode, reason: str) -> CommandResult:
 class _Transfer:
     route: Route
     requested_l: float | None  # None: a recirculation
+    for_step: bool = False  # started by the program: its litres count for the step
     # The measured level of the source when the pump started. None while
     # the valves are still opening.
     start_level_l: float | None = None
@@ -111,6 +120,8 @@ class Controller:
         self._valve_moved_at_s: dict[str, float] = {}
         self._rearm = False
         self._hydrometer: HydrometerMessage | None = None
+        self._program = Progress()
+        self._now_s = 0.0
         self._journal = Journal()
         self._history = History(history_window_s, history_period_s)
         self.scan(inputs, 0.0)
@@ -121,6 +132,7 @@ class Controller:
 
     def scan(self, inputs: FieldInputs, now_s: float) -> None:
         """One cycle: read the signals, decide, write the outputs."""
+        passed_s = now_s - self._now_s
         self._now_s = now_s
         self._inputs = inputs
         # The field has taken the pulses of the cycle before
@@ -138,6 +150,7 @@ class Controller:
             # Whatever still has its cause trips again in _decide, just below.
             self._rearm = False
             self._latched.clear()
+        self._run_program(passed_s)
         self._decide()
         self._history.record(
             now_s,
@@ -156,7 +169,10 @@ class Controller:
         self._run_agitator()
         for vessel in Vessel:
             self._regulate(vessel)
-        self._journal.update(self._now_s, {**self._facts(), **self._latched})
+        self._journal.update(
+            self._now_s,
+            {**self._facts(), **self._program.alarms(), **self._latched},
+        )
 
     def _facts(self) -> dict[AlarmKey, str]:
         """The alarms that only report: each lasts as long as its cause."""
@@ -293,6 +309,8 @@ class Controller:
         for valve in plate.valves:
             self._set_valve(valve, False)
         self._transfer = None
+        if transfer.for_step:
+            self._program.moved_l += transfer.done_l
 
     # ------------------------------------------------------------------
     # Agitator and temperature
@@ -333,9 +351,20 @@ class Controller:
         return block
 
     def _wort_moves(self) -> bool:
+        """Interlock 2 goes by what is commanded, for the agitator as for the pump.
+
+        The run signal of the drive comes a scan after the command: going by
+        it, "agitator on" and then "heat the tun" would be refused. A drive
+        that cannot run says so with its fault code.
+        """
         transfer = self._transfer
         recirculating = transfer is not None and transfer.route is Route.MASH_RECIRC
-        return self._inputs.drive.running or recirculating
+        agitating = (
+            self._agitator_wanted
+            and (AlarmCode.AGITATOR_BLOCKED, AGITATOR) not in self._latched
+            and self._inputs.drive.fault_code is None
+        )
+        return agitating or recirculating
 
     def _run_agitator(self) -> None:
         blocked = (AlarmCode.AGITATOR_BLOCKED, AGITATOR)
@@ -392,26 +421,28 @@ class Controller:
         if vessel is Vessel.FERM:
             self._set_valve(GLYCOL_VALVE, loop.cooling)
 
-    def _set_setpoint(self, vessel: Vessel, celsius: float | None) -> None:
+    def _want_setpoint(self, vessel: Vessel, celsius: float | None) -> None:
         """A new setpoint is the brewer taking charge: the vessel is re-armed."""
         self._loops[vessel].setpoint_c = celsius
         self._latched.pop((AlarmCode.HEATER_BLOCKED, VESSELS[vessel].heater), None)
         self._latched.pop((AlarmCode.CONTROL_PROBE_FAULT, vessel.value), None)
 
-    def _set_agitator(self, on: bool) -> None:
+    def _want_agitator(self, on: bool) -> None:
         self._agitator_wanted = on
         self._latched.pop((AlarmCode.AGITATOR_BLOCKED, AGITATOR), None)
 
     # ------------------------------------------------------------------
-    # Commands: the buttons on the panel
+    # The buttons: what each does, whoever presses it
     # ------------------------------------------------------------------
 
-    def _accept(self, command: str, tag: str, text: str) -> CommandResult:
+    def _done(self, command: str, tag: str, text: str) -> CommandResult:
+        """An accepted command is an event."""
         self._journal.record(self._now_s, EventKind.COMMAND, command, tag, text)
-        self._decide()
         return _ACCEPTED
 
-    def activate_route(self, route: Route, liters: float | None) -> CommandResult:
+    def _activate_route(
+        self, route: Route, liters: float | None, *, for_step: bool = False
+    ) -> CommandResult:
         plate = ROUTES[route]
         recirculation = plate.source is plate.destination
         if self._transfer is not None:  # interlock 5
@@ -451,26 +482,26 @@ class Controller:
             AlarmCode.TRANSFER_NO_PROGRESS,
             AlarmCode.TRANSFER_STOPPED,
         )
-        self._transfer = _Transfer(route, liters)
+        self._transfer = _Transfer(route, liters, for_step=for_step)
         for valve in plate.valves:
             self._set_valve(valve, True)
         quantity = "ricircolo" if liters is None else f"{liters:g} L"
-        return self._accept("activate_route", route.value, quantity)
+        return self._done("activate_route", route.value, quantity)
 
-    def stop_route(self) -> CommandResult:
+    def _stop_route(self) -> CommandResult:
         transfer = self._transfer
         if transfer is None:
-            return self._accept("stop_route", "", "nessun travaso in corso")
+            return self._done("stop_route", "", "nessun travaso in corso")
         self._end_transfer(transfer)
-        return self._accept(
+        return self._done(
             "stop_route", transfer.route.value, f"fermato a {transfer.done_l:.1f} L"
         )
 
-    def set_temperature(self, vessel: Vessel, celsius: float | None) -> CommandResult:
+    def _set_temperature(self, vessel: Vessel, celsius: float | None) -> CommandResult:
         plate = VESSELS[vessel]
         if celsius is None:
-            self._set_setpoint(vessel, None)
-            return self._accept("set_temperature", vessel.value, "spento")
+            self._want_setpoint(vessel, None)
+            return self._done("set_temperature", vessel.value, "spento")
         if not 0.0 <= celsius <= plate.max_setpoint_c:  # interlock 8
             return _refused(
                 CommandCode.SETPOINT_OUT_OF_RANGE,
@@ -480,10 +511,10 @@ class Controller:
         block = self._probe_block(vessel) or self._heater_block(vessel)
         if block is not None:
             return block
-        self._set_setpoint(vessel, celsius)
-        return self._accept("set_temperature", vessel.value, f"{celsius:g} °C")
+        self._want_setpoint(vessel, celsius)
+        return self._done("set_temperature", vessel.value, f"{celsius:g} °C")
 
-    def set_agitator(self, on: bool) -> CommandResult:
+    def _set_agitator(self, on: bool) -> CommandResult:
         if on:
             if self._inputs.drive.fault_code is not None:
                 return _refused(
@@ -492,17 +523,195 @@ class Controller:
             block = self._agitator_block()
             if block is not None:
                 return block
-        self._set_agitator(on)
-        return self._accept("set_agitator", AGITATOR, "acceso" if on else "spento")
+        self._want_agitator(on)
+        return self._done("set_agitator", AGITATOR, "acceso" if on else "spento")
 
-    def stop_all(self) -> CommandResult:
-        """Stop the hot side. A fermentation goes on for days: it is left alone."""
+    def _stop_hot_side(self) -> None:
+        """A fermentation goes on for days: the fermenter is left alone."""
         if self._transfer is not None:
             self._end_transfer(self._transfer)
         for vessel in HOT_SIDE:
-            self._set_setpoint(vessel, None)
-        self._set_agitator(False)
-        return self._accept("stop_all", "", "lato caldo fermo")
+            self._want_setpoint(vessel, None)
+        self._want_agitator(False)
+
+    # ------------------------------------------------------------------
+    # The brew program (the recipe is in program.py)
+    # ------------------------------------------------------------------
+
+    def _run_program(self, passed_s: float) -> None:
+        """Once a scan: see what stops the step, give its commands, see it end.
+
+        Anything blocked, or a command refused, pauses the program with the
+        reason. Going on after that is for the brewer to say.
+        """
+        program = self._program
+        if not program.running:
+            return
+        block = self._program_block()
+        if block is not None:
+            self._pause_program(block, by_alarm=True)
+        elif not program.given:
+            refusal = self._give(program.step)
+            if refusal is None:
+                program.given = True
+            else:
+                self._pause_program(refusal.reason, by_alarm=True)
+        else:
+            program.elapsed_s += passed_s
+            if self._step_done(program.step):
+                self._next_step()
+
+    def _program_block(self) -> str | None:
+        """Why the program may not go on: the text of the alarm that says so.
+
+        K1 open, the drive in fault, or anything an interlock has stopped.
+        """
+        facts = self._facts()
+        stops = (
+            facts.get((AlarmCode.SAFETY_OPEN, CONTACTOR)),
+            facts.get((AlarmCode.DRIVE_FAULT, AGITATOR)),
+            *self._latched.values(),
+        )
+        return next((text for text in stops if text is not None), None)
+
+    def _give(self, step: Step) -> CommandResult | None:
+        """Bring the plant to what the step wants; return the first refusal.
+
+        Only the commands that are missing: one already in place is not
+        given again, so the program never re-arms what an interlock stopped.
+        The order is one no interlock objects to: first the setpoints to
+        take away, then the route, the agitator, and the setpoints to set.
+        """
+        for vessel in HOT_SIDE:
+            off = vessel not in step.setpoints
+            if off and self._loops[vessel].setpoint_c is not None:
+                self._set_temperature(vessel, None)
+        if self._transfer is not None:
+            self._stop_route()
+
+        orders: list[Callable[[], CommandResult]] = []
+        # After a pause, only the litres still to move. None of them, when
+        # the pause came in the very scan the transfer ended.
+        moved_l = self._program.moved_l
+        liters = None if step.liters is None else step.liters - moved_l
+        if step.route is not None and (liters is None or liters > 0):
+            orders.append(
+                partial(self._activate_route, step.route, liters, for_step=True)
+            )
+        if self._agitator_wanted != step.agitator:
+            orders.append(partial(self._set_agitator, step.agitator))
+        orders += [
+            partial(self._set_temperature, vessel, celsius)
+            for vessel, celsius in step.setpoints.items()
+            if self._loops[vessel].setpoint_c != celsius
+        ]
+        for order in orders:
+            result = order()
+            if not result.accepted:
+                return result
+        return None
+
+    def _step_done(self, step: Step) -> bool:
+        if step.liters is not None:
+            # A transfer that ends in any other way leaves a block behind
+            return self._transfer is None
+        if step.reach is not None:
+            vessel, celsius = step.reach
+            temp_c = self._control_temperature(vessel)
+            return temp_c is not None and temp_c >= celsius
+        return step.lasts_s is not None and self._program.elapsed_s >= step.lasts_s
+
+    def _next_step(self) -> None:
+        program = self._program
+        program.advance()
+        if program.status is ProgramStatus.DONE:
+            self._journal.record(
+                self._now_s,
+                EventKind.PROGRAM_DONE,
+                "program_done",
+                PROGRAM,
+                "programma finito",
+            )
+        else:
+            self._log_step()
+
+    def _log_step(self) -> None:
+        self._journal.record(
+            self._now_s,
+            EventKind.PROGRAM_STEP,
+            "program_step",
+            PROGRAM,
+            self._program.label,
+        )
+
+    def _pause_program(self, reason: str, *, by_alarm: bool) -> None:
+        """Hold the step: setpoints and recirculation stay, to keep the tun warm.
+
+        A transfer with a quantity stops, and its litres stay counted.
+        """
+        transfer = self._transfer
+        if transfer is not None and transfer.requested_l is not None:
+            self._end_transfer(transfer)
+        self._program.pause(reason, by_alarm=by_alarm)
+
+    def _blocked_program(self) -> CommandResult | None:
+        """Starting or resuming into a block is refused: reset comes first.
+
+        Right after reset the controller cannot know yet what will hold.
+        The program is let go, and pauses again if something still does.
+        """
+        block = None if self._rearm else self._program_block()
+        if block is None:
+            return None
+        return _refused(CommandCode.ALARM_ACTIVE, f"serve prima reset: {block}")
+
+    # ------------------------------------------------------------------
+    # Commands: the panel of the brewer
+    # ------------------------------------------------------------------
+
+    def _decided(self, result: CommandResult) -> CommandResult:
+        """After an accepted command the controller decides again at once."""
+        if result.accepted:
+            self._decide()
+        return result
+
+    def _manual(self, *, stops: bool) -> CommandResult | None:
+        """A manual command on the hot side while the program runs.
+
+        One that stops something is obeyed, and the program pauses: a stop
+        is never refused. One that starts something is refused: the hot
+        side is the program's until it is paused.
+        """
+        if not self._program.running:
+            return None
+        if stops:
+            self._pause_program("fermato con un comando manuale", by_alarm=False)
+            return None
+        return _refused(
+            CommandCode.PROGRAM_RUNNING,
+            "il programma è in corso: va messo in pausa per comandare a mano",
+        )
+
+    def activate_route(self, route: Route, liters: float | None) -> CommandResult:
+        return self._decided(
+            self._manual(stops=False) or self._activate_route(route, liters)
+        )
+
+    def stop_route(self) -> CommandResult:
+        return self._decided(self._manual(stops=True) or self._stop_route())
+
+    def set_temperature(self, vessel: Vessel, celsius: float | None) -> CommandResult:
+        taken = self._manual(stops=celsius is None) if vessel in HOT_SIDE else None
+        return self._decided(taken or self._set_temperature(vessel, celsius))
+
+    def set_agitator(self, on: bool) -> CommandResult:
+        return self._decided(self._manual(stops=not on) or self._set_agitator(on))
+
+    def stop_all(self) -> CommandResult:
+        """Stop the hot side; the program, if it runs, pauses."""
+        self._manual(stops=True)
+        self._stop_hot_side()
+        return self._decided(self._done("stop_all", "", "lato caldo fermo"))
 
     def reset(self) -> CommandResult:
         """Re-arm. Always accepted: the controller sends the pulses and sees after.
@@ -511,7 +720,57 @@ class Controller:
         """
         self.outputs.drive_acknowledge = self.outputs.contactor_reset = True
         self._rearm = True
-        return self._accept("reset", "", "riarmo")
+        return self._decided(self._done("reset", "", "riarmo"))
+
+    def start_program(self) -> CommandResult:
+        """Open the program at its first step. Its commands come with the next scan."""
+        program = self._program
+        if program.open:
+            return _refused(
+                CommandCode.PROGRAM_STATE,
+                f"c'è già un programma aperto, al {program.label}",
+            )
+        refusal = self._blocked_program()
+        if refusal is not None:
+            return refusal
+        result = self._done("start_program", PROGRAM, "cotta di riferimento")
+        program.start()
+        self._log_step()
+        return self._decided(result)
+
+    def confirm_step(self) -> CommandResult:
+        program = self._program
+        if not program.waiting:
+            return _refused(
+                CommandCode.PROGRAM_STATE, "nessun passo aspetta una conferma"
+            )
+        result = self._done("confirm_step", PROGRAM, program.label)
+        self._next_step()
+        return self._decided(result)
+
+    def pause_program(self) -> CommandResult:
+        """Always accepted, as every command that stops."""
+        program = self._program
+        if program.running:
+            self._pause_program("pausa chiesta dal birraio", by_alarm=False)
+        state = program.label if program.open else "nessun programma aperto"
+        return self._decided(self._done("pause_program", PROGRAM, state))
+
+    def resume_program(self) -> CommandResult:
+        program = self._program
+        if program.status is not ProgramStatus.PAUSED:
+            return _refused(CommandCode.PROGRAM_STATE, "il programma non è in pausa")
+        refusal = self._blocked_program()
+        if refusal is not None:
+            return refusal
+        program.resume()
+        return self._decided(self._done("resume_program", PROGRAM, program.label))
+
+    def abort_program(self) -> CommandResult:
+        """Close the program and stop the hot side. Always accepted."""
+        self._program.abort()
+        self._stop_hot_side()
+        return self._decided(self._done("abort_program", PROGRAM, "lato caldo fermo"))
 
     # ------------------------------------------------------------------
     # Reading
@@ -579,6 +838,7 @@ class Controller:
                     done_l=round(transfer.done_l, 1),
                 )
             ),
+            program=self._program.view(),
             alarms=self._journal.alarms,
         )
 

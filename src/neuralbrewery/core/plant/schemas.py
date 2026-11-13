@@ -133,11 +133,15 @@ class AlarmCode(StrEnum):
     VALVE_NOT_REACHED = "valve_not_reached"
     TRANSFER_NO_PROGRESS = "transfer_no_progress"
     TRANSFER_STOPPED = "transfer_stopped"
+    # The brew program: a step past its longest time, which goes on all the
+    # same, and a program the controller paused, which waits for the brewer
+    STEP_LATE = "step_late"
+    PROGRAM_PAUSED = "program_paused"
 
 
 class Alarm(_Frozen):
     code: AlarmCode
-    tag: str  # an instrument, an actuator, a vessel or a route
+    tag: str  # an instrument, an actuator, a vessel, a route or "PROGRAM"
     text: str
     since_s: float
 
@@ -145,8 +149,10 @@ class Alarm(_Frozen):
 class EventKind(StrEnum):
     ALARM_RAISED = "alarm_raised"
     ALARM_CLEARED = "alarm_cleared"
-    COMMAND = "command"  # accepted ones only
+    COMMAND = "command"  # accepted ones only, the program's among them
     TRANSFER_DONE = "transfer_done"
+    PROGRAM_STEP = "program_step"  # a step of the brew program begins
+    PROGRAM_DONE = "program_done"
 
 
 class Event(_Frozen):
@@ -165,6 +171,26 @@ class HistorySample(_Frozen):
     value: float | None
 
 
+class ProgramStatus(StrEnum):
+    IDLE = "idle"  # no program has been started
+    RUNNING = "running"
+    WAITING = "waiting_confirm"  # running, at a step that only the brewer ends
+    PAUSED = "paused"
+    DONE = "done"
+    ABORTED = "aborted"
+
+
+class Program(_Frozen):
+    """Where the brew program is. Its steps are in docs/impianto.md."""
+
+    status: ProgramStatus
+    step: int | None = None  # from 1; None until a program is started
+    step_name: str = ""
+    elapsed_s: float = 0.0  # time spent in this step, pauses left out
+    max_s: float | None = None  # past this the step is late; None: no limit
+    reason: str = ""  # why it is paused
+
+
 class PlantState(_Frozen):
     """What the controller knows at one instant. Not what is true."""
 
@@ -173,6 +199,7 @@ class PlantState(_Frozen):
     devices: Devices
     regulation: dict[Vessel, Regulation]
     transfer: Transfer | None
+    program: Program
     alarms: tuple[Alarm, ...]
 
 
@@ -193,6 +220,10 @@ class CommandCode(StrEnum):
     WORT_NOT_MOVING = "wort_not_moving"
     PROBE_FAULT = "probe_fault"
     DRIVE_FAULT = "drive_fault"
+    # The brew program
+    PROGRAM_RUNNING = "program_running"  # the hot side is the program's now
+    PROGRAM_STATE = "program_state"  # not in the state this command needs
+    ALARM_ACTIVE = "alarm_active"  # something is blocked: reset comes first
 
 
 class CommandResult(_Frozen):

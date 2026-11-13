@@ -21,6 +21,8 @@ from neuralbrewery.core.plant.protocols import (
 from neuralbrewery.core.plant.schemas import (
     AlarmCode,
     EventKind,
+    Program,
+    ProgramStatus,
     Quality,
     Route,
     Vessel,
@@ -74,6 +76,7 @@ class TestSnapshot:
             Vessel.FERM: (None, "TT5a"),
         }
         assert state.transfer is None
+        assert state.program == Program(status=ProgramStatus.IDLE)
         assert state.alarms == ()
 
     async def test_on_brew_day_the_hydrometer_is_not_in_the_fermenter_yet(self, plant):
