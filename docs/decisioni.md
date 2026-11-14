@@ -83,8 +83,30 @@ su ogni passaggio.
   il pacchetto `datapizza-ai` installa anche OpenAI e Qdrant, che non usiamo. *Perché*: è il
   framework di riferimento del corso, e i requisiti ne nominano i pezzi (`DagPipeline`,
   `ContextTracing`).
-- **Modello: Claude (Anthropic)**, primo agente su `claude-opus-5-5`. Il secondo fornitore del
-  client multi-provider si sceglie dopo.
+- **datapizza con Claude, provato con chiamate vere** (14 novembre: `datapizza-ai-core` 0.1.3,
+  client Anthropic 0.0.8, `claude-sonnet-5-5`). Funzionano il ciclo con più tool, `max_tokens`,
+  `effort` e il fallback lato server sui rifiuti, che passano come argomenti della chiamata.
+  Quattro limiti, aggirati senza un nostro client:
+  - la risposta strutturata (`output_cls`) non regge i tool: la diagnosi arriva come argomenti
+    di un tool finale, `submit_diagnosis`. Li controlliamo noi con pydantic, perché datapizza
+    non chiede all'API di garantire lo schema;
+  - i blocchi di ragionamento non tornano a Claude tra un tool e l'altro: l'API lo accetta, e si
+    perde solo il ragionamento di quel turno. Sui passi semplici Sonnet non ragiona affatto.
+    Accettato per M5;
+  - il ciclo ignora lo `stop_reason`: su un rifiuto senza testo richiamerebbe il modello fino a
+    `max_steps`. Un hook ferma i passi vuoti, e lo `stop_reason` si legge dal tracing;
+  - un `tool_choice` forzato dà 400 su questo modello: sempre `auto`.
+
+  *Perché*: il resto del framework serve ai requisiti del corso, e un nostro client sarebbe
+  codice in più da mantenere.
+- **Modello: Claude (Anthropic)**, primo agente su `claude-sonnet-5-5` (14 novembre), con il
+  fallback lato server sui rifiuti. Il secondo fornitore del client multi-provider si sceglie
+  dopo. *Perché*: costa la metà di `claude-opus-5-5` (2 $ e 10 $ per milione di token in
+  entrata e in uscita, contro 4 $ e 20 $).
+- **Tracing in locale** con `ContextTracing` di datapizza: ogni passo dell'agente (chiamata al
+  modello con il suo `stop_reason` e i token, tool con gli argomenti) resta in memoria, e l'eval
+  lo scrive su file. *Perché*: basta per l'audit trail e per gli eval, senza un servizio in più
+  nel compose.
 - **Sorvegliante su richiesta**: una funzione a regole fisse che riceve solo `PlantReader`,
   chiamata dopo ogni avanzamento del tempo o da un tool dell'agente; nessun ciclo in background.
   Si costruisce con il primo agente (M5), non in M2. *Perché*: con il tempo a passi l'impianto è
@@ -119,11 +141,13 @@ su ogni passaggio.
 ## Ancora aperte
 
 - Secondo fornitore per il client multi-provider, e quale modello per ogni ruolo.
-- datapizza con i modelli Claude di oggi: il suo client Anthropic (0.0.8, marzo 2026) usa l'SDK
-  `anthropic` 0.x e non rimanda a Claude i blocchi di ragionamento tra un tool e l'altro. Su
-  `claude-opus-5-5` il ragionamento non si spegne: va provato con una chiamata vera. Se fallisce,
-  scriviamo noi il client Anthropic per datapizza; il resto del framework resta.
-- Tracing: Langfuse o Phoenix.
+- Errori di Anthropic: nascono dentro il ciclo di datapizza come eccezioni dell'SDK, e un adapter
+  che costruisce solo il client non le può tradurre (ADR 0006). Si traducono quando l'agente sarà
+  esposto dall'API; finché lo usano solo gli eval, un errore fa fallire l'eval con il suo
+  messaggio.
+- Cache dei prompt: datapizza non la attiva. Si prova nell'eval di M5, passando `cache_control`
+  come argomento della chiamata.
+- Un'interfaccia per leggere i trace (Langfuse o Phoenix): solo se serve alla demo.
 - Keycloak: utile per l'identità di chi approva; da valutare il peso nel compose per il tester.
 - MQTT: solo se serve, dopo.
 - UI e notifiche.
