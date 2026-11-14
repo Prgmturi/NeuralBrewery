@@ -75,6 +75,21 @@ su ogni passaggio.
   dalla porta `PlantReader`. *Perché*: diagnosi ed eval girano senza database, e lo stesso
   scenario dà sempre lo stesso risultato.
 - **Confine AI–impianto**: porte e adattatori (vedi `AGENTS.md`).
+- **Ordine dopo M1b** (13 novembre): prima la parte AI, con l'impianto in-process: primo agente,
+  sorvegliante e primo eval (M5). Il servizio plant-sim (M2) viene dopo, ridotto, solo se serve
+  alla demo. *Perché*: tutti i requisiti obbligatori del corso stanno nella parte AI e girano
+  senza il servizio; al discorso (19 novembre) mancano 6 giorni.
+- **Framework agenti: datapizza-ai.** Solo `datapizza-ai-core` e `datapizza-ai-clients-anthropic`:
+  il pacchetto `datapizza-ai` installa anche OpenAI e Qdrant, che non usiamo. *Perché*: è il
+  framework di riferimento del corso, e i requisiti ne nominano i pezzi (`DagPipeline`,
+  `ContextTracing`).
+- **Modello: Claude (Anthropic)**, primo agente su `claude-opus-5-5`. Il secondo fornitore del
+  client multi-provider si sceglie dopo.
+- **Sorvegliante su richiesta**: una funzione a regole fisse che riceve solo `PlantReader`,
+  chiamata dopo ogni avanzamento del tempo o da un tool dell'agente; nessun ciclo in background.
+  Si costruisce con il primo agente (M5), non in M2. *Perché*: con il tempo a passi l'impianto è
+  fermo tra un avanzamento e l'altro, quindi il controllo resta deterministico; ed è lui che fa
+  partire la diagnosi.
 - **Base del codice**: template `fastapi_starter` (FastAPI, PostgreSQL, Alembic, structlog,
   SQLAlchemy async, Keycloak, uv, import-linter, CI, release-please).
 - **Nome**: il progetto si chiama NeuralBrewery. Repo `NeuralBrewery`; package Python, immagine
@@ -103,14 +118,17 @@ su ogni passaggio.
 
 ## Ancora aperte
 
-- Framework agenti: LangChain/LangGraph o datapizza-ai.
-- Modelli e provider concreti.
+- Secondo fornitore per il client multi-provider, e quale modello per ogni ruolo.
+- datapizza con i modelli Claude di oggi: il suo client Anthropic (0.0.8, marzo 2026) usa l'SDK
+  `anthropic` 0.x e non rimanda a Claude i blocchi di ragionamento tra un tool e l'altro. Su
+  `claude-opus-5-5` il ragionamento non si spegne: va provato con una chiamata vera. Se fallisce,
+  scriviamo noi il client Anthropic per datapizza; il resto del framework resta.
 - Tracing: Langfuse o Phoenix.
 - Keycloak: utile per l'identità di chi approva; da valutare il peso nel compose per il tester.
 - MQTT: solo se serve, dopo.
 - UI e notifiche.
-- Ordine dopo M1b: il servizio plant-sim subito (M2), oppure dopo il primo agente, gli eval e
-  la memory, che girano anche senza il servizio.
+- M2, se si fa: tempo a passi e un comando di `SimulationControl` per ripartire da una partenza
+  con nome, invece di riavviare il container (preferenze, da confermare).
 - Adattatore verso un controllore vero (per esempio OPC UA): le letture hanno già la sua forma
   (valore, qualità, tempo). Non serve al corso: solo se avanza tempo.
 - CI su GitHub: il controllo "Build container image" è rosso anche su `master`. La scansione
@@ -124,9 +142,12 @@ su ogni passaggio.
 | M0 | Rinomina del package, posti vuoti per l'impianto, contract, script manuali | Controlli della CI verdi |
 | M1 | Vocabolario, porte, processo, dispositivi e controllore con comandi manuali, interlock, allarmi e storico breve (Python puro) | Test di plausibilità, interlock e guasti verdi |
 | M1b | Programma della cotta nel controllore | Una cotta intera simulata, con 20 L nel fermentatore |
-| M2 | Servizio plant-sim, adapter REST, impostazioni, compose, sorvegliante | Test di contratto in-process e REST verdi |
+| M2 | Servizio plant-sim, adapter REST, impostazioni, compose | Test di contratto in-process e REST verdi |
 | M3 | Storico su Postgres + Grafana (facoltativo, solo se avanza tempo) | Grafici di una cotta simulata |
 | M4 | Server MCP (lettura + proposta) + coda approvazioni ed esecutore; via l'esempio notes | Proposta → approvazione → esecuzione da Claude Desktop |
-| M5 | Primo agente (impianto) + tracing + primo eval | Eval pass/fail su 3 scenari |
+| M5 | Primo agente (impianto) + sorvegliante + tracing + primo eval | Eval pass/fail su 3 scenari |
 | M6 | RAG sui manuali + RAGAS | RAGAS sopra soglia |
 | M7 | Multi-agente + baseline, guardrail, red teaming, eval in CI, UI | Requisiti del corso coperti |
+
+Ordine: dopo M1b viene M5, con l'impianto in-process. M2 si fa dopo, solo se serve alla demo.
+L'ordine del resto si decide a fine M5.
