@@ -3,6 +3,6 @@
 - schemas.py: the vocabulary (Reading, PlantState, Route, CommandResult, Fault)
 - protocols.py: the ports (PlantReader, PlantCommander, SimulationControl)
 
-Empty for now: both modules arrive with the model of the plant, milestone M1
-of docs/decisioni.md.
+The ports are those of the controller of the plant, not of its single
+devices: docs/impianto.md says what the controller knows and does.
 """
