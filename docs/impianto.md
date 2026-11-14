@@ -301,7 +301,16 @@ progressivo tiene in ordine gli eventi dello stesso istante.
 
 I **giudizi sul processo** (sonde che non concordano, temperatura lontana dal setpoint,
 livelli che cambiano senza un travaso, densità ferma) non sono del controllore ma del
-sorvegliante (M2).
+**sorvegliante** (`core/plant/watcher.py`): regole fisse, senza LLM, che leggono solo da
+`PlantReader`. Si chiama su richiesta, dopo un avanzamento del tempo o da un tool dell'agente, e
+non tiene niente tra una chiamata e l'altra. Un giudizio finisce quando l'impianto non lo mostra
+più.
+
+| Codice | Quando | Su cosa |
+|---|---|---|
+| `probes_disagree` | TT5a e TT5b, entrambe valide, distanti più di 1 °C da almeno 10 minuti di storico. Le due tolleranze sommate fanno circa 0,4 °C. Una sonda guasta non si confronta: c'è già `signal_fault` | FERM |
+
+Le altre regole si aggiungono quando uno scenario le chiede.
 
 ### Lettura (porta `PlantReader`)
 

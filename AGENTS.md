@@ -29,6 +29,7 @@ Il repo nasce dal template `fastapi_starter`: le sue regole valgono anche qui.
 src/neuralbrewery/
   core/plant/schemas.py      vocabolario: Reading, PlantState, Route, CommandResult, Fault...
   core/plant/protocols.py    porte: PlantReader, PlantCommander, SimulationControl
+  core/plant/watcher.py      il sorvegliante: regole fisse sul processo, solo PlantReader
   core/config/plant.py       impostazioni: adattatore, URL, token
   adapters/plant_sim/        l'impianto simulato: processo, dispositivi, controllore
                              (interlock, programma, allarmi), guasti, adattatore
