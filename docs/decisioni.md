@@ -107,6 +107,11 @@ su ogni passaggio.
   fallback lato server sui rifiuti. Il secondo fornitore del client multi-provider si sceglie
   dopo. *Perché*: costa la metà di `claude-opus-5-5` (2 $ e 10 $ per milione di token in
   entrata e in uscita, contro 4 $ e 20 $).
+- **Cache dei prompt su ogni chiamata**: datapizza non la attiva, e l'adapter passa
+  `cache_control` come argomento della chiamata. Provata nell'eval di M5: in S2, 6,6 mila token
+  scritti nella cache e 15,6 mila letti. *Perché*: in un ciclo con i tool ogni chiamata rimanda
+  tutta la conversazione, e su `claude-sonnet-5-5` una lettura dalla cache costa un ventesimo
+  dell'input.
 - **Tracing in locale** con `ContextTracing` di datapizza: ogni passo dell'agente (chiamata al
   modello con il suo `stop_reason` e i token, tool con gli argomenti) resta in memoria, e l'eval
   lo scrive su file. *Perché*: basta per l'audit trail e per gli eval, senza un servizio in più
@@ -153,8 +158,6 @@ su ogni passaggio.
   che costruisce solo il client non le può tradurre (ADR 0006). Si traducono quando l'agente sarà
   esposto dall'API; finché lo usano solo gli eval, un errore fa fallire l'eval con il suo
   messaggio.
-- Cache dei prompt: datapizza non la attiva. Si prova nell'eval di M5, passando `cache_control`
-  come argomento della chiamata.
 - Un'interfaccia per leggere i trace (Langfuse o Phoenix): solo se serve alla demo.
 - Keycloak: utile per l'identità di chi approva; da valutare il peso nel compose per il tester.
 - MQTT: solo se serve, dopo.

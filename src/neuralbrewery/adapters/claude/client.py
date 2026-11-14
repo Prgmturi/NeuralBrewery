@@ -41,8 +41,9 @@ def generation_args(settings: ClaudeSettings) -> dict[str, Any]:
         "extra_headers": {"anthropic-beta": FALLBACK_BETA},
         "extra_body": {
             "fallbacks": "default",
-            # Each call of a loop sends the whole conversation again: the
-            # part already sent is read from the cache, at a tenth of the price
+            # Each call of a loop sends the whole conversation again: the part
+            # already sent is read from the cache, for a twentieth of the
+            # input price on claude-sonnet-5-5
             "cache_control": {"type": "ephemeral"},
         },
     }
