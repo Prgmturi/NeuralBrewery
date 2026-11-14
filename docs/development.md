@@ -42,6 +42,7 @@ uv run pytest tests/core/auth/test_service.py::TestValidateToken  # one class
 uv run pytest --cov                        # with coverage, as CI runs it
 uv run pytest -m integration               # only the integration tests, on a real Postgres
 uv run pytest -m e2e                       # a login through the running stack
+uv run pytest -m eval                      # the plant agent on the real Claude: costs money, by hand
 ```
 
 - **Unit tests** are async, and outside `tests/integration/` they use stubs (`AsyncMock`): no database and no Keycloak. The root `conftest.py` provides the app, an HTTP client, mock services, and users with different roles.
@@ -63,6 +64,15 @@ The tests in `tests/integration/` run on a real Postgres, for what a mock cannot
 `uv run pytest -m e2e` logs the test user in through Keycloak, then calls the API with the token, as a frontend would. CI does it on every push, on the stack it starts.
 
 The stack takes its ports from `SERVER_PORT`, `KEYCLOAK_PORT` and `DATABASE_PORT`, exported or in `.env`. The test calls the API at `E2E_API_URL`, `http://localhost:8000` by default: with the stack on another port, export it too (`E2E_API_URL=http://localhost:18000`), or the test calls whatever answers on 8000.
+
+### Eval of the agents
+
+`uv run pytest -m eval` runs the plant agent on the real Claude, on three fault scenarios with a fixed seed (`tests/evals/scenarios.py`): an offset probe in the fermenter, a blocked pump at the mash-in, the drive of the agitator in fault. The verdict is pass or fail, by code, on the diagnosis the agent hands in and on its trajectory: no LLM is the judge.
+
+- It costs money, about 10 cents for the three, and needs `ANTHROPIC_API_KEY`, exported or in `.env`. A plain `uv run pytest` leaves it out, and CI does not run it.
+- Before the agent is called, each scenario checks that the plant shows its fault: a scenario that went wrong costs nothing.
+- At the end a table gives the verdict, the tokens and the cost of each scenario. `.evals/`, ignored by git, keeps one JSON per scenario, with the diagnosis and every step of the trace.
+- The model is not deterministic: a scenario that passed may fail on the next run. Read its JSON before changing the prompt.
 
 ## What CI runs
 

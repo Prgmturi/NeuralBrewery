@@ -111,6 +111,10 @@ su ogni passaggio.
   modello con il suo `stop_reason` e i token, tool con gli argomenti) resta in memoria, e l'eval
   lo scrive su file. *Perché*: basta per l'audit trail e per gli eval, senza un servizio in più
   nel compose.
+- **Eval degli agenti a mano**, fuori dalla CI (`uv run pytest -m eval`): scenari di guasto con
+  seed fisso, verdetto passa / non passa con controlli in codice sulla risposta strutturata e
+  sulla traiettoria, niente LLM come giudice. *Perché*: costa, e la CI non ha la chiave; un
+  giudice LLM sarebbe un'altra fonte di errore da valutare.
 - **Sorvegliante su richiesta**: una funzione a regole fisse che riceve solo `PlantReader`,
   chiamata dopo ogni avanzamento del tempo o da un tool dell'agente; nessun ciclo in background.
   Si costruisce con il primo agente (M5), non in M2. *Perché*: con il tempo a passi l'impianto è

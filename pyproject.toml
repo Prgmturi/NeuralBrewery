@@ -297,13 +297,15 @@ course would mean rewriting the agent, not adding an adapter."""
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
-# The integration tests need a real Postgres and the end-to-end ones the
-# running stack, so a plain "pytest" leaves them out. "pytest -m integration"
-# or "pytest -m e2e" runs only those: the last -m wins.
-addopts = ["-v", "--tb=short", "-m", "not integration and not e2e"]
+# The integration tests need a real Postgres, the end-to-end ones the
+# running stack, the evals the Claude API and money: a plain "pytest" leaves
+# them out. "pytest -m integration", "-m e2e" or "-m eval" runs only those:
+# the last -m wins.
+addopts = ["-v", "--tb=short", "-m", "not integration and not e2e and not eval"]
 markers = [
     "integration: needs a real Postgres (TEST_DATABASE_*); every test in tests/integration/",
     "e2e: needs the stack of compose.yaml running; every test in tests/e2e/",
+    "eval: calls the real Claude (ANTHROPIC_API_KEY) and costs money; every test in tests/evals/, run by hand",
 ]
 # pytest 9: a typo in a marker or in this section becomes an error instead
 # of a warning (strict_markers, strict_config). Also enables strict_xfail
