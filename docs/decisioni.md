@@ -86,7 +86,7 @@ su ogni passaggio.
 - **datapizza con Claude, provato con chiamate vere** (14 novembre: `datapizza-ai-core` 0.1.3,
   client Anthropic 0.0.8, `claude-sonnet-5-5`). Funzionano il ciclo con più tool, `max_tokens`,
   `effort` e il fallback lato server sui rifiuti, che passano come argomenti della chiamata.
-  Quattro limiti, aggirati senza un nostro client:
+  I limiti, aggirati senza un nostro client:
   - la risposta strutturata (`output_cls`) non regge i tool: la diagnosi arriva come argomenti
     di un tool finale, `submit_diagnosis`. Li controlliamo noi con pydantic, perché datapizza
     non chiede all'API di garantire lo schema;
@@ -95,7 +95,11 @@ su ogni passaggio.
     Accettato per M5;
   - il ciclo ignora lo `stop_reason`: su un rifiuto senza testo richiamerebbe il modello fino a
     `max_steps`. Un hook ferma i passi vuoti, e lo `stop_reason` si legge dal tracing;
-  - un `tool_choice` forzato dà 400 su questo modello: sempre `auto`.
+  - un `tool_choice` forzato dà 400 su questo modello: sempre `auto`;
+  - per un parametro enum facoltativo, lo schema che datapizza ricava dalla firma non si
+    serializza in JSON: lo schema di `submit_diagnosis` lo scriviamo da un modello pydantic;
+  - datapizza stampa ogni passo sulla console: l'agente gli dà un logger che scrive con
+    structlog. Resta il riepilogo dei token che `ContextTracing` stampa a fine diagnosi.
 
   *Perché*: il resto del framework serve ai requisiti del corso, e un nostro client sarebbe
   codice in più da mantenere.

@@ -30,6 +30,7 @@ src/neuralbrewery/
   core/plant/schemas.py      vocabolario: Reading, PlantState, Route, CommandResult, Fault...
   core/plant/protocols.py    porte: PlantReader, PlantCommander, SimulationControl
   core/plant/watcher.py      il sorvegliante: regole fisse sul processo, solo PlantReader
+  core/plant/readonly.py     ReadOnlyPlant: ciò che un agente tiene dell'impianto
   core/config/plant.py       impostazioni: adattatore, URL, token
   adapters/plant_sim/        l'impianto simulato: processo, dispositivi, controllore
                              (interlock, programma, allarmi), guasti, adattatore
@@ -37,7 +38,9 @@ src/neuralbrewery/
   adapters/plant_rest/       client httpx verso il servizio plant-sim
   plant_service.py           entry point del servizio plant-sim (FastAPI, un solo worker)
   bootstrap.py               sceglie l'adattatore e lo mette in app.state
-  features/                  (dopo) plant, approvals, agents...
+  adapters/claude/           il modello degli agenti: client datapizza per Claude
+  features/agents/           l'agente impianto (datapizza): legge, giudica, propone
+  features/                  (dopo) plant, approvals...
 ```
 
 - Un solo package e una sola immagine; nel compose due servizi: `api` e `plant-sim`.
