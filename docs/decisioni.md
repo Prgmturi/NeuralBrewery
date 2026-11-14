@@ -184,5 +184,5 @@ su ogni passaggio.
 | M6 | RAG sui manuali + RAGAS | RAGAS sopra soglia |
 | M7 | Multi-agente + baseline, guardrail, red teaming, eval in CI, UI | Requisiti del corso coperti |
 
-Ordine: dopo M1b viene M5, con l'impianto in-process. M2 si fa dopo, solo se serve alla demo.
-L'ordine del resto si decide a fine M5.
+Ordine: dopo M1b viene M5, con l'impianto in-process; dopo M5 viene M4 (deciso il 14 novembre,
+a fine M5). M2 si fa dopo, solo se serve alla demo. L'ordine del resto si decide a fine M4.
