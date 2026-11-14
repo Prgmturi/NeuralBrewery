@@ -7,6 +7,8 @@ requires-python = ">=3.13"
 dependencies = [
     "alembic>=1.20.1",
     "asyncpg>=0.32.0",
+    "datapizza-ai-clients-anthropic>=0.0.8",
+    "datapizza-ai-core>=0.1.3",
     "fastapi>=0.162.0",
     "httpx>=0.28.1",
     "pydantic-settings>=2.16.2",
@@ -80,6 +82,13 @@ plugins = ["pydantic.mypy"]
 strict = true
 warn_return_any = true
 warn_unused_configs = true
+
+# datapizza-ai ships no py.typed. Read its annotations anyway: with
+# ignore_missing_imports every datapizza type would be Any, and strict mode
+# refuses a class that subclasses Any (the hooks of an agent do)
+[[tool.mypy.overrides]]
+module = ["datapizza.*"]
+follow_untyped_imports = true
 
 
 # =============================================================================
@@ -259,6 +268,28 @@ controller, which reads the devices. The process is told the power and the
 flows of each step, and nothing else."""
 
 
+[[tool.importlinter.contracts]]
+name = "The core knows no agent framework and no model"
+type = "forbidden"
+source_modules = ["neuralbrewery.core"]
+forbidden_modules = ["datapizza", "anthropic"]
+broken_contract_guidance = """
+core holds what every part shares: the plant's vocabulary and ports, the
+watcher, the settings. An LLM belongs to the agents (features/agents) and
+to the adapter of its provider (adapters/claude). The watcher above all:
+its rules must work whatever the model does."""
+
+[[tool.importlinter.contracts]]
+name = "The agents reach Claude only through datapizza"
+type = "forbidden"
+source_modules = ["neuralbrewery.features.agents"]
+forbidden_modules = ["anthropic"]
+broken_contract_guidance = """
+An agent takes any datapizza Client: adapters/claude builds the one for
+Claude. With the Anthropic SDK in an agent, the second provider of the
+course would mean rewriting the agent, not adding an adapter."""
+
+
 # =============================================================================
 # PYTEST
 # =============================================================================
@@ -266,13 +297,15 @@ flows of each step, and nothing else."""
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
-# The integration tests need a real Postgres and the end-to-end ones the
-# running stack, so a plain "pytest" leaves them out. "pytest -m integration"
-# or "pytest -m e2e" runs only those: the last -m wins.
-addopts = ["-v", "--tb=short", "-m", "not integration and not e2e"]
+# The integration tests need a real Postgres, the end-to-end ones the
+# running stack, the evals the Claude API and money: a plain "pytest" leaves
+# them out. "pytest -m integration", "-m e2e" or "-m eval" runs only those:
+# the last -m wins.
+addopts = ["-v", "--tb=short", "-m", "not integration and not e2e and not eval"]
 markers = [
     "integration: needs a real Postgres (TEST_DATABASE_*); every test in tests/integration/",
     "e2e: needs the stack of compose.yaml running; every test in tests/e2e/",
+    "eval: calls the real Claude (ANTHROPIC_API_KEY) and costs money; every test in tests/evals/, run by hand",
 ]
 # pytest 9: a typo in a marker or in this section becomes an error instead
 # of a warning (strict_markers, strict_config). Also enables strict_xfail

@@ -75,6 +75,56 @@ su ogni passaggio.
   dalla porta `PlantReader`. *Perché*: diagnosi ed eval girano senza database, e lo stesso
   scenario dà sempre lo stesso risultato.
 - **Confine AI–impianto**: porte e adattatori (vedi `AGENTS.md`).
+- **Ordine dopo M1b** (13 novembre): prima la parte AI, con l'impianto in-process: primo agente,
+  sorvegliante e primo eval (M5). Il servizio plant-sim (M2) viene dopo, ridotto, solo se serve
+  alla demo. *Perché*: tutti i requisiti obbligatori del corso stanno nella parte AI e girano
+  senza il servizio; al discorso (19 novembre) mancano 6 giorni.
+- **Framework agenti: datapizza-ai.** Solo `datapizza-ai-core` e `datapizza-ai-clients-anthropic`:
+  il pacchetto `datapizza-ai` installa anche OpenAI e Qdrant, che non usiamo. *Perché*: è il
+  framework di riferimento del corso, e i requisiti ne nominano i pezzi (`DagPipeline`,
+  `ContextTracing`).
+- **datapizza con Claude, provato con chiamate vere** (14 novembre: `datapizza-ai-core` 0.1.3,
+  client Anthropic 0.0.8, `claude-sonnet-5-5`). Funzionano il ciclo con più tool, `max_tokens`,
+  `effort` e il fallback lato server sui rifiuti, che passano come argomenti della chiamata.
+  I limiti, aggirati senza un nostro client:
+  - la risposta strutturata (`output_cls`) non regge i tool: la diagnosi arriva come argomenti
+    di un tool finale, `submit_diagnosis`. Li controlliamo noi con pydantic, perché datapizza
+    non chiede all'API di garantire lo schema;
+  - i blocchi di ragionamento non tornano a Claude tra un tool e l'altro: l'API lo accetta, e si
+    perde solo il ragionamento di quel turno. Sui passi semplici Sonnet non ragiona affatto.
+    Accettato per M5;
+  - il ciclo ignora lo `stop_reason`: su un rifiuto senza testo richiamerebbe il modello fino a
+    `max_steps`. Un hook ferma i passi vuoti, e lo `stop_reason` si legge dal tracing;
+  - un `tool_choice` forzato dà 400 su questo modello: sempre `auto`;
+  - per un parametro enum facoltativo, lo schema che datapizza ricava dalla firma non si
+    serializza in JSON: lo schema di `submit_diagnosis` lo scriviamo da un modello pydantic;
+  - datapizza stampa ogni passo sulla console: l'agente gli dà un logger che scrive con
+    structlog. Resta il riepilogo dei token che `ContextTracing` stampa a fine diagnosi.
+
+  *Perché*: il resto del framework serve ai requisiti del corso, e un nostro client sarebbe
+  codice in più da mantenere.
+- **Modello: Claude (Anthropic)**, primo agente su `claude-sonnet-5-5` (14 novembre), con il
+  fallback lato server sui rifiuti. Il secondo fornitore del client multi-provider si sceglie
+  dopo. *Perché*: costa la metà di `claude-opus-5-5` (2 $ e 10 $ per milione di token in
+  entrata e in uscita, contro 4 $ e 20 $).
+- **Cache dei prompt su ogni chiamata**: datapizza non la attiva, e l'adapter passa
+  `cache_control` come argomento della chiamata. Provata nell'eval di M5: in S2, 6,6 mila token
+  scritti nella cache e 15,6 mila letti. *Perché*: in un ciclo con i tool ogni chiamata rimanda
+  tutta la conversazione, e su `claude-sonnet-5-5` una lettura dalla cache costa un ventesimo
+  dell'input.
+- **Tracing in locale** con `ContextTracing` di datapizza: ogni passo dell'agente (chiamata al
+  modello con il suo `stop_reason` e i token, tool con gli argomenti) resta in memoria, e l'eval
+  lo scrive su file. *Perché*: basta per l'audit trail e per gli eval, senza un servizio in più
+  nel compose.
+- **Eval degli agenti a mano**, fuori dalla CI (`uv run pytest -m eval`): scenari di guasto con
+  seed fisso, verdetto passa / non passa con controlli in codice sulla risposta strutturata e
+  sulla traiettoria, niente LLM come giudice. *Perché*: costa, e la CI non ha la chiave; un
+  giudice LLM sarebbe un'altra fonte di errore da valutare.
+- **Sorvegliante su richiesta**: una funzione a regole fisse che riceve solo `PlantReader`,
+  chiamata dopo ogni avanzamento del tempo o da un tool dell'agente; nessun ciclo in background.
+  Si costruisce con il primo agente (M5), non in M2. *Perché*: con il tempo a passi l'impianto è
+  fermo tra un avanzamento e l'altro, quindi il controllo resta deterministico; ed è lui che fa
+  partire la diagnosi.
 - **Base del codice**: template `fastapi_starter` (FastAPI, PostgreSQL, Alembic, structlog,
   SQLAlchemy async, Keycloak, uv, import-linter, CI, release-please).
 - **Nome**: il progetto si chiama NeuralBrewery. Repo `NeuralBrewery`; package Python, immagine
@@ -103,14 +153,17 @@ su ogni passaggio.
 
 ## Ancora aperte
 
-- Framework agenti: LangChain/LangGraph o datapizza-ai.
-- Modelli e provider concreti.
-- Tracing: Langfuse o Phoenix.
+- Secondo fornitore per il client multi-provider, e quale modello per ogni ruolo.
+- Errori di Anthropic: nascono dentro il ciclo di datapizza come eccezioni dell'SDK, e un adapter
+  che costruisce solo il client non le può tradurre (ADR 0006). Si traducono quando l'agente sarà
+  esposto dall'API; finché lo usano solo gli eval, un errore fa fallire l'eval con il suo
+  messaggio.
+- Un'interfaccia per leggere i trace (Langfuse o Phoenix): solo se serve alla demo.
 - Keycloak: utile per l'identità di chi approva; da valutare il peso nel compose per il tester.
 - MQTT: solo se serve, dopo.
 - UI e notifiche.
-- Ordine dopo M1b: il servizio plant-sim subito (M2), oppure dopo il primo agente, gli eval e
-  la memory, che girano anche senza il servizio.
+- M2, se si fa: tempo a passi e un comando di `SimulationControl` per ripartire da una partenza
+  con nome, invece di riavviare il container (preferenze, da confermare).
 - Adattatore verso un controllore vero (per esempio OPC UA): le letture hanno già la sua forma
   (valore, qualità, tempo). Non serve al corso: solo se avanza tempo.
 - CI su GitHub: il controllo "Build container image" è rosso anche su `master`. La scansione
@@ -124,9 +177,12 @@ su ogni passaggio.
 | M0 | Rinomina del package, posti vuoti per l'impianto, contract, script manuali | Controlli della CI verdi |
 | M1 | Vocabolario, porte, processo, dispositivi e controllore con comandi manuali, interlock, allarmi e storico breve (Python puro) | Test di plausibilità, interlock e guasti verdi |
 | M1b | Programma della cotta nel controllore | Una cotta intera simulata, con 20 L nel fermentatore |
-| M2 | Servizio plant-sim, adapter REST, impostazioni, compose, sorvegliante | Test di contratto in-process e REST verdi |
+| M2 | Servizio plant-sim, adapter REST, impostazioni, compose | Test di contratto in-process e REST verdi |
 | M3 | Storico su Postgres + Grafana (facoltativo, solo se avanza tempo) | Grafici di una cotta simulata |
 | M4 | Server MCP (lettura + proposta) + coda approvazioni ed esecutore; via l'esempio notes | Proposta → approvazione → esecuzione da Claude Desktop |
-| M5 | Primo agente (impianto) + tracing + primo eval | Eval pass/fail su 3 scenari |
+| M5 | Primo agente (impianto) + sorvegliante + tracing + primo eval | Eval pass/fail su 3 scenari |
 | M6 | RAG sui manuali + RAGAS | RAGAS sopra soglia |
 | M7 | Multi-agente + baseline, guardrail, red teaming, eval in CI, UI | Requisiti del corso coperti |
+
+Ordine: dopo M1b viene M5, con l'impianto in-process; dopo M5 viene M4 (deciso il 14 novembre,
+a fine M5). M2 si fa dopo, solo se serve alla demo. L'ordine del resto si decide a fine M4.

@@ -17,6 +17,8 @@ htmlcov/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+# What the evals wrote: diagnoses, traces, costs (tests/evals/conftest.py)
+.evals/
 
 # The prototype of the AI-plant boundary: a reference to read, not part of
 # the project (AGENTS.md)

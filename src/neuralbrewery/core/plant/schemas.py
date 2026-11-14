@@ -146,6 +146,21 @@ class Alarm(_Frozen):
     since_s: float
 
 
+class WatcherCode(StrEnum):
+    """The judgements of the watcher on the process, not facts of the controller."""
+
+    PROBES_DISAGREE = "probes_disagree"  # TT5a and TT5b apart for too long
+
+
+class WatcherAlarm(_Frozen):
+    """A judgement of the watcher: it ends when what the plant shows changes."""
+
+    code: WatcherCode
+    tag: str  # the vessel, as in a regulation
+    text: str
+    since_s: float  # when the process began to look like this
+
+
 class EventKind(StrEnum):
     ALARM_RAISED = "alarm_raised"
     ALARM_CLEARED = "alarm_cleared"

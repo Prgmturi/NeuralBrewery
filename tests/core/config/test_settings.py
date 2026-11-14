@@ -18,6 +18,7 @@ from neuralbrewery.core.config import Settings
 from neuralbrewery.core.config import app as app_module
 from neuralbrewery.core.config.app import AppSettings
 from neuralbrewery.core.config.auth_cookie import AuthCookieSettings
+from neuralbrewery.core.config.claude import ClaudeSettings
 from neuralbrewery.core.config.database import DatabaseSettings
 from neuralbrewery.core.config.keycloak import KeycloakSettings
 from neuralbrewery.core.config.server import ServerSettings
@@ -100,6 +101,47 @@ class TestAppSettings:
         """
         with pytest.raises(pydantic.ValidationError, match="DEBUG"):
             AppSettings(log_level=given)
+
+
+class TestClaudeSettings:
+    """ClaudeSettings: the model of the agents and the budget of each call.
+
+    WHY: the defaults are the choices of docs/decisioni.md (claude-sonnet-5-5,
+    effort high). datapizza falls back to 2048 tokens per call, which thinking
+    and answer share: a diagnosis could end half way.
+    """
+
+    def test_defaults(self):
+        """[HP] Sonnet, 16000 tokens, effort high, and no key."""
+        settings = ClaudeSettings()
+
+        assert settings.model == "claude-sonnet-5-5"
+        assert settings.max_tokens == 16000
+        assert settings.effort == "high"
+        assert settings.api_key.get_secret_value() == ""
+
+    def test_read_from_the_environment(self, monkeypatch):
+        """[HP] The key under the name of the Anthropic tools, the rest as CLAUDE_*."""
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-from-the-env")
+        monkeypatch.setenv("CLAUDE_MODEL", "claude-opus-5-5")
+        monkeypatch.setenv("CLAUDE_EFFORT", "medium")
+
+        settings = ClaudeSettings()
+
+        assert settings.api_key.get_secret_value() == "sk-ant-from-the-env"
+        assert (settings.model, settings.effort) == ("claude-opus-5-5", "medium")
+
+    def test_anthropic_model_of_other_tools_is_ignored(self, monkeypatch):
+        """[EC] Claude Code exports ANTHROPIC_MODEL: it must not pick our model."""
+        monkeypatch.setenv("ANTHROPIC_MODEL", "claude-haiku-5-5")
+
+        assert ClaudeSettings().model == "claude-sonnet-5-5"
+
+    @pytest.mark.parametrize("given", ["highest", "HIGH", ""])
+    def test_effort_typo_refused(self, given):
+        """[EC] An effort the API does not know stops the startup, not the call."""
+        with pytest.raises(pydantic.ValidationError, match="effort"):
+            ClaudeSettings(effort=given)
 
 
 class TestDatabaseSettings:
@@ -437,7 +479,7 @@ class TestEnvExample:
 
 
 class TestSecrets:
-    """Database password and Keycloak client secret.
+    """Database password, Keycloak client secret, Anthropic API key.
 
     WHY: settings reach logs and tracebacks through repr() and model_dump().
     As plain strings, both secrets were printed in full, and the password a
@@ -449,9 +491,12 @@ class TestSecrets:
         return Settings(
             database=DatabaseSettings(password="db-secret-value"),
             keycloak=KeycloakSettings(client_secret="kc-secret-value"),
+            claude=ClaudeSettings(api_key="sk-ant-secret-value"),
         )
 
-    @pytest.mark.parametrize("secret", ["db-secret-value", "kc-secret-value"])
+    @pytest.mark.parametrize(
+        "secret", ["db-secret-value", "kc-secret-value", "sk-ant-secret-value"]
+    )
     def test_secret_not_in_repr_or_dumps(self, settings, secret):
         """[SEC] repr, model_dump and JSON of the whole settings hide it."""
         assert secret not in repr(settings)
@@ -462,6 +507,7 @@ class TestSecrets:
         """[HP] get_secret_value() gives the value to the code that needs it."""
         assert settings.database.password.get_secret_value() == "db-secret-value"
         assert settings.keycloak.client_secret.get_secret_value() == "kc-secret-value"
+        assert settings.claude.api_key.get_secret_value() == "sk-ant-secret-value"
 
 
 class TestErrorsShowNoValues:
