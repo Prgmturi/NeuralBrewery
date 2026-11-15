@@ -225,19 +225,28 @@ sui manuali e più agenti.
   coda, senza un secondo processo. `mcp` è una dipendenza diretta (`>=2.3.0,<3`, dentro i
   limiti di datapizza); la sua protezione degli host prende `SERVER_TRUSTED_HOSTS`, che
   altrimenti rifiuterebbe ogni host fuori da localhost con 421.
-- **La demo si fa da un pannello del birraio in Streamlit** (15 novembre, a fine M6). È una
-  pagina sola sopra l'API che c'è già, senza cambiare il backend:
+- **La demo si fa da una dashboard del birraio in Streamlit** (15 novembre, a fine M6). È una
+  pagina sola sopra l'API, con un solo endpoint in più (sotto):
   - stato dell'impianto e allarmi;
   - comandi della simulazione, solo in sviluppo;
   - il pulsante della diagnosi, con la spiegazione dell'agente;
   - la coda, con approva e rifiuta.
 
   `streamlit` è una dipendenza approvata. Niente chat e niente orchestratore: restano dopo il
-  corso, con il multi-agente. Nella demo di M6 la ripresa della cotta la proponeva Claude
-  Code: chi la propone dal pannello si decide nel piano di M7b. *Perché*: con i `curl` in un
-  terminale, in un discorso di 10 minuti si capisce poco. Claude Code in demo sembrava parte
-  del prodotto, ed era un punto in più in cui incepparsi. Il pannello viene dopo la memoria
-  (M7), che il corso chiede, e prima del README (M8).
+  corso, con il multi-agente. *Perché*: con i `curl` in un terminale, in un discorso di 10
+  minuti si capisce poco. Claude Code in demo sembrava parte del prodotto, ed era un punto in
+  più in cui incepparsi. La dashboard viene dopo la memoria (M7), che il corso chiede, e prima
+  del README (M8).
+- **Il birraio propone dalla dashboard con il suo token** (M7b, 15 novembre). Nella demo di M6
+  la ripresa della cotta (`resume_program`) e l'avvio (`start_program`) li proponeva Claude
+  Code, via MCP. Ora li propone il birraio: `POST /approvals`, con `X-Approval-Token` e il nome
+  dichiarato, mette in coda la proposta come `user`, attraverso lo stesso guardrail. Non preme
+  niente: la proposta aspetta l'approvazione come ogni altra, e sono due eventi nell'audit.
+  *Perché*: la strada senza backend nuovo era `propose_action` su `/mcp`, che scrive sempre
+  `mcp`. Nella coda la ripresa chiesta dal birraio sarebbe stata identica a una proposta di
+  Claude Code: l'audit avrebbe detto il falso, e il video del server MCP ("la proposta compare
+  come `mcp`") non avrebbe più distinto niente. La memoria dell'agente non cambia: legge solo
+  le proposte `agent`.
 - **Il server MCP si mostra con un video, non dal vivo** (15 novembre). Claude Code esce dalla
   demo dal vivo. Durante M7b o la prova di M8 si registra un video breve: Claude Code legge
   l'impianto e propone, e la proposta compare nella coda del pannello con mittente `mcp`. Il
