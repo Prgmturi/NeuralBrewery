@@ -14,7 +14,7 @@ from datapizza.core.clients.models import TokenUsage
 from datapizza.tools import Tool
 from datapizza.type import FunctionCallBlock, TextBlock
 
-from neuralbrewery.core.approvals.schemas import Actor, Receipt
+from neuralbrewery.core.approvals.schemas import Actor, PastDecision, Receipt
 
 Reply = Callable[[dict[str, Tool]], ClientResponse]
 
@@ -142,3 +142,29 @@ class RecordingInbox:
     ) -> Receipt:
         self.proposals.append((command, dict(arguments), actor, by, why))
         return self._receipt
+
+
+REJECTED_RESET = PastDecision(
+    command="reset",
+    arguments={},
+    why="TT1 legge di nuovo bene: resta solo il blocco del controllore.",
+    status="rejected",
+    reason="TT1 ha un contatto intermittente: va sostituita prima di riarmare",
+)
+
+
+class FakeDecisions:
+    """The DecisionReader port: the decisions given, or the error given."""
+
+    def __init__(
+        self, *decisions: PastDecision, raises: Exception | None = None
+    ) -> None:
+        self.asked: list[int] = []  # the limit of each read
+        self._decisions = list(decisions)
+        self._raises = raises
+
+    async def recent(self, limit: int) -> list[PastDecision]:
+        self.asked.append(limit)
+        if self._raises is not None:
+            raise self._raises
+        return self._decisions[:limit]

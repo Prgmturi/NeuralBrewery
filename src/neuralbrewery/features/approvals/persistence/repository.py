@@ -72,13 +72,17 @@ class SqlProposalLog:
         async with self._sessions() as session:
             return [to_event(row) for row in await session.scalars(statement)]
 
-    async def page(self, limit: int, offset: int) -> list[QueuedProposal]:
+    async def page(
+        self, limit: int, offset: int, actor: Actor | None = None
+    ) -> list[QueuedProposal]:
         # The births, newest first; two can share created_at: the id keeps
-        # the order the same on every page
+        # the order the same on every page. The actor of a birth is who
+        # proposed: filtered here, before LIMIT
+        births = select(ApprovalEventRow.proposal_id).where(ApprovalEventRow.seq == 0)
+        if actor is not None:
+            births = births.where(ApprovalEventRow.actor == actor.value)
         births = (
-            select(ApprovalEventRow.proposal_id)
-            .where(ApprovalEventRow.seq == 0)
-            .order_by(
+            births.order_by(
                 ApprovalEventRow.created_at.desc(), ApprovalEventRow.proposal_id.desc()
             )
             .limit(limit)

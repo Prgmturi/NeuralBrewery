@@ -9,6 +9,7 @@ import asyncio
 import json
 from uuid import UUID
 
+from neuralbrewery.core.approvals.schemas import Actor
 from neuralbrewery.core.exceptions import ConflictError
 from neuralbrewery.features.approvals.domain.proposal import (
     STEPS,
@@ -37,9 +38,15 @@ class InMemoryProposalLog:
         mine = [e for e in self.events if e.proposal_id == proposal_id]
         return sorted(mine, key=lambda e: e.seq)
 
-    async def page(self, limit: int, offset: int) -> list[QueuedProposal]:
+    async def page(
+        self, limit: int, offset: int, actor: Actor | None = None
+    ) -> list[QueuedProposal]:
         births = sorted(
-            (e for e in self.events if e.seq == 0),
+            (
+                e
+                for e in self.events
+                if e.seq == 0 and (actor is None or e.actor is actor)
+            ),
             key=lambda e: (e.at, e.proposal_id),
             reverse=True,
         )

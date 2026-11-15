@@ -164,6 +164,20 @@ class TestRead:
             in births
         )
         assert "LIMIT" in births and "OFFSET" in births
+        assert "approval_events.actor" not in births
+
+    async def test_a_page_of_one_proposer_filters_before_the_limit(self):
+        """[SEC] Only the agent's births are counted: MCP proposals push none out."""
+        sessions = FakeSessions([], [])
+
+        await SqlProposalLog(sessions).page(limit=10, offset=0, actor=Actor.AGENT)
+
+        statement = sessions.session.statements[0]
+        births = sql(statement)
+        assert "WHERE approval_events.seq = " in births
+        assert "AND approval_events.actor = " in births
+        assert births.index("approval_events.actor") < births.index("LIMIT")
+        assert "agent" in statement.compile().params.values()
 
 
 def test_the_log_matches_the_port():

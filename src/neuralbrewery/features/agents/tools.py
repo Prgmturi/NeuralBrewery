@@ -1,9 +1,13 @@
-"""The tools of the plant agent: four that read, one that hands in.
+"""The tools of the plant agent: four that read the plant, one that recalls,
+one that hands in.
 
 The reading tools close over a PlantReader and nothing else. Each answers
 in JSON, in simulated time, and turns an error into an answer for the
 model: datapizza would let an exception end the whole diagnosis. The MCP
 server serves the same functions (mcp_server.py), so both read alike.
+
+read_decisions closes over a DecisionReader: the brewer's decisions on the
+agent's past proposals, its memory (M7). The MCP server does not get it.
 
 submit_diagnosis ends the loop. Its arguments are flat, so the model sees
 one simple schema; they are checked here, with pydantic, because datapizza
@@ -14,12 +18,14 @@ datapizza leaves references that the JSON encoder cannot write.
 
 import json
 from collections.abc import Awaitable, Callable
+from dataclasses import asdict
 from typing import Annotated, Any
 
 from datapizza.tools import Tool
 from pydantic import BaseModel, Field, ValidationError
 
-from neuralbrewery.core.exceptions import NotFoundError
+from neuralbrewery.core.approvals.protocols import DecisionReader
+from neuralbrewery.core.exceptions import AppExceptionError, NotFoundError
 from neuralbrewery.core.plant import watcher
 from neuralbrewery.core.plant.protocols import PlantReader
 from neuralbrewery.core.plant.schemas import Command, Proposal, Route, Vessel
@@ -89,6 +95,38 @@ def reading_functions(reader: PlantReader) -> list[ReadingFunction]:
         )
 
     return [read_plant, read_events, read_history, run_watcher]
+
+
+# The past decisions the agent reads: a day of demo, a few thousand tokens
+DECISIONS = 10
+
+
+def decisions_tool(decisions: DecisionReader) -> Tool:
+    """The memory of the agent: its last proposals, and what became of them."""
+
+    async def read_decisions() -> str:
+        try:
+            past = await decisions.recent(DECISIONS)
+        except AppExceptionError:
+            return (
+                "Le decisioni passate del birraio non si leggono adesso: la coda "
+                "non risponde. Diagnostica con i tool dell'impianto."
+            )
+        if not past:
+            return "Nessuna tua proposta passata: il birraio non ha ancora deciso."
+        return json.dumps([asdict(decision) for decision in past], ensure_ascii=False)
+
+    return Tool(
+        read_decisions,
+        name="read_decisions",
+        description=(
+            f"Le decisioni del birraio sulle tue ultime {DECISIONS} proposte, dalla "
+            "più recente: pulsante e argomenti, la tua spiegazione di allora, lo "
+            "stato (proposed, blocked, approved, rejected, executed, "
+            "execution_failed), il motivo del rifiuto o del blocco, la risposta "
+            "del controllore. Non hanno tempi: possono venire da cotte precedenti."
+        ),
+    )
 
 
 class SubmitArguments(BaseModel):

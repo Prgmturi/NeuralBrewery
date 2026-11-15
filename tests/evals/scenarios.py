@@ -19,12 +19,12 @@ too: the agent read the plant before it answered, answered once, and read
 its past decisions when the scenario has some.
 """
 
-from collections.abc import Awaitable, Callable, Iterable, Mapping
+from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass
-from typing import Any
 
 from neuralbrewery.adapters.plant_sim.adapter import InProcessPlant
 from neuralbrewery.adapters.plant_sim.starts import brew_day, fermentation
+from neuralbrewery.core.approvals.schemas import PastDecision
 from neuralbrewery.core.plant import watcher
 from neuralbrewery.core.plant.schemas import (
     AlarmCode,
@@ -53,20 +53,8 @@ MEMORY_TOOL = "read_decisions"
 PLANT_TOOLS = {"read_plant", "read_events", "read_history", "run_watcher"}
 
 
-@dataclass(frozen=True)
-class PastDecision:
-    """One of the agent's past proposals, and what became of it. No times."""
-
-    command: str
-    arguments: Mapping[str, Any]
-    why: str  # the explanation of the diagnosis that proposed it
-    status: str  # the last event: proposed, blocked, rejected, executed...
-    reason: str = ""  # why the brewer rejected it, or the guardrail blocked it
-    answer: str = ""  # what the controller said to the button
-
-
 class RememberedDecisions:
-    """The memory of the agent in the eval: past decisions, no database."""
+    """The DecisionReader of the eval: past decisions in memory, no database."""
 
     def __init__(self, decisions: Iterable[PastDecision] = ()) -> None:
         self._decisions = tuple(decisions)

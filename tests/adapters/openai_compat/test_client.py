@@ -35,7 +35,7 @@ from neuralbrewery.core.exceptions import ExternalServiceError, ServiceUnavailab
 from neuralbrewery.features.agents import plant_agent
 from neuralbrewery.features.agents.diagnosis import DiagnosisRun, Outcome
 from neuralbrewery.features.agents.plant_agent import PlantAgent
-from tests.features.agents.fakes import DIAGNOSIS
+from tests.features.agents.fakes import DIAGNOSIS, FakeDecisions
 
 KEY = "gm-secret-test-key"
 
@@ -199,7 +199,9 @@ class TestErrorsOfTheApi:
 
 async def diagnose(handler) -> DiagnosisRun:
     plant = InProcessPlant(brew_day(seed=42))
-    return await PlantAgent(plant, answering(handler), generation_args()).diagnose()
+    return await PlantAgent(
+        plant, FakeDecisions(), answering(handler), generation_args()
+    ).diagnose()
 
 
 SUBMIT = json.dumps({**DIAGNOSIS, "command": None})
