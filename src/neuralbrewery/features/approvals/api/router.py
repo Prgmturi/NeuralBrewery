@@ -1,8 +1,9 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, status
 
+from neuralbrewery.core.approvals.schemas import Actor
 from neuralbrewery.core.database import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
 from neuralbrewery.features.approvals.api.dependencies import (
     BrewerOnly,
@@ -11,6 +12,7 @@ from neuralbrewery.features.approvals.api.dependencies import (
 )
 from neuralbrewery.features.approvals.api.schemas.request import (
     ApproveRequest,
+    ProposeRequest,
     RejectRequest,
 )
 from neuralbrewery.features.approvals.api.schemas.response import ProposalResponse
@@ -27,6 +29,26 @@ async def list_proposals(
     """Every proposal with its story, the newest first. Reading needs no token."""
     proposals = await queue.page(limit, offset)
     return [ProposalResponse.model_validate(proposal) for proposal in proposals]
+
+
+@approvals_router.post(
+    "",
+    dependencies=[BrewerOnly],
+    status_code=status.HTTP_201_CREATED,
+    summary="Propose a button, as the brewer",
+)
+async def propose(payload: ProposeRequest, queue: QueueDep) -> ProposalResponse:
+    """Needs X-Approval-Token. Queued as from user, with the declared name.
+
+    Nothing is pressed: the proposal waits for an approval like any other.
+    Out of limits it is blocked, and blocked_reason says why. The brewer
+    proposes here what an agent does not, such as resume_program after a
+    reset, and the audit tells these proposals from those of MCP clients.
+    """
+    proposal = await queue.propose(
+        payload.command, payload.arguments, Actor.USER, payload.by, payload.why
+    )
+    return ProposalResponse.model_validate(proposal)
 
 
 @approvals_router.get("/{proposal_id}", summary="One proposal")

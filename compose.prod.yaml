@@ -10,6 +10,7 @@
 #   plain HTTP that only the TLS proxy of the server reaches;
 # - the API and Keycloak listen on 127.0.0.1 only, for that proxy; the
 #   databases on no port of the host;
+# - the brewer's dashboard, a tool of the demo, starts only when asked;
 # - logs rotate.
 # !reset and !override need Docker Compose 2.24 or later.
 # =============================================================================
@@ -56,6 +57,17 @@ services:
       SERVER_FORWARDED_ALLOW_IPS: '["${STACK_SUBNET:-172.30.0.0/24}"]'
     ports: !override
       - "127.0.0.1:${SERVER_PORT:-8000}:8000"
+    logging: *logging
+
+  # The brewer's dashboard is a tool of the demo: on a server it starts only
+  # with --profile dashboard, publishes no port, and takes the server's token.
+  # It calls the API as "api": with the profile, SERVER_TRUSTED_HOSTS of the
+  # server's .env must list that name too.
+  dashboard:
+    profiles: ["dashboard"]
+    environment:
+      DASHBOARD_APPROVAL_TOKEN: ${APPROVAL_TOKEN:?set APPROVAL_TOKEN in .env, a long random value}
+    ports: !reset []
     logging: *logging
 
   keycloak-db:

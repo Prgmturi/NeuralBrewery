@@ -1,4 +1,4 @@
-"""Tests for the routes of the brewer: the queue, approve and reject.
+"""Tests for the routes of the brewer: the queue, propose, approve and reject.
 
 Module under test: src/neuralbrewery/features/approvals/api/
 Layer: FastAPI routes; the log in memory, the plant and the executor real
@@ -7,7 +7,8 @@ WHY these tests exist: approving is the one step between a proposal and
 the plant, and only whoever has APPROVAL_TOKEN takes it. Without the
 right token nothing is written and nothing is pressed; the name the
 brewer declares is written; the token never comes back, in a response
-or in a log.
+or in a log. The brewer proposes with the same token, as from user, so
+the audit tells the brewer's proposals from those of MCP clients.
 """
 
 import pytest
@@ -184,6 +185,97 @@ class TestReject:
         assert await setpoint_of_hlt(client) is None
 
 
+class TestPropose:
+    """The brewer proposes a button too, from the dashboard (docs/decisioni.md)."""
+
+    async def test_the_brewer_proposes_as_user(self, client, log):
+        """[HP] With the token: in the queue as from user, with the declared name."""
+        response = await client.post(
+            "/approvals",
+            json={"command": "resume_program", "why": "TT1 a posto", "by": "Salvatore"},
+            headers=BREWER,
+        )
+
+        assert response.status_code == 201
+        body = response.json()
+        assert body["status"] == "proposed"
+        assert body["action"] == {"command": "resume_program", "arguments": {}}
+        assert body["why"] == "TT1 a posto"
+        [event] = body["events"]
+        assert (event["actor"], event["by"]) == ("user", "Salvatore")
+        listed = (await client.get("/approvals")).json()
+        assert [p["id"] for p in listed] == [body["id"]]
+
+    async def test_it_waits_for_an_approval_like_any_other(self, client):
+        """[HP] Proposing presses nothing: the program starts once approved."""
+        proposal = (
+            await client.post(
+                "/approvals",
+                json={"command": "start_program", "by": "Salvatore"},
+                headers=BREWER,
+            )
+        ).json()
+        before = (await client.get("/plant")).json()["program"]["status"]
+
+        response = await client.post(
+            f"/approvals/{proposal['id']}/approve",
+            json={"by": "Salvatore"},
+            headers=BREWER,
+        )
+
+        assert before == "idle"
+        assert response.json()["events"][-1]["data"]["accepted"] is True
+        assert (await client.get("/plant")).json()["program"]["status"] == "running"
+
+    async def test_out_of_limits_it_is_blocked_with_the_reason(self, client, log):
+        """[SEC] The same guardrail as the agent and MCP: written, never queued."""
+        response = await client.post(
+            "/approvals",
+            json={
+                "command": "set_temperature",
+                "arguments": {"vessel": "HLT", "celsius": 99.0},
+                "by": "Salvatore",
+            },
+            headers=BREWER,
+        )
+
+        assert response.status_code == 201
+        body = response.json()
+        assert body["status"] == "blocked"
+        assert "85" in body["blocked_reason"]
+        assert [e.kind.value for e in log.events] == ["blocked"]
+
+    @pytest.mark.parametrize(
+        "headers",
+        [{}, {"X-Approval-Token": "wrong"}],
+        ids=["missing", "wrong"],
+    )
+    async def test_without_the_right_token_401_and_nothing_written(
+        self, client, log, headers
+    ):
+        """[SEC] Whoever proposes as user holds the brewer's token."""
+        response = await client.post(
+            "/approvals",
+            json={"command": "start_program", "by": "Salvatore"},
+            headers=headers,
+        )
+
+        assert_problem(response, 401)
+        assert log.events == []
+
+    @pytest.mark.parametrize(
+        "body",
+        [{"command": "start_program"}, {"command": "start_program", "by": ""}, {}],
+        ids=["no-name", "empty-name", "nothing"],
+    )
+    async def test_a_command_and_a_name_are_needed(self, client, log, body):
+        """[EC] 422, nothing written."""
+        response = await client.post("/approvals", json=body, headers=BREWER)
+
+        assert_problem(response, 422)
+        assert log.events == []
+
+
 class TestToken:
     """Only whoever has APPROVAL_TOKEN decides (docs/decisioni.md)."""
 
@@ -258,10 +350,15 @@ class TestToken:
                 json={"by": "Salvatore"},
                 headers=BREWER,
             )
+            proposed = await client.post(
+                "/approvals",
+                json={"command": "reset", "by": "Salvatore"},
+                headers=BREWER,
+            )
             listed = await client.get("/approvals")
 
-        assert response.status_code == 200
-        for answer in (response, listed):
+        assert (response.status_code, proposed.status_code) == (200, 201)
+        for answer in (response, proposed, listed):
             assert TOKEN not in answer.text
             assert TOKEN not in str(answer.headers)
         assert logs

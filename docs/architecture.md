@@ -22,7 +22,7 @@ Here each kind of code has one place, in three folders:
 | `adapters/` | The code that talks to a service outside the app, one folder for each service | `adapters/keycloak/` |
 | `core/` | What every feature needs: the login checks, the database session, the settings, the logs, the errors | `core/exceptions.py` |
 
-A **feature** is one folder of `features/`, on one subject. **`core`** is the part all the others share, and it knows none of them. Around the three folders sit `bootstrap.py`, which builds the adapters, and the modules that start the app: `main.py`, `serve.py` and `healthcheck.py`.
+A **feature** is one folder of `features/`, on one subject. **`core`** is the part all the others share, and it knows none of them. Around the three folders sit `bootstrap.py`, which builds the adapters, and the modules that start the app: `main.py`, `serve.py` and `healthcheck.py`. `dashboard/` stands apart: the brewer's page in Streamlit, a client of the API over HTTP, with an image of its own. It imports nothing of the app, and the app never imports it.
 
 A request crosses them like this:
 
@@ -817,6 +817,7 @@ A rule written only in a guide does not last: the first hurried commit breaks it
 | The simulated plant is plain Python | `uv run lint-imports`, `tests/test_package.py` | `neuralbrewery.adapters.plant_sim is not allowed to import fastapi` |
 | The controller of the plant sees signals, never true values | `uv run lint-imports` | `neuralbrewery.adapters.plant_sim.controller is not allowed to import neuralbrewery.adapters.plant_sim.process` |
 | The process of the plant does not know how it is measured | `uv run lint-imports` | `neuralbrewery.adapters.plant_sim.process is not allowed to import neuralbrewery.adapters.plant_sim.devices` |
+| The dashboard is a client of the API, and the app never loads it | `uv run lint-imports`, `tests/dashboard/test_page.py` | `neuralbrewery.dashboard is not allowed to import neuralbrewery.core` |
 | An adapter matches its port | `uv run mypy src/` | `"KeycloakClient" is missing following "OAuthProvider" protocol member` |
 | `app.state` is written through a key | `tests/core/test_state.py` | `Store these through a StateKey (core/state.py): ['bootstrap.py: oauth_provider']` |
 | The names say the direction | `tests/test_main.py` | `AssertionError: assert {'NoteOut'} == set()` |

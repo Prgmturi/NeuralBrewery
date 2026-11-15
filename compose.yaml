@@ -3,11 +3,12 @@
 # =============================================================================
 # The API, its migrations, Postgres, and Keycloak with its own Postgres and
 # the realm of docker/keycloak/realm-dev.json: client neuralbrewery, the
-# four roles, and testuser. From a clean clone it needs no .env: every value
-# has a development default.
+# four roles, and testuser. The brewer's dashboard, in an image of its own.
+# From a clean clone it needs no .env: every value has a development default.
 #
 # On the host: the API on SERVER_PORT (8000), Keycloak on KEYCLOAK_PORT (8080),
-# Postgres on DATABASE_PORT (5433). Compose reads these and DATABASE_NAME,
+# Postgres on DATABASE_PORT (5433), the dashboard on DASHBOARD_PORT (8501).
+# The API and the dashboard on 127.0.0.1 only. Compose reads these and DATABASE_NAME,
 # DATABASE_USER, DATABASE_PASSWORD from the .env of this folder when there is
 # one: they are the values an app started on the host uses (.env.example).
 #
@@ -68,7 +69,8 @@ services:
       # The secret of the client in docker/keycloak/realm-dev.json, not read
       # from .env: it must match the imported realm. Production refuses it.
       KEYCLOAK_CLIENT_SECRET: neuralbrewery-dev-secret
-      SERVER_TRUSTED_HOSTS: '["localhost", "127.0.0.1"]'
+      # "api": the name the dashboard calls it by, inside the stack
+      SERVER_TRUSTED_HOSTS: '["localhost", "127.0.0.1", "api"]'
       # The plant lives in this process: the demo moves its time, and
       # approves with the token of .env.example. Production refuses both.
       PLANT_SIMULATION_CONTROL: "true"
@@ -78,8 +80,10 @@ services:
       AGENT_PROVIDER: ${AGENT_PROVIDER:-claude}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       OPENAI_COMPAT_API_KEY: ${OPENAI_COMPAT_API_KEY:-}
+    # On this machine only: the simulation is open, /mcp and the agent ask
+    # for no login, and the approval token is public
     ports:
-      - "${SERVER_PORT:-8000}:8000"
+      - "127.0.0.1:${SERVER_PORT:-8000}:8000"
     # The image's HEALTHCHECK, probed every 2 seconds while the app starts
     healthcheck:
       start_period: 30s
@@ -90,6 +94,27 @@ services:
       migrate:
         condition: service_completed_successfully
       keycloak:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # The brewer's dashboard, the page the demo runs from: http://localhost:8501.
+  # An image of its own, so Streamlit stays out of the API's. It calls the
+  # API inside the stack, with the approval token the API expects. On the
+  # loopback only: the page approves with that token, and stays off the network.
+  dashboard:
+    build:
+      context: .
+      dockerfile: docker/dashboard.Dockerfile
+    environment:
+      DASHBOARD_API_URL: http://api:8000
+      DASHBOARD_APPROVAL_TOKEN: brewer-dev-token
+    ports:
+      - "127.0.0.1:${DASHBOARD_PORT:-8501}:8501"
+    healthcheck:
+      start_period: 30s
+      start_interval: 2s
+    depends_on:
+      api:
         condition: service_healthy
     restart: unless-stopped
 

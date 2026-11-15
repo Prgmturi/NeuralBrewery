@@ -1,0 +1,14 @@
+# Streamlit's settings for the dashboard run on the host:
+#   uv run streamlit run src/neuralbrewery/dashboard/app.py
+# The image of the dashboard sets its own (docker/dashboard.Dockerfile).
+
+[server]
+# The page holds the approval token: only this machine reaches it, not the
+# Wi-Fi of the room the demo is given in
+address = "localhost"
+# No question about an email at the first start
+headless = true
+
+[browser]
+# Streamlit sends usage statistics unless told not to
+gatherUsageStats = false
