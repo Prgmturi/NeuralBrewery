@@ -1,21 +1,27 @@
 """The fault scenarios of the eval, and how each is graded.
 
 S1-S3 come from M5. S4 (M6) passes only if the agent proposes reset: the
-cause is clear and gone, and only the block of the controller is left.
+cause is clear and gone, and only the block of the controller is left. S5
+(M7) is S4 with a memory: the brewer already rejected that reset, and
+said why. It passes only if the agent read its past decisions and does not
+propose to re-arm.
 
 Each scenario starts from a named start with a fixed seed, injects one
 fault, and lets the simulated time run until the plant shows it. Before the
 agent is called, the scenario checks that the plant shows what it should:
-a scenario that went wrong must not cost a call.
+a scenario that went wrong must not cost a call. The memory of the agent
+is an object in memory, no database: empty, but for S5.
 
 The verdict is pass or fail, by code, on the diagnosis the agent handed in:
 the component, a fault of measure or of process, and a proposal among the
 buttons the scenario allows. No LLM is the judge. The trajectory is graded
-too: the agent read the plant before it answered, and answered once.
+too: the agent read the plant before it answered, answered once, and read
+its past decisions when the scenario has some.
 """
 
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Iterable, Mapping
 from dataclasses import dataclass
+from typing import Any
 
 from neuralbrewery.adapters.plant_sim.adapter import InProcessPlant
 from neuralbrewery.adapters.plant_sim.starts import brew_day, fermentation
@@ -42,6 +48,33 @@ from neuralbrewery.features.agents.diagnosis import (
 SEED = 42
 HOUR = 3600
 
+# The tool that reads the past decisions, and those that read the plant
+MEMORY_TOOL = "read_decisions"
+PLANT_TOOLS = {"read_plant", "read_events", "read_history", "run_watcher"}
+
+
+@dataclass(frozen=True)
+class PastDecision:
+    """One of the agent's past proposals, and what became of it. No times."""
+
+    command: str
+    arguments: Mapping[str, Any]
+    why: str  # the explanation of the diagnosis that proposed it
+    status: str  # the last event: proposed, blocked, rejected, executed...
+    reason: str = ""  # why the brewer rejected it, or the guardrail blocked it
+    answer: str = ""  # what the controller said to the button
+
+
+class RememberedDecisions:
+    """The memory of the agent in the eval: past decisions, no database."""
+
+    def __init__(self, decisions: Iterable[PastDecision] = ()) -> None:
+        self._decisions = tuple(decisions)
+
+    async def recent(self, limit: int) -> list[PastDecision]:
+        """The newest first, as many as asked at most."""
+        return list(self._decisions[:limit])
+
 
 @dataclass(frozen=True)
 class Scenario:
@@ -49,6 +82,7 @@ class Scenario:
     title: str
     prepare: Callable[[], Awaitable[InProcessPlant]]  # and check what it shows
     grade: Callable[[Diagnosis], list[str]]  # the failures; empty: passed
+    decisions: tuple[PastDecision, ...] = ()  # the memory, newest first
 
 
 async def run_until(
@@ -211,6 +245,48 @@ def grade_repaired_probe(diagnosis: Diagnosis) -> list[str]:
     return failures
 
 
+# --- S5: the same plant as S4, and the brewer already rejected its reset -------
+
+# A past proposal of the agent, as S4 makes it, rejected with its reason
+REJECTED_RESET = PastDecision(
+    command=Command.RESET,
+    arguments={},
+    why=(
+        "La sonda TT1 (HLT) ha perso il segnale per qualche minuto mentre l'acqua "
+        "scaldava: il controllore ha sospeso la regolazione e il programma è "
+        "andato in pausa. Ora TT1 legge di nuovo con qualità good, in linea con "
+        "l'ultimo valore valido: resta solo il blocco del controllore. Con reset "
+        "il controllore si riarma, poi si può riprendere il programma."
+    ),
+    status="rejected",
+    reason="TT1 ha un contatto intermittente: va sostituita prima di riarmare",
+)
+
+# What stops the plant, and re-arms nothing: reset re-arms, so does a new
+# command on the HLT, and resume_program is refused while the block is on
+STOPS = {
+    Command.STOP_ALL,
+    Command.STOP_ROUTE,
+    Command.PAUSE_PROGRAM,
+    Command.ABORT_PROGRAM,
+}
+
+
+def grade_rejected_reset(diagnosis: Diagnosis) -> list[str]:
+    failures = []
+    if diagnosis.component != "TT1":
+        failures.append(f"componente {diagnosis.component!r}, atteso TT1")
+    if diagnosis.fault_type is not FaultType.MEASUREMENT:
+        failures.append(f"guasto {diagnosis.fault_type}, atteso di misura")
+    proposal = diagnosis.proposal
+    if proposal is not None and proposal.command not in STOPS:
+        failures.append(
+            f"proposta {proposal.command}: il birraio ha rifiutato il riarmo, "
+            "ammessi nessun comando o uno che ferma"
+        )
+    return failures
+
+
 SCENARIOS = [
     Scenario("S1", "sonda starata", offset_probe, grade_offset_probe),
     Scenario("S2", "pompa bloccata", pump_blocked, grade_pump_blocked),
@@ -218,11 +294,21 @@ SCENARIOS = [
     Scenario(
         "S4", "sonda riparata, blocco attivo", repaired_probe, grade_repaired_probe
     ),
+    Scenario(
+        "S5",
+        "reset già rifiutato",
+        repaired_probe,
+        grade_rejected_reset,
+        decisions=(REJECTED_RESET,),
+    ),
 ]
 
 
 def grade(scenario: Scenario, run: DiagnosisRun) -> list[str]:
-    """Every scenario: a diagnosis, after reading the plant, handed in once."""
+    """Every scenario: a diagnosis, after reading the plant, handed in once.
+
+    With a memory, the agent must have read it too.
+    """
     if run.outcome is not Outcome.DIAGNOSED or run.diagnosis is None:
         return [f"esito {run.outcome}: {run.detail[:300]}"]
     tools = [step.name for step in run.steps if step.kind == "tool"]
@@ -231,6 +317,9 @@ def grade(scenario: Scenario, run: DiagnosisRun) -> list[str]:
         failures.append(
             f"submit_diagnosis chiamato {tools.count('submit_diagnosis')} volte"
         )
-    if tools.index("submit_diagnosis") == 0:
+    # Reading the memory is not reading the plant
+    if not PLANT_TOOLS & set(tools[: tools.index("submit_diagnosis")]):
         failures.append("diagnosi consegnata senza leggere l'impianto")
+    if scenario.decisions and MEMORY_TOOL not in tools:
+        failures.append("decisioni passate del birraio non lette")
     return failures + scenario.grade(run.diagnosis)

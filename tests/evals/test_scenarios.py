@@ -27,6 +27,7 @@ async def test_the_agent_diagnoses(scenario: Scenario, model, record):
     reader: PlantReader = plant
 
     try:
+        # Not yet the memory of the scenario: the agent has no tool to read it
         run = await PlantAgent(reader, client, generation).diagnose()
     except AppExceptionError as error:
         # 503 or 502 from the adapter: a result for the table, not a crash
