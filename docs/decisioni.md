@@ -41,7 +41,36 @@ sui manuali e più agenti.
   dell'agente, l'approvazione o il rifiuto con il suo motivo, e l'esito; un tool in più le fa
   leggere all'agente. Niente tabella nuova. *Perché*: è la strada più corta, e la memoria che
   serve è proprio ciò che il birraio ha deciso. Limite: ricorda solo le diagnosi che hanno
-  proposto un pulsante.
+  proposto un pulsante. Fatta così (M7, 15 novembre):
+  - una porta di sola lettura, `DecisionReader` in `core/approvals/`, accanto a
+    `ProposalInbox`. La implementa `features/approvals/`, e `bootstrap.py` la passa all'agente
+    insieme al lettore dell'impianto: niente che proponga, approvi o comandi;
+  - il tool `read_decisions` dà le ultime 10 proposte dell'agente, dalla più recente. Per
+    ognuna: pulsante e argomenti, la spiegazione di allora, lo stato finale, il motivo del
+    rifiuto o del blocco, la risposta del controllore. 10 bastano per una giornata di demo, e
+    costano poche migliaia di token;
+  - solo le proposte dell'agente, filtrate nella query prima del limite: con 8 proposte MCP
+    recenti, l'agente vede lo stesso le sue ultime 10. Le proposte MCP restano fuori perché il
+    loro `why` lo scrive chiunque raggiunga `/mcp`;
+  - nessun tempo: né il momento reale né il `sim_time_s`, che un riavvio rimette a zero;
+  - con la coda irraggiungibile la porta alza `ServiceUnavailableError`, e il tool lo dice
+    all'agente a parole: la diagnosi continua con i tool dell'impianto;
+  - il prompt ha una riga in più: prima di proporre un pulsante l'agente legge le decisioni, e
+    non ripropone un pulsante rifiutato per la stessa causa;
+  - il server MCP non ha il tool.
+
+  Eval (15 novembre): su Claude 5 su 5, e S5 3 volte su 3. Su Gemini Flash-Lite 4 su 5: S5
+  passa, S4 no. Al posto di `reset` propone `resume_program`, che il controllore rifiuta
+  finché il blocco c'è, o nessun comando. Con questo codice S4 passa 0 volte su 4; con il
+  codice di M6, 3 su 3. Provata anche una variante con il prompt identico a quello di M6 e la
+  regola nella descrizione del tool: 0 su 3, quindi è stata tolta. In quei giri Gemini spesso
+  non chiama nemmeno il tool. Proposta, da confermare a fine fase: accettarlo come limite di
+  Gemini. La demo è su Claude, e inseguire un modello piccolo con ritocchi al prompt rischia di
+  peggiorare ciò che funziona.
+
+  Limite: se la causa è "la stessa" lo giudica il modello. Il guardrail non ferma una proposta
+  già rifiutata: la memoria è un consiglio all'agente, non una regola in codice. L'eval S5 lo
+  verifica.
 - **RAG classico**, dopo il corso (ibrido + rerank) con metadati per componente e sigla. *Perché*: le relazioni
   tra componenti sono già note dalla configurazione dell'impianto, non serve estrarle con un LLM.
   Tabelle dei codici di errore spezzate una riga per chunk.

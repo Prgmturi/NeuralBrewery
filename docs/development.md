@@ -37,7 +37,7 @@ Then open http://localhost:8000/docs. `docker compose up --wait api` starts the 
 
 An action reaches the plant only after the brewer approves it. Until M2 the simulated plant lives in the API process.
 
-This section drives the API by hand, with `curl` and Claude Code. From M7b the live demo runs from the brewer's panel, in Streamlit, and needs neither.
+This section drives the API by hand, with `curl`; Claude Code is optional, as a client of the MCP server. From M7b the live demo runs from the brewer's panel, in Streamlit, and needs neither.
 
 - **A restart builds a new plant.** It starts from `PLANT_START` (`brew_day` or `fermentation`) with `PLANT_SEED`, and what happened to the old plant is gone. The queue stays in Postgres.
 - **Time moves only when you move it**, with `/simulation/advance`.
@@ -116,10 +116,18 @@ What this endpoint costs and needs:
 - One diagnosis costs a few cents on Claude, nothing on the free tier of Gemini.
 - Without the key of the chosen provider it answers 503, and 503 again when the provider cannot be reached or is over its limits. An answer that cannot be used is a 502.
 - The agent proposes the most prudent action. When manual checks come first, it proposes nothing. When the cause gives no more signs and only a block of the controller is left, it proposes `reset`.
+- Before it proposes a button, the agent reads the brewer's decisions on its last 10 proposals, with the tool `read_decisions`. If the brewer rejected the same button for the same cause, it does not propose it again, and says so. It reads only its own proposals: those from MCP stay out. It reads no time either, real or simulated.
 
-A whole round, as run on 15 November on `brew_day` with seed 42. It is scenario S4 of the evals:
+A whole round on `brew_day` with seed 42. It is scenario S4 of the evals:
 
-1. Ask Claude Code to propose `start_program`, and approve it (step 2).
+1. Propose `start_program` through the MCP server, and approve it (step 2). Claude Code would do it from a sentence; `curl` does it too:
+   ```bash
+   curl -s -X POST localhost:8000/mcp -H "Content-Type: application/json" \
+     -H "Accept: application/json, text/event-stream" \
+     -d '{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "propose_action",
+          "arguments": {"command": "start_program", "why": "cotta di riferimento"}}}'
+   ```
+   The text of the answer holds the id of the proposal.
 2. Break TT1 while the water heats, then repair it:
    ```bash
    curl -s -X POST localhost:8000/simulation/advance \
@@ -133,14 +141,26 @@ A whole round, as run on 15 November on `brew_day` with seed 42. It is scenario 
      -H "Content-Type: application/json" -d '{"seconds": 300}'
    ```
    The last `advance` shows that `signal_fault` on TT1 is gone. `control_probe_fault` on HLT and the pause stay: the controller does not restart by itself.
-3. Call the agent endpoint. It names TT1, as a fault of measure, and puts `reset` in the queue, from `agent`. Approve it: `executed`, and the block goes.
-4. The program still waits. Ask Claude Code to propose `resume_program`, and approve it. After an `advance` the program runs again, and TT1 climbs towards 72 °C.
+3. Call the agent endpoint. It names TT1, as a fault of measure, and puts `reset` in the queue, from `agent`.
+
+From here the brewer decides, and either way is a round of its own.
+
+**Approve** (the round of M6, 15 November):
+
+4. Approve the `reset`: `executed`, and the block goes.
+5. The program still waits. Propose `resume_program` as in 1, and approve it. After an `advance` the program runs again, and TT1 climbs towards 72 °C.
 
 Each button is a proposal of its own, with its own approval:
 - `reset` re-arms what no longer has its cause;
 - `resume_program` takes the step up again, and is refused while a block is on.
 
 When a fault goes and leaves no block, as when a drive is repaired, `resume_program` alone is enough.
+
+**Reject, and the agent remembers** (the round of M7, 15 November):
+
+4. Reject the `reset`, with the reason *TT1 ha un contatto intermittente: va sostituita prima di riarmare* (step 2).
+5. Call the agent endpoint again, on the same plant. The agent reads its past decisions and proposes nothing: `queued` is null. Its explanation cites the rejection and its reason, and its checks include replacing TT1 before re-arming.
+6. Restart the API: `docker compose restart api`. The plant starts over from zero, and the queue stays in Postgres. Repeat steps 1 and 2, then call the agent endpoint: it still recalls the rejection, and does not propose `reset`. The memory outlives the process.
 
 ## Tests
 
@@ -176,7 +196,14 @@ The stack takes its ports from `SERVER_PORT`, `KEYCLOAK_PORT` and `DATABASE_PORT
 
 ### Eval of the agents
 
-`uv run pytest -m eval` runs the plant agent on a real model, on four fault scenarios with a fixed seed (`tests/evals/scenarios.py`): an offset probe in the fermenter, a blocked pump at the mash-in, the drive of the agitator in fault, and a probe repaired while the block of the controller is still on, where only `reset` passes. The verdict is pass or fail, by code, on the diagnosis the agent hands in and on its trajectory: no LLM is the judge.
+`uv run pytest -m eval` runs the plant agent on a real model, on five fault scenarios with a fixed seed (`tests/evals/scenarios.py`):
+- S1, an offset probe in the fermenter;
+- S2, a blocked pump at the mash-in;
+- S3, the drive of the agitator in fault;
+- S4, a probe repaired while the block of the controller is still on, where only `reset` passes;
+- S5, the plant of S4 with a memory: the brewer already rejected that `reset`, and said why. It passes only if the agent read its past decisions and proposes nothing that re-arms.
+
+The memory of the agent is an object in memory, no database: empty, but for S5. The verdict is pass or fail, by code, on the diagnosis the agent hands in and on its trajectory: no LLM is the judge.
 
 The model is the one of `AGENT_PROVIDER`, as for the app. Export it for the run rather than writing it in `.env`, where compose would read it too and move the demo to Gemini:
 
@@ -187,8 +214,8 @@ AGENT_PROVIDER=openai_compat uv run pytest -m eval   # Gemini Flash-Lite, free t
 
 On PowerShell, `$env:AGENT_PROVIDER = 'openai_compat'` before the command.
 
-- **On Claude** it costs about 12 cents for the four, and needs `ANTHROPIC_API_KEY`.
-- **On Gemini** it costs nothing, and needs `OPENAI_COMPAT_API_KEY`, from Google AI Studio. The free tier allows 15 requests a minute and a scenario makes up to 12, so the scenarios start a minute apart: about 3 minutes for the four.
+- **On Claude** it costs about 15 cents for the five, and needs `ANTHROPIC_API_KEY`.
+- **On Gemini** it costs nothing, and needs `OPENAI_COMPAT_API_KEY`, from Google AI Studio. The free tier allows 15 requests a minute and a scenario makes up to 12, so the scenarios start a minute apart: about 4 minutes for the five.
 - A plain `uv run pytest` leaves the evals out, and CI does not run them.
 - Before the agent is called, each scenario checks that the plant shows its fault: a scenario that went wrong costs nothing.
 - At the end a table gives the verdict, the tokens and the cost of each scenario. A second table compares the last run of each provider, once both have run.
