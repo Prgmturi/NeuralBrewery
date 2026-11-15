@@ -70,10 +70,10 @@ In the page, from the top:
 
 What to know about it:
 - **It is a client of the API**, as `curl` is. It reads `DASHBOARD_API_URL` and `DASHBOARD_APPROVAL_TOKEN`, which compose sets. It imports nothing of the app, and approving stays code of the API: with a wrong token, approve and reject show the API's 401.
-- **It answers on 127.0.0.1 only.** The page holds the token, and nobody on the Wi-Fi of the room must reach it.
+- **The page answers on 127.0.0.1 only**, since it holds the token: it stays off the network. The API does not: the development stack publishes it on every interface, as before, and the development token is public ([decisioni.md](decisioni.md), *Ancora aperte*).
 - **Nothing runs in the background.** The page runs again when you press or type something. To see a proposal that came from elsewhere, from MCP for one, press `R` in the page, or any button.
 - **Its image is its own** (`docker/dashboard.Dockerfile`), with Streamlit and nothing of the API. The image of the API stays without Streamlit, about 300 MB less.
-- **The tokens it shows are those the API reports**: outside the prompt cache, and read from it. What is written into the cache is not counted, so the cost of a diagnosis comes from the evals. On Claude it is 2 or 3 cents.
+- **The tokens it shows are those the API reports**: outside the prompt cache, and read from it. What is written into the cache is not counted, so the cost of a diagnosis comes from the evals: on Claude, 1 to 3 cents for S4 and S5.
 - **It runs on the host too**, while you change it: `docker compose stop dashboard`, put `DASHBOARD_APPROVAL_TOKEN` in `.env` (`.env.example`), then `uv run streamlit run src/neuralbrewery/dashboard/app.py`. `.streamlit/config.toml` keeps it on localhost and turns off the usage statistics that Streamlit sends by default.
 
 ### The round of the speech
@@ -96,7 +96,7 @@ On a clean queue ([below](#a-clean-queue-before-a-demo)), `brew_day` with seed 4
 How the round went on 15 November, live on Claude:
 - the three diagnoses took 17, 11 and 10 s;
 - in the third the agent wrote *Il birraio ha già rifiutato il reset (…), quindi non lo ripropongo*;
-- the three cost about 8 cents together, measured as the evals measure S4 and S5.
+- the three cost about 8 cents together. That is an estimate from what the evals measured on S4 and S5, since the API does not report the tokens written into the cache.
 
 ### A clean queue before a demo
 

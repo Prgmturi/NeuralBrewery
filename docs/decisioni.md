@@ -252,8 +252,9 @@ sui manuali e più agenti.
     `--profile dashboard`;
   - **il token** lo legge da `DASHBOARD_APPROVAL_TOKEN`, che il compose imposta; il nome di chi
     decide lo scrive il birraio nella pagina. Il token non compare mai nella pagina né nei log;
-  - **solo su 127.0.0.1**, anche in sviluppo: la pagina tiene il token, e nessuno sul Wi-Fi
-    della sala deve poter approvare. Streamlit non manda le statistiche d'uso, e non chiede a
+  - **solo su 127.0.0.1**, anche in sviluppo: la pagina tiene il token, e resta fuori dalla
+    rete. L'API no: il compose di sviluppo la pubblica su tutte le interfacce (sotto, in
+    "Ancora aperte"). Streamlit non manda le statistiche d'uso, e non chiede a
     un servizio esterno l'indirizzo pubblico della macchina, che altrimenti cerca per
     stamparlo all'avvio (visto nella prova del container);
   - **niente in background**: la pagina si ridisegna quando il birraio preme o scrive. Ogni
@@ -374,10 +375,14 @@ sui manuali e più agenti.
 - Limiti noti della dashboard (15 novembre, dalla prova dal vivo):
   - i token che mostra sono quelli che l'API riporta: fuori dalla cache e letti dalla cache.
     Quelli scritti nella cache datapizza non li passa, quindi il costo di una diagnosi lo
-    misurano gli eval, sulle risposte del fornitore: 2 o 3 centesimi su Claude;
+    misurano gli eval, sulle risposte del fornitore: da 1 a 3 centesimi su Claude (S4 e S5);
   - dopo un `reset` approvato l'allarme resta sulla pagina fino al prossimo avanzamento del
     tempo: il controllore lo toglie al suo giro successivo. Nella demo si avanza il tempo
     subito dopo.
+- In sviluppo il compose pubblica l'API su tutte le interfacce (porta 8000), come da sempre.
+  Chi è sulla stessa rete, per esempio il Wi-Fi della sala del discorso, legge l'impianto,
+  muove la simulazione, chiede diagnosi e, con il token di sviluppo, che è pubblico,
+  approva. Legarla a 127.0.0.1 è una riga del compose: da decidere (15 novembre).
 - L'immagine della dashboard la CI la costruisce nello stack di e2e, ma non la scansiona, come
   non scansiona quella di Keycloak. Ha la stessa immagine base dell'API: le vulnerabilità di
   `zlib1g` sono anche sue. Da decidere in M8, con la scansione.

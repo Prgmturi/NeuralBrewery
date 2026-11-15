@@ -98,7 +98,7 @@ services:
   # The brewer's dashboard, the page the demo runs from: http://localhost:8501.
   # An image of its own, so Streamlit stays out of the API's. It calls the
   # API inside the stack, with the approval token the API expects. On the
-  # loopback only: the page approves, and nobody else on the network must.
+  # loopback only: the page approves with that token, and stays off the network.
   dashboard:
     build:
       context: .
