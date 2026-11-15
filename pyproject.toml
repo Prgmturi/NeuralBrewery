@@ -22,7 +22,16 @@ dependencies = [
 ]
 
 [dependency-groups]
+# The brewer's dashboard (src/neuralbrewery/dashboard/), a client of the API:
+# its own image installs this group alone (docker/dashboard.Dockerfile), the
+# image of the API never does. dev includes it, for mypy and the tests.
+dashboard = [
+    "httpx>=0.28.1",
+    "pydantic-settings>=2.16.2",
+    "streamlit>=1.67.0",
+]
 dev = [
+    { include-group = "dashboard" },
     "httpx>=0.28.1",
     "import-linter>=2.15",
     "mypy>=2.4.1",
@@ -304,6 +313,47 @@ OpenAI's. With the SDK of a provider in an agent, the agent would know its
 provider: changing it would mean rewriting the agent, not a setting."""
 
 [[tool.importlinter.contracts]]
+name = "The dashboard is a client of the API: it imports nothing of the app"
+type = "forbidden"
+source_modules = ["neuralbrewery.dashboard"]
+forbidden_modules = [
+    "neuralbrewery.core",
+    "neuralbrewery.features",
+    "neuralbrewery.adapters",
+    "neuralbrewery.bootstrap",
+    "neuralbrewery.exception_handlers",
+    "neuralbrewery.main",
+    "neuralbrewery.serve",
+    "neuralbrewery.healthcheck",
+]
+broken_contract_guidance = """
+The brewer's dashboard talks to the API over HTTP, as curl would, and its
+image holds only Streamlit, httpx and pydantic-settings. With a port, an
+adapter or a feature in it, it would reach the plant or the queue around
+the API, and around the approval token. Ask the API: if it lacks a route,
+the route belongs in the API."""
+
+[[tool.importlinter.contracts]]
+name = "The app never loads the dashboard, nor Streamlit"
+type = "forbidden"
+source_modules = [
+    "neuralbrewery.core",
+    "neuralbrewery.features",
+    "neuralbrewery.adapters",
+    "neuralbrewery.bootstrap",
+    "neuralbrewery.exception_handlers",
+    "neuralbrewery.main",
+    "neuralbrewery.serve",
+    "neuralbrewery.healthcheck",
+]
+forbidden_modules = ["neuralbrewery.dashboard", "streamlit"]
+broken_contract_guidance = """
+The image of the API installs no Streamlit (docker/Dockerfile leaves the
+dashboard group out): an import of the dashboard, or of Streamlit, would
+fail there at startup. The dashboard is a client of the API, never a part
+of it."""
+
+[[tool.importlinter.contracts]]
 name = "The adapters of the two providers never import each other"
 type = "independence"
 modules = ["neuralbrewery.adapters.claude", "neuralbrewery.adapters.openai_compat"]
@@ -341,7 +391,10 @@ strict = true
 # COVERAGE — CI runs "pytest --cov" and fails below fail_under
 # =============================================================================
 [tool.coverage.run]
-source = ["neuralbrewery"]
+# The folder, not the package name: a package is matched by the name of
+# each module, and the dashboard's page runs as a script, named __main__
+# (streamlit run, and streamlit.testing in the tests)
+source = ["src/neuralbrewery"]
 branch = true
 
 [tool.coverage.report]
