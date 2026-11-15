@@ -9,18 +9,24 @@ mypy checks there that the adapter still matches the port.
 """
 
 from collections.abc import Awaitable, Callable
+from contextlib import AsyncExitStack
 from typing import Any
 
 import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from mcp.server.transport_security import TransportSecuritySettings
 from starlette.datastructures import State
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+from neuralbrewery.adapters.claude.client import create_client, generation_args
 from neuralbrewery.adapters.keycloak.client import KeycloakClient
 from neuralbrewery.adapters.keycloak.extractors import KeycloakClaimExtractor
 from neuralbrewery.adapters.keycloak.jwks import JWKSTokenDecoder
 from neuralbrewery.adapters.keycloak.jwks_manager import JWKSManager
+from neuralbrewery.adapters.plant_sim.adapter import InProcessPlant
+from neuralbrewery.adapters.plant_sim.simulator import PlantSimulator
+from neuralbrewery.adapters.plant_sim.starts import brew_day, fermentation
 from neuralbrewery.core.auth.dependencies import AUTH_SERVICE
 from neuralbrewery.core.auth.service import AuthService
 from neuralbrewery.core.body_limit import BodySizeLimitMiddleware
@@ -38,13 +44,89 @@ from neuralbrewery.core.logging import (
     LoggingMiddleware,
     get_logger,
 )
+from neuralbrewery.core.plant.dependencies import PLANT_READER
+from neuralbrewery.core.plant.readonly import ReadOnlyPlant, SimulationOnly
 from neuralbrewery.core.security import SecureHeadersMiddleware
+from neuralbrewery.features.agents.mcp_server import MCP_SERVER, create_mcp_server
+from neuralbrewery.features.agents.plant_agent import PlantAgent
+from neuralbrewery.features.agents.router import PLANT_AGENT, PROPOSAL_INBOX
+from neuralbrewery.features.approvals.api.executor import EXECUTOR, Executor
+from neuralbrewery.features.approvals.api.inbox import QueueInbox, database_log
 from neuralbrewery.features.auth.router import OAUTH_PROVIDER
 from neuralbrewery.features.health.router import health_router
+from neuralbrewery.features.plant.router import SIMULATION_CONTROL
 
 logger = get_logger(__name__)
 
 CleanupFn = Callable[[], Awaitable[Any]]
+
+STARTS: dict[str, Callable[..., PlantSimulator]] = {
+    "brew_day": brew_day,
+    "fermentation": fermentation,
+}
+
+
+MCP_PATH = "/mcp"
+
+
+def init_plant(app: FastAPI, settings: Settings) -> None:
+    """The simulated plant in this process, each consumer with its own port.
+
+    Until M2 the plant lives here, built from a named start: a restart
+    builds a new one. The in-process adapter implements the three ports in
+    one object, so nobody gets it as it is: readers a ReadOnlyPlant, the
+    executor alone the buttons, and the routes of the simulation a
+    SimulationOnly, only when PLANT_SIMULATION_CONTROL is on. Nothing runs
+    in the background: time moves only through those routes.
+
+    The MCP server and the plant agent get the reader and the inbox of
+    proposals, never the executor. The MCP server answers at /mcp, and
+    start_services() runs it; the agent exists only with ANTHROPIC_API_KEY.
+    """
+    plant_settings = settings.plant
+    plant = InProcessPlant(STARTS[plant_settings.start](seed=plant_settings.seed))
+    reader = ReadOnlyPlant(plant)
+    PLANT_READER.set(app.state, reader)
+    EXECUTOR.set(app.state, Executor(plant))
+    if plant_settings.simulation_control:
+        SIMULATION_CONTROL.set(app.state, SimulationOnly(plant))
+
+    inbox = QueueInbox(database_log(lambda: DB_MANAGER.get(app.state)), reader)
+    PROPOSAL_INBOX.set(app.state, inbox)
+    claude = settings.claude
+    if claude.api_key.get_secret_value():
+        agent = PlantAgent(reader, create_client(claude), generation_args(claude))
+        PLANT_AGENT.set(app.state, agent)
+
+    server = create_mcp_server(reader, inbox)
+    MCP_SERVER.set(app.state, server)
+    # Stateless, one JSON answer per request: no session to keep between
+    # calls. Its route joins the app's, behind the same middleware.
+    mcp_http = server.streamable_http_app(
+        streamable_http_path=MCP_PATH,
+        stateless_http=True,
+        json_response=True,
+        transport_security=mcp_transport_security(settings.server),
+    )
+    app.router.routes.extend(mcp_http.routes)
+
+
+def mcp_transport_security(settings: ServerSettings) -> TransportSecuritySettings:
+    """The MCP server's own check of Host and Origin, on the app's lists.
+
+    Left to itself it allows only 127.0.0.1 and localhost with a port: the
+    test client's Host, or a domain in SERVER_TRUSTED_HOSTS, would get 421.
+    With "*" (development only) TrustedHostMiddleware takes any Host, and
+    so does this.
+    """
+    if "*" in settings.trusted_hosts:
+        return TransportSecuritySettings(enable_dns_rebinding_protection=False)
+    return TransportSecuritySettings(
+        allowed_hosts=[
+            name for host in settings.trusted_hosts for name in (host, f"{host}:*")
+        ],
+        allowed_origins=settings.cors_origins,
+    )
 
 
 def _log_start_failure(event: str, error: Exception) -> None:
@@ -66,6 +148,15 @@ async def start_services(
     caller can close it whatever happens next: a later service that fails
     to start, or a cancellation.
     """
+    # Built by create_app, which logs nothing: said here, as the app starts
+    logger.info(
+        "plant_ready",
+        start=settings.plant.start,
+        seed=settings.plant.seed,
+        simulation_control=settings.plant.simulation_control,
+        # Without ANTHROPIC_API_KEY the agent endpoint answers 503
+        agent=bool(settings.claude.api_key.get_secret_value()),
+    )
     db_manager = await init_database(app_state, settings.database)
     services.append(("database", db_manager.disconnect))
 
@@ -77,6 +168,18 @@ async def start_services(
 
     await init_auth_service(app_state, settings.keycloak, keycloak_http)
     await init_oauth_provider(app_state, settings.keycloak, keycloak_http)
+
+    # Last: the MCP server answers once what it reaches is open
+    await start_mcp_server(app_state, services)
+
+
+async def start_mcp_server(
+    app_state: State, services: list[tuple[str, CleanupFn]]
+) -> None:
+    """Run the session manager of the MCP server until the app stops."""
+    stack = AsyncExitStack()
+    await stack.enter_async_context(MCP_SERVER.get(app_state).session_manager.run())
+    services.append(("mcp_server", stack.aclose))
 
 
 async def init_database(

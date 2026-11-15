@@ -29,6 +29,7 @@ from neuralbrewery.bootstrap import (
     init_auth_service,
     init_database,
     init_oauth_provider,
+    mcp_transport_security,
     register_middleware,
     shutdown_services,
 )
@@ -523,3 +524,32 @@ class TestRegisterMiddleware:
             BodySizeLimitMiddleware,
             UnhandledExceptionMiddleware,
         ]
+
+
+class TestMcpTransportSecurity:
+    """The MCP server's own check of Host and Origin, on the app's lists.
+
+    WHY: left to its default, the MCP server allows only 127.0.0.1 and
+    localhost with a port. The test client's Host "testserver", or the
+    domain of a deploy, got 421 Misdirected Request (tried on 15 November
+    2026, at the probe of M4).
+    """
+
+    def test_every_trusted_host_with_any_port(self):
+        """[HP] The hosts of SERVER_TRUSTED_HOSTS, alone and with a port."""
+        security = mcp_transport_security(
+            ServerSettings(
+                trusted_hosts=["api.example.com"],
+                cors_origins=["https://app.example.com"],
+            )
+        )
+
+        assert security.enable_dns_rebinding_protection
+        assert security.allowed_hosts == ["api.example.com", "api.example.com:*"]
+        assert security.allowed_origins == ["https://app.example.com"]
+
+    def test_any_host_switches_the_check_off(self):
+        """[EC] "*" in development: TrustedHost takes any Host, and so does MCP."""
+        security = mcp_transport_security(ServerSettings(trusted_hosts=["*"]))
+
+        assert not security.enable_dns_rebinding_protection

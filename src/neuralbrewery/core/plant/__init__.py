@@ -1,6 +1,7 @@
 """The plant as the rest of the app sees it: its vocabulary and its ports.
 
 - schemas.py: the vocabulary (Reading, PlantState, Route, CommandResult, Fault)
+- panel.py: the buttons of the panel and their limits, in plain Python
 - protocols.py: the ports (PlantReader, PlantCommander, SimulationControl)
 
 The ports are those of the controller of the plant, not of its single

@@ -5,13 +5,16 @@ A reply is built when the call arrives, from the tools the agent offers,
 as a real model would see them.
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Any
+from uuid import UUID
 
 from datapizza.core.clients import Client, ClientResponse
 from datapizza.core.clients.models import TokenUsage
 from datapizza.tools import Tool
 from datapizza.type import FunctionCallBlock, TextBlock
+
+from neuralbrewery.core.approvals.schemas import Actor, Receipt
 
 Reply = Callable[[dict[str, Tool]], ClientResponse]
 
@@ -113,3 +116,25 @@ DIAGNOSIS = {
     "vessel": "FERM",
     "celsius": 21.0,
 }
+
+
+PROPOSAL_ID = UUID("6f1c2a5e-0000-4000-8000-000000000001")
+
+
+class RecordingInbox:
+    """The ProposalInbox port: records each proposal, answers as told."""
+
+    def __init__(self, receipt: Receipt | None = None) -> None:
+        self.proposals: list[tuple[str, dict[str, Any], Actor, str, str]] = []
+        self._receipt = receipt or Receipt(PROPOSAL_ID, "proposed")
+
+    async def propose(
+        self,
+        command: str,
+        arguments: Mapping[str, Any],
+        actor: Actor,
+        by: str,
+        why: str,
+    ) -> Receipt:
+        self.proposals.append((command, dict(arguments), actor, by, why))
+        return self._receipt

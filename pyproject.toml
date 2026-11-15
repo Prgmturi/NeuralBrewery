@@ -11,6 +11,7 @@ dependencies = [
     "datapizza-ai-core>=0.1.3",
     "fastapi>=0.162.0",
     "httpx>=0.28.1",
+    "mcp>=2.3.0,<3",
     "pydantic-settings>=2.16.2",
     "pydantic>=2.12.5",
     "pyjwt[crypto]>=2.15.1",
@@ -278,6 +279,17 @@ core holds what every part shares: the plant's vocabulary and ports, the
 watcher, the settings. An LLM belongs to the agents (features/agents) and
 to the adapter of its provider (adapters/claude). The watcher above all:
 its rules must work whatever the model does."""
+
+[[tool.importlinter.contracts]]
+name = "Features never import each other"
+type = "independence"
+# Every feature, those to come included
+modules = ["neuralbrewery.features.*"]
+broken_contract_guidance = """
+A feature imports another. The agents propose through the ProposalInbox
+port of core/approvals, not through features/approvals: bootstrap.py hands
+them the implementation. Put what two features share in core, behind a
+port, and wire it in bootstrap.py."""
 
 [[tool.importlinter.contracts]]
 name = "The agents reach Claude only through datapizza"

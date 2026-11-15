@@ -25,12 +25,8 @@ from neuralbrewery.core.plant.protocols import (
     PlantReader,
     SimulationControl,
 )
-from neuralbrewery.core.plant.schemas import Fault, FaultKind, Route, Vessel
-from neuralbrewery.features.agents.diagnosis import (
-    Command,
-    FaultType,
-    Outcome,
-)
+from neuralbrewery.core.plant.schemas import Command, Fault, FaultKind, Route, Vessel
+from neuralbrewery.features.agents.diagnosis import FaultType, Outcome
 from neuralbrewery.features.agents.plant_agent import PlantAgent
 from neuralbrewery.features.agents.tools import (
     Submission,

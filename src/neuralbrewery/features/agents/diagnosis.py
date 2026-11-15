@@ -6,11 +6,11 @@ are enough, and a command among the buttons of the panel, or none.
 """
 
 from enum import StrEnum
-from typing import Literal, Self
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
-from neuralbrewery.core.plant.schemas import Route, Vessel
+from neuralbrewery.core.plant.schemas import Proposal
 
 
 class _Frozen(BaseModel):
@@ -20,52 +20,6 @@ class _Frozen(BaseModel):
 class FaultType(StrEnum):
     MEASUREMENT = "measurement"  # the instrument lies: the plant is fine
     PROCESS = "process"  # the plant is faulty: the instruments tell the truth
-
-
-class Command(StrEnum):
-    """The buttons of the panel: the methods of the commander port, by name."""
-
-    ACTIVATE_ROUTE = "activate_route"
-    STOP_ROUTE = "stop_route"
-    SET_TEMPERATURE = "set_temperature"
-    SET_AGITATOR = "set_agitator"
-    START_PROGRAM = "start_program"
-    CONFIRM_STEP = "confirm_step"
-    PAUSE_PROGRAM = "pause_program"
-    RESUME_PROGRAM = "resume_program"
-    ABORT_PROGRAM = "abort_program"
-    STOP_ALL = "stop_all"
-    RESET = "reset"
-
-
-# What a button cannot be pressed without. A setpoint of None switches the
-# vessel off, and a recirculation takes no litres: the controller says the
-# rest, when the executor presses it
-NEEDS = {
-    Command.ACTIVATE_ROUTE: ("route",),
-    Command.SET_TEMPERATURE: ("vessel",),
-    Command.SET_AGITATOR: ("on",),
-}
-
-
-class Proposal(_Frozen):
-    """A button to propose to the brewer. Text: nobody presses it in M5."""
-
-    command: Command
-    route: Route | None = None
-    liters: float | None = None
-    vessel: Vessel | None = None
-    celsius: float | None = None
-    on: bool | None = None
-
-    @model_validator(mode="after")
-    def has_what_the_button_needs(self) -> Self:
-        missing = [
-            name for name in NEEDS.get(self.command, ()) if getattr(self, name) is None
-        ]
-        if missing:
-            raise ValueError(f"{self.command} needs {', '.join(missing)}")
-        return self
 
 
 class Diagnosis(_Frozen):

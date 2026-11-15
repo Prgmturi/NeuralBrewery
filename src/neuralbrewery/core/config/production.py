@@ -8,9 +8,11 @@ value.
 from urllib.parse import urlsplit
 
 from neuralbrewery.core.config.app import AppSettings
+from neuralbrewery.core.config.approvals import ApprovalSettings
 from neuralbrewery.core.config.auth_cookie import AuthCookieSettings
 from neuralbrewery.core.config.database import DatabaseSettings
 from neuralbrewery.core.config.keycloak import KeycloakSettings
+from neuralbrewery.core.config.plant import PlantSettings
 from neuralbrewery.core.config.server import ServerSettings
 
 # The code default and the value in .env.example
@@ -21,6 +23,9 @@ EXAMPLE_CLIENT_SECRETS = {"", "your-client-secret-here", "neuralbrewery-dev-secr
 # The default SERVER_TRUSTED_HOSTS, and the hosts of the default
 # SERVER_CORS_ORIGINS
 LOCAL_HOSTS = {"localhost", "127.0.0.1"}
+# Empty by default: nobody could approve; the value of .env.example and
+# compose.yaml, public in the repository
+EXAMPLE_APPROVAL_TOKENS = {"", "brewer-dev-token"}
 
 
 def production_problems(
@@ -29,6 +34,8 @@ def production_problems(
     database: DatabaseSettings,
     keycloak: KeycloakSettings,
     server: ServerSettings,
+    plant: PlantSettings,
+    approvals: ApprovalSettings,
 ) -> list[str]:
     """Every development or example value in the settings, one line each."""
     problems = []
@@ -78,5 +85,13 @@ def production_problems(
             'SERVER_FORWARDED_ALLOW_IPS contains "*": any client can choose '
             "the address the logs show"
         )
+
+    if plant.simulation_control:
+        problems.append(
+            "PLANT_SIMULATION_CONTROL is true: anyone could move the time of "
+            "the plant and break it"
+        )
+    if approvals.token.get_secret_value() in EXAMPLE_APPROVAL_TOKENS:
+        problems.append("APPROVAL_TOKEN is empty or the example value")
 
     return problems

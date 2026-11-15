@@ -17,10 +17,12 @@ import pytest
 from neuralbrewery.core.config import Settings
 from neuralbrewery.core.config import app as app_module
 from neuralbrewery.core.config.app import AppSettings
+from neuralbrewery.core.config.approvals import ApprovalSettings
 from neuralbrewery.core.config.auth_cookie import AuthCookieSettings
 from neuralbrewery.core.config.claude import ClaudeSettings
 from neuralbrewery.core.config.database import DatabaseSettings
 from neuralbrewery.core.config.keycloak import KeycloakSettings
+from neuralbrewery.core.config.plant import PlantSettings
 from neuralbrewery.core.config.server import ServerSettings
 from tests.conftest import SETTINGS_CLASSES
 
@@ -142,6 +144,56 @@ class TestClaudeSettings:
         """[EC] An effort the API does not know stops the startup, not the call."""
         with pytest.raises(pydantic.ValidationError, match="effort"):
             ClaudeSettings(effort=given)
+
+
+class TestPlantSettings:
+    """PlantSettings: the plant the API holds, and whether time can be moved.
+
+    WHY: the plant lives in the process of the API until M2. The start and
+    the seed decide what the demo shows; the routes that move time and
+    break the plant must stay closed unless asked for.
+    """
+
+    def test_defaults(self):
+        """[HP] A brew day, seed 42, and no simulation routes."""
+        settings = PlantSettings()
+
+        assert (settings.start, settings.seed) == ("brew_day", 42)
+        assert settings.simulation_control is False
+
+    def test_read_from_the_environment(self, monkeypatch):
+        """[HP] PLANT_* variables."""
+        monkeypatch.setenv("PLANT_START", "fermentation")
+        monkeypatch.setenv("PLANT_SEED", "7")
+        monkeypatch.setenv("PLANT_SIMULATION_CONTROL", "true")
+
+        settings = PlantSettings()
+
+        assert (settings.start, settings.seed) == ("fermentation", 7)
+        assert settings.simulation_control is True
+
+    def test_unknown_start_refused(self):
+        """[EC] A start with no name in starts.py stops the startup."""
+        with pytest.raises(pydantic.ValidationError, match="start"):
+            PlantSettings(start="mid_boil")
+
+
+class TestApprovalSettings:
+    """ApprovalSettings: the token of whoever approves.
+
+    WHY: without a secret nothing tells the brewer from a model that calls
+    the endpoint by itself (docs/decisioni.md).
+    """
+
+    def test_empty_by_default(self):
+        """[SEC] No token unless one is given: then nobody can approve."""
+        assert ApprovalSettings().token.get_secret_value() == ""
+
+    def test_read_from_the_environment(self, monkeypatch):
+        """[HP] APPROVAL_TOKEN."""
+        monkeypatch.setenv("APPROVAL_TOKEN", "from-the-env")
+
+        assert ApprovalSettings().token.get_secret_value() == "from-the-env"
 
 
 class TestDatabaseSettings:
@@ -492,10 +544,17 @@ class TestSecrets:
             database=DatabaseSettings(password="db-secret-value"),
             keycloak=KeycloakSettings(client_secret="kc-secret-value"),
             claude=ClaudeSettings(api_key="sk-ant-secret-value"),
+            approvals=ApprovalSettings(token="approval-secret-value"),
         )
 
     @pytest.mark.parametrize(
-        "secret", ["db-secret-value", "kc-secret-value", "sk-ant-secret-value"]
+        "secret",
+        [
+            "db-secret-value",
+            "kc-secret-value",
+            "sk-ant-secret-value",
+            "approval-secret-value",
+        ],
     )
     def test_secret_not_in_repr_or_dumps(self, settings, secret):
         """[SEC] repr, model_dump and JSON of the whole settings hide it."""
@@ -508,6 +567,7 @@ class TestSecrets:
         assert settings.database.password.get_secret_value() == "db-secret-value"
         assert settings.keycloak.client_secret.get_secret_value() == "kc-secret-value"
         assert settings.claude.api_key.get_secret_value() == "sk-ant-secret-value"
+        assert settings.approvals.token.get_secret_value() == "approval-secret-value"
 
 
 class TestErrorsShowNoValues:
@@ -618,6 +678,11 @@ class TestProductionChecks:
             ({"SERVER_TRUSTED_HOSTS": '["*"]'}, "SERVER_TRUSTED_HOSTS"),
             # Anyone could choose the client address the logs show
             ({"SERVER_FORWARDED_ALLOW_IPS": '["*"]'}, "SERVER_FORWARDED_ALLOW_IPS"),
+            # Anyone could move the time of the plant and break it
+            ({"PLANT_SIMULATION_CONTROL": "true"}, "PLANT_SIMULATION_CONTROL"),
+            # Nobody could approve: the queue would only fill up
+            ({"APPROVAL_TOKEN": None}, "APPROVAL_TOKEN"),
+            ({"APPROVAL_TOKEN": "brewer-dev-token"}, "APPROVAL_TOKEN"),
         ],
         ids=[
             "debug",
@@ -637,6 +702,9 @@ class TestProductionChecks:
             "trusted-hosts-local",
             "trusted-hosts-any",
             "forwarded-any",
+            "simulation-control",
+            "approval-token-unset",
+            "approval-token-example",
         ],
     )
     def test_development_value_refused(self, deployed, monkeypatch, change, named):
@@ -680,6 +748,7 @@ class TestProductionChecks:
             "DATABASE_PASSWORD",
             "SERVER_CORS_ORIGINS",
             "SERVER_TRUSTED_HOSTS",
+            "APPROVAL_TOKEN",
         ):
             assert named in message
 
@@ -692,6 +761,7 @@ class TestProductionChecks:
 
         assert deployed["DATABASE_PASSWORD"] not in str(exc_info.value)
         assert deployed["KEYCLOAK_CLIENT_SECRET"] not in str(exc_info.value)
+        assert deployed["APPROVAL_TOKEN"] not in str(exc_info.value)
 
 
 class TestServerSettings:
@@ -735,6 +805,23 @@ class TestServerSettings:
         """[EC] 0 or less would cut every open request at once."""
         with pytest.raises(pydantic.ValidationError):
             ServerSettings(timeout_graceful_shutdown=0)
+
+    def test_one_worker_by_default(self):
+        """[HP] One process: one plant."""
+        assert ServerSettings().workers == 1
+
+    @pytest.mark.parametrize("workers", [0, 2, 4])
+    def test_any_other_number_of_workers_refused(self, workers, monkeypatch):
+        """[EC] SERVER_WORKERS other than 1 stops the startup, in every environment.
+
+        WHY: the plant lives in the process of the API. Two workers would
+        hold two plants, each with its own time, and a command approved on
+        one would never show on the other.
+        """
+        monkeypatch.setenv("SERVER_WORKERS", str(workers))
+
+        with pytest.raises(pydantic.ValidationError, match="SERVER_WORKERS"):
+            ServerSettings()
 
     def test_default_forwarded_allow_ips(self):
         """[HP] Only a proxy on the same host is trusted, as uvicorn does."""

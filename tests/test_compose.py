@@ -181,6 +181,27 @@ class TestDevRealm:
         assert "KEYCLOAK_CLIENT_SECRET" in str(exc_info.value)
 
 
+class TestPlantInTheApi:
+    """The plant lives in the api service until M2 (docs/decisioni.md)."""
+
+    def test_development_can_move_time_and_approve(self):
+        """[HP] The demo moves time and approves with the token of .env.example."""
+        api = services()["api"]["environment"]
+
+        assert api["PLANT_SIMULATION_CONTROL"] == "true"
+        assert api["APPROVAL_TOKEN"] == env_example("APPROVAL_TOKEN")
+
+    def test_the_key_of_claude_comes_from_the_host(self):
+        """[SEC] The key is read from .env or the shell, never written here."""
+        api = services()["api"]["environment"]
+
+        assert api["ANTHROPIC_API_KEY"] == "${ANTHROPIC_API_KEY:-}"
+
+    def test_production_closes_the_simulation(self):
+        """[SEC] On a server nobody moves the time of the plant or breaks it."""
+        assert prod_env("api")["PLANT_SIMULATION_CONTROL"] == "false"
+
+
 class TestProduction:
     """compose.prod.yaml over compose.yaml: the stack on a server.
 
@@ -202,7 +223,7 @@ class TestProduction:
             assert service["image"] == f"${{APP_IMAGE:-{RELEASED_IMAGE}:{version}}}"
 
     def test_every_password_and_secret_is_required(self):
-        """[SEC] Each password or secret of compose.yaml comes from the server.
+        """[SEC] Each password, secret or token of compose.yaml comes from the server.
 
         WHY: compose.yaml writes development values. A variable missing on
         the server must stop the deploy, not start it with those.
@@ -211,7 +232,7 @@ class TestProduction:
             f"{name}.{key}"
             for name, service in services().items()
             for key in service.get("environment", {})
-            if "PASSWORD" in key or "SECRET" in key
+            if "PASSWORD" in key or "SECRET" in key or "TOKEN" in key
             if not REQUIRED.fullmatch(prod_env(name).get(key, ""))
         ]
 

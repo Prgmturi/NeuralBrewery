@@ -31,7 +31,7 @@ class TestUvicornOptions:
         settings = ServerSettings(
             host="127.0.0.1",
             port=9001,
-            workers=2,
+            workers=1,
             timeout_keep_alive=7,
             timeout_graceful_shutdown=3,
             forwarded_allow_ips=["172.18.0.0/16"],
@@ -40,7 +40,7 @@ class TestUvicornOptions:
         assert serve.uvicorn_options(settings) == {
             "host": "127.0.0.1",
             "port": 9001,
-            "workers": 2,
+            "workers": 1,
             "timeout_keep_alive": 7,
             "timeout_graceful_shutdown": 3,
             "forwarded_allow_ips": ["172.18.0.0/16"],

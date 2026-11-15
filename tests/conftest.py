@@ -85,6 +85,7 @@ PRODUCTION_ENV = {
     "KEYCLOAK_ALLOWED_REDIRECT_URIS": '["https://app.example.com/callback"]',
     "SERVER_CORS_ORIGINS": '["https://app.example.com"]',
     "SERVER_TRUSTED_HOSTS": '["api.example.com"]',
+    "APPROVAL_TOKEN": "approval-token-from-the-vault",
 }
 
 

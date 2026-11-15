@@ -11,34 +11,19 @@ alarm texts) are in Italian, as the brewer is.
 """
 
 from enum import StrEnum
+from typing import Any, Self
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
+
+# The names of the panel are plain Python: import them from here or from there
+from neuralbrewery.core.plant.panel import BUTTONS
+from neuralbrewery.core.plant.panel import Command as Command
+from neuralbrewery.core.plant.panel import Route as Route
+from neuralbrewery.core.plant.panel import Vessel as Vessel
 
 
 class _Frozen(BaseModel):
     model_config = ConfigDict(frozen=True)
-
-
-# ---------------------------------------------------------------------------
-# The plant
-# ---------------------------------------------------------------------------
-
-
-class Vessel(StrEnum):
-    HLT = "HLT"  # hot liquor tank: the hot water
-    MASH = "MASH"  # mash tun
-    BOIL = "BOIL"  # kettle
-    FERM = "FERM"  # fermenter
-
-
-class Route(StrEnum):
-    """The only ways liquid may move. No free combination of valves."""
-
-    HLT_TO_MASH = "hlt_to_mash"
-    HLT_TO_BOIL = "hlt_to_boil"
-    MASH_RECIRC = "mash_recirc"
-    MASH_TO_BOIL = "mash_to_boil"
-    BOIL_TO_FERM = "boil_to_ferm"
 
 
 # ---------------------------------------------------------------------------
@@ -247,6 +232,34 @@ class CommandResult(_Frozen):
     accepted: bool
     code: CommandCode
     reason: str = ""
+
+
+class Proposal(_Frozen):
+    """A button to propose to the brewer, with its arguments.
+
+    Only a proposal the brewer approves is pressed, by the executor. The
+    queue checks its limits too (features/approvals), against panel.py.
+    """
+
+    command: Command
+    route: Route | None = None
+    liters: float | None = None
+    vessel: Vessel | None = None
+    celsius: float | None = None
+    on: bool | None = None
+
+    @model_validator(mode="after")
+    def has_what_the_button_needs(self) -> Self:
+        missing = [
+            name for name in BUTTONS[self.command].needs if getattr(self, name) is None
+        ]
+        if missing:
+            raise ValueError(f"{self.command} needs {', '.join(missing)}")
+        return self
+
+    def arguments(self) -> dict[str, Any]:
+        """The arguments given, as the queue takes them: JSON values by name."""
+        return self.model_dump(mode="json", exclude={"command"}, exclude_none=True)
 
 
 # ---------------------------------------------------------------------------

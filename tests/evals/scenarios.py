@@ -19,6 +19,7 @@ from neuralbrewery.adapters.plant_sim.starts import brew_day, fermentation
 from neuralbrewery.core.plant import watcher
 from neuralbrewery.core.plant.schemas import (
     AlarmCode,
+    Command,
     Fault,
     FaultKind,
     PlantState,
@@ -28,7 +29,6 @@ from neuralbrewery.core.plant.schemas import (
     WatcherCode,
 )
 from neuralbrewery.features.agents.diagnosis import (
-    Command,
     Diagnosis,
     DiagnosisRun,
     FaultType,

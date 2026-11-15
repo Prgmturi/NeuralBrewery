@@ -2,7 +2,8 @@
 
 The reading tools close over a PlantReader and nothing else. Each answers
 in JSON, in simulated time, and turns an error into an answer for the
-model: datapizza would let an exception end the whole diagnosis.
+model: datapizza would let an exception end the whole diagnosis. The MCP
+server serves the same functions (mcp_server.py), so both read alike.
 
 submit_diagnosis ends the loop. Its arguments are flat, so the model sees
 one simple schema; they are checked here, with pydantic, because datapizza
@@ -12,6 +13,7 @@ datapizza leaves references that the JSON encoder cannot write.
 """
 
 import json
+from collections.abc import Awaitable, Callable
 from typing import Annotated, Any
 
 from datapizza.tools import Tool
@@ -20,27 +22,29 @@ from pydantic import BaseModel, Field, ValidationError
 from neuralbrewery.core.exceptions import NotFoundError
 from neuralbrewery.core.plant import watcher
 from neuralbrewery.core.plant.protocols import PlantReader
-from neuralbrewery.core.plant.schemas import Route, Vessel
-from neuralbrewery.features.agents.diagnosis import (
-    Command,
-    Diagnosis,
-    FaultType,
-    Proposal,
-)
+from neuralbrewery.core.plant.schemas import Command, Proposal, Route, Vessel
+from neuralbrewery.features.agents.diagnosis import Diagnosis, FaultType
 
 MINUTE = 60.0
 
-# What the model reads of each argument: datapizza takes the description
-# from the first item of Annotated
-SinceMinutes = Annotated[
-    float, "Da quanti minuti fa, contando dal tempo simulato di adesso"
-]
-Tag = Annotated[
-    str, "La sigla: una lettura (TT5a, LT1, DT1...) o un comando (R2, P1, EV9)"
-]
+# What the model reads of each argument, twice: datapizza takes the first
+# item of Annotated, the MCP server (pydantic) the Field
+SINCE = "Da quanti minuti fa, contando dal tempo simulato di adesso"
+TAG = "La sigla: una lettura (TT5a, LT1, DT1...) o un comando (R2, P1, EV9)"
+SinceMinutes = Annotated[float, SINCE, Field(description=SINCE)]
+Tag = Annotated[str, TAG, Field(description=TAG)]
+
+ReadingFunction = Callable[..., Awaitable[str]]
 
 
 def reading_tools(reader: PlantReader) -> list[Tool]:
+    """The reading functions as tools of datapizza."""
+    return [Tool(function) for function in reading_functions(reader)]
+
+
+def reading_functions(reader: PlantReader) -> list[ReadingFunction]:
+    """Four functions that read the plant, with the docstrings the model reads."""
+
     async def since_s(minutes: float) -> float:
         now = (await reader.snapshot()).sim_time_s
         return max(0.0, now - minutes * MINUTE)
@@ -84,7 +88,7 @@ def reading_tools(reader: PlantReader) -> list[Tool]:
             [alarm.model_dump(mode="json") for alarm in judged], ensure_ascii=False
         )
 
-    return [Tool(read_plant), Tool(read_events), Tool(read_history), Tool(run_watcher)]
+    return [read_plant, read_events, read_history, run_watcher]
 
 
 class SubmitArguments(BaseModel):
