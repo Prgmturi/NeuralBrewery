@@ -82,6 +82,8 @@ NO_PROGRESS_AFTER_S = 60.0
 # this is not a flow, and not a quantity still to move.
 LEVEL_DOUBT_L = 0.5
 HOT_SIDE = (Vessel.HLT, Vessel.MASH, Vessel.BOIL)
+# The end of the text of a latched alarm: it waits for the brewer
+LATCHED = "(bloccato: serve reset)"
 
 _ACCEPTED = CommandResult(accepted=True, code=CommandCode.OK)
 
@@ -169,9 +171,11 @@ class Controller:
         self._run_agitator()
         for vessel in Vessel:
             self._regulate(vessel)
+        # A latched alarm says so, as a panel shows it: its cause may be gone
+        # (a probe that reads again), the block is not
+        latched = {key: f"{text} {LATCHED}" for key, text in self._latched.items()}
         self._journal.update(
-            self._now_s,
-            {**self._facts(), **self._program.alarms(), **self._latched},
+            self._now_s, {**self._facts(), **self._program.alarms(), **latched}
         )
 
     def _facts(self) -> dict[AlarmKey, str]:

@@ -279,6 +279,9 @@ rifiutati con `program_state`.
 
 Il controllore riporta **fatti**. Un **avviso** non ferma niente e finisce da solo con la
 causa. Un **blocco** accompagna qualcosa che il controllore ha fermato, e resta fino al riarmo.
+Il testo di un blocco che si riarma con `reset` finisce con "(bloccato: serve reset)", come lo
+mostra il pannello di un impianto vero: la causa può essere già finita (la sonda legge di
+nuovo), il blocco no. `program_paused` non lo dice: riprende con `resume_program`.
 
 | Codice | Tipo | Quando | Su cosa |
 |---|---|---|---|

@@ -41,7 +41,43 @@ sui manuali e più agenti.
   dell'agente, l'approvazione o il rifiuto con il suo motivo, e l'esito; un tool in più le fa
   leggere all'agente. Niente tabella nuova. *Perché*: è la strada più corta, e la memoria che
   serve è proprio ciò che il birraio ha deciso. Limite: ricorda solo le diagnosi che hanno
-  proposto un pulsante.
+  proposto un pulsante. Fatta così (M7, 15 novembre):
+  - una porta di sola lettura, `DecisionReader` in `core/approvals/`, accanto a
+    `ProposalInbox`. La implementa `features/approvals/`, e `bootstrap.py` la passa all'agente
+    insieme al lettore dell'impianto: niente che proponga, approvi o comandi;
+  - il tool `read_decisions` dà le ultime 10 proposte dell'agente, dalla più recente. Per
+    ognuna: pulsante e argomenti, la spiegazione di allora, lo stato finale, il motivo del
+    rifiuto o del blocco, la risposta del controllore. 10 bastano per una giornata di demo, e
+    costano poche migliaia di token;
+  - solo le proposte dell'agente, filtrate nella query prima del limite: con 8 proposte MCP
+    recenti, l'agente vede lo stesso le sue ultime 10. Le proposte MCP restano fuori perché il
+    loro `why` lo scrive chiunque raggiunga `/mcp`;
+  - nessun tempo: né il momento reale né il `sim_time_s`, che un riavvio rimette a zero;
+  - con la coda irraggiungibile la porta alza `ServiceUnavailableError`, e il tool lo dice
+    all'agente a parole: la diagnosi continua con i tool dell'impianto;
+  - il prompt ha una riga in più: prima di proporre un pulsante l'agente legge le decisioni, e
+    non ripropone un pulsante rifiutato per la stessa causa;
+  - il server MCP non ha il tool.
+
+  Un difetto che la memoria ha fatto emergere, nel testo degli allarmi (15 novembre). Con il
+  tool nuovo Gemini Flash-Lite sbagliava S4: al posto di `reset` proponeva `resume_program`,
+  che il controllore rifiuta finché il blocco c'è. 0 volte su 4, contro 3 su 3 con il codice
+  di M6. Non dipendeva da che cosa dice il tool: con la regola nella sua descrizione 0 su 3,
+  con una descrizione di una riga, mai chiamata, 1 su 3. La causa stava nell'impianto: con TT1
+  riparata il blocco diceva ancora "sonda TT1 non valida: regolazione sospesa", senza una parola
+  sul riarmo. Claude lo deduceva dal prompt; Gemini ci arrivava per poco, e un tool in più
+  bastava a farlo cadere. Ora il testo di un blocco che si riarma con `reset` finisce con
+  "(bloccato: serve reset)", come sul pannello di un impianto vero (`docs/impianto.md`). Con
+  questo S4 su Gemini passa 3 volte su 3, e `resume_program` non compare più.
+
+  Eval sul codice finale: Claude passa tutti e cinque, S5 3 volte su 3; S3 una volta su 4 ha
+  proposto di spegnere l'agitatore, un comando prudente che lo scenario non ammette. Gemini
+  passa tutti e cinque; S2 una volta su 4 ha indicato la valvola EV2a invece della pompa, senza
+  proporre niente. Nessuno dei due errori si ripete su tre giri: si tengono così.
+
+  Limite: se la causa è "la stessa" lo giudica il modello. Il guardrail non ferma una proposta
+  già rifiutata: la memoria è un consiglio all'agente, non una regola in codice. L'eval S5 lo
+  verifica.
 - **RAG classico**, dopo il corso (ibrido + rerank) con metadati per componente e sigla. *Perché*: le relazioni
   tra componenti sono già note dalla configurazione dell'impianto, non serve estrarle con un LLM.
   Tabelle dei codici di errore spezzate una riga per chunk.

@@ -28,6 +28,7 @@ from neuralbrewery.adapters.openai_compat import client as compat_adapter
 from neuralbrewery.adapters.plant_sim.adapter import InProcessPlant
 from neuralbrewery.adapters.plant_sim.simulator import PlantSimulator
 from neuralbrewery.adapters.plant_sim.starts import brew_day, fermentation
+from neuralbrewery.core.approvals.protocols import DecisionReader
 from neuralbrewery.core.auth.dependencies import AUTH_SERVICE
 from neuralbrewery.core.auth.service import AuthService
 from neuralbrewery.core.body_limit import BodySizeLimitMiddleware
@@ -56,6 +57,7 @@ from neuralbrewery.features.agents.router import (
     PLANT_AGENT,
     PROPOSAL_INBOX,
 )
+from neuralbrewery.features.approvals.api.decisions import QueueDecisions
 from neuralbrewery.features.approvals.api.executor import EXECUTOR, Executor
 from neuralbrewery.features.approvals.api.inbox import QueueInbox, database_log
 from neuralbrewery.features.auth.router import OAUTH_PROVIDER
@@ -85,10 +87,12 @@ def init_plant(app: FastAPI, settings: Settings) -> None:
     SimulationOnly, only when PLANT_SIMULATION_CONTROL is on. Nothing runs
     in the background: time moves only through those routes.
 
-    The MCP server and the plant agent get the reader and the inbox of
-    proposals, never the executor. The MCP server answers at /mcp, and
-    start_services() runs it; the agent exists only with the key of its
-    provider (init_plant_agent).
+    The MCP server gets the reader and the inbox of proposals, never the
+    executor. The MCP server answers at /mcp, and start_services() runs
+    it. The plant agent gets the reader and the decisions of the brewer
+    on its past proposals, read from the same queue: its memory. Its
+    proposals reach the inbox through its endpoint. It exists only with
+    the key of its provider (init_plant_agent).
     """
     plant_settings = settings.plant
     plant = InProcessPlant(STARTS[plant_settings.start](seed=plant_settings.seed))
@@ -98,9 +102,10 @@ def init_plant(app: FastAPI, settings: Settings) -> None:
     if plant_settings.simulation_control:
         SIMULATION_CONTROL.set(app.state, SimulationOnly(plant))
 
-    inbox = QueueInbox(database_log(lambda: DB_MANAGER.get(app.state)), reader)
+    log = database_log(lambda: DB_MANAGER.get(app.state))
+    inbox = QueueInbox(log, reader)
     PROPOSAL_INBOX.set(app.state, inbox)
-    init_plant_agent(app, settings, reader)
+    init_plant_agent(app, settings, reader, QueueDecisions(log))
 
     server = create_mcp_server(reader, inbox)
     MCP_SERVER.set(app.state, server)
@@ -122,8 +127,13 @@ def agent_key(settings: Settings) -> str:
     return settings.claude.api_key.get_secret_value()
 
 
-def init_plant_agent(app: FastAPI, settings: Settings, reader: PlantReader) -> None:
-    """The plant agent on the provider of AGENT_PROVIDER, with the reader alone.
+def init_plant_agent(
+    app: FastAPI, settings: Settings, reader: PlantReader, decisions: DecisionReader
+) -> None:
+    """The plant agent on the provider of AGENT_PROVIDER: it reads, and recalls.
+
+    Of the plant it gets the reader alone, of the queue the brewer's
+    decisions on its past proposals: nothing that proposes or approves.
 
     The agent takes a datapizza client and the arguments of every call, and
     knows no more of its provider. Without the key of that provider there
@@ -134,6 +144,7 @@ def init_plant_agent(app: FastAPI, settings: Settings, reader: PlantReader) -> N
         if agent_key(settings):
             agent = PlantAgent(
                 reader,
+                decisions,
                 compat_adapter.create_client(settings.openai_compat),
                 compat_adapter.generation_args(),
             )
@@ -143,6 +154,7 @@ def init_plant_agent(app: FastAPI, settings: Settings, reader: PlantReader) -> N
     if agent_key(settings):
         agent = PlantAgent(
             reader,
+            decisions,
             claude_adapter.create_client(settings.claude),
             claude_adapter.generation_args(settings.claude),
         )

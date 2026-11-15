@@ -1,8 +1,9 @@
 """The plant agent: from an alarm to a diagnosis, on datapizza.
 
 It starts from the alarms of the controller and the judgements of the
-watcher, reads the plant with its tools, and hands in a diagnosis with
-submit_diagnosis. What datapizza leaves to the caller with Claude, found in
+watcher, reads the plant with its tools, recalls what the brewer decided
+on its past proposals, and hands in a diagnosis with submit_diagnosis.
+What datapizza leaves to the caller with Claude, found in
 the trial of M5 (docs/decisioni.md, "datapizza con Claude"):
 
 - tool_choice is always "auto": a forced tool is a 400 on the current models;
@@ -23,6 +24,7 @@ from datapizza.agents.logger import AgentLogger
 from datapizza.core.clients import Client
 from datapizza.tracing import ContextTracing
 
+from neuralbrewery.core.approvals.protocols import DecisionReader
 from neuralbrewery.core.logging import get_logger
 from neuralbrewery.core.plant import watcher
 from neuralbrewery.core.plant.protocols import PlantReader
@@ -31,6 +33,7 @@ from neuralbrewery.core.plant.schemas import PlantState, ProgramStatus, WatcherA
 from neuralbrewery.features.agents.diagnosis import DiagnosisRun, Outcome, Step
 from neuralbrewery.features.agents.tools import (
     Submission,
+    decisions_tool,
     reading_tools,
     submit_tool,
 )
@@ -95,6 +98,10 @@ strumento legge di nuovo con qualità good) e resta solo un blocco del \
 controllore, proponi reset: riarma solo ciò che non ha più la sua causa, e ciò \
 che ce l'ha ancora si blocca di nuovo. Finché il blocco c'è, resume_program è \
 rifiutato.
+- Prima di proporre un pulsante, leggi con read_decisions che cosa ha deciso il \
+birraio sulle tue proposte passate. Se ha rifiutato lo stesso pulsante per la \
+stessa causa, non proporlo di nuovo: scrivi nella spiegazione che l'aveva \
+rifiutato e perché, e metti fra le verifiche ciò che il suo motivo chiede.
 - explanation e checks sono per il birraio: in italiano, brevi e concreti.
 """
 
@@ -167,6 +174,7 @@ class PlantAgent:
     def __init__(
         self,
         reader: PlantReader,
+        decisions: DecisionReader,
         client: Client,
         generation_args: Mapping[str, Any],
         *,
@@ -174,6 +182,7 @@ class PlantAgent:
     ) -> None:
         # Whatever the caller hands in, the agent keeps a reader and no more
         self._reader = ReadOnlyPlant(reader)
+        self._decisions = decisions
         self._client = client
         self._generation_args = dict(generation_args)
         self._max_steps = max_steps
@@ -182,6 +191,11 @@ class PlantAgent:
     def reader(self) -> PlantReader:
         """All the agent can reach of the plant."""
         return self._reader
+
+    @property
+    def decisions(self) -> DecisionReader:
+        """All the agent can reach of the queue: the brewer's past decisions."""
+        return self._decisions
 
     async def diagnose(self) -> DiagnosisRun:
         """Diagnose what the plant shows now. A failed API call raises."""
@@ -192,7 +206,11 @@ class PlantAgent:
             name=NAME,
             client=self._client,
             system_prompt=SYSTEM_PROMPT,
-            tools=[*reading_tools(self._reader), submit_tool(submission)],
+            tools=[
+                *reading_tools(self._reader),
+                decisions_tool(self._decisions),
+                submit_tool(submission),
+            ],
             max_steps=self._max_steps,
             hooks=_StopOnEmptyStep(),
             logger=_StepLogger(NAME),

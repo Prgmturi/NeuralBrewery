@@ -10,7 +10,7 @@ from enum import StrEnum
 from typing import Any, Self
 from uuid import UUID
 
-from neuralbrewery.core.approvals.schemas import Actor
+from neuralbrewery.core.approvals.schemas import Actor, PastDecision
 
 
 class EventKind(StrEnum):
@@ -98,3 +98,28 @@ class QueuedProposal:
 
     def then(self, event: ProposalEvent) -> Self:
         return type(self)((*self.events, event))
+
+    def decision(self) -> PastDecision:
+        """What the agent recalls of it: no time, no name.
+
+        reason is the guardrail's for a blocked proposal, the brewer's for a
+        rejected one; answer is the controller's code and reason, or why
+        the plant did not answer.
+        """
+        data = {event.kind: event.data for event in self.events}
+        rejected = data.get(EventKind.REJECTED, {})
+        executed = data.get(EventKind.EXECUTED)
+        failed = data.get(EventKind.EXECUTION_FAILED, {})
+        answer = failed.get("error", "")
+        if executed is not None:
+            answer = executed["code"] + (
+                f": {executed['reason']}" if executed["reason"] else ""
+            )
+        return PastDecision(
+            command=self.action.command,
+            arguments=dict(self.action.arguments),
+            why=self.why,
+            status=self.status.value,
+            reason=self.blocked_reason or rejected.get("reason", ""),
+            answer=answer,
+        )

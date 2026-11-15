@@ -19,6 +19,7 @@ import pytest
 import neuralbrewery
 from neuralbrewery.adapters.claude.client import ClaudeClient
 from neuralbrewery.adapters.openai_compat.client import OpenAICompatClient
+from neuralbrewery.core.approvals.protocols import DecisionReader, ProposalInbox
 from neuralbrewery.core.config import (
     AgentSettings,
     ClaudeSettings,
@@ -33,7 +34,7 @@ from neuralbrewery.core.plant.protocols import (
     PlantReader,
     SimulationControl,
 )
-from neuralbrewery.features.agents.router import PLANT_AGENT
+from neuralbrewery.features.agents.router import PLANT_AGENT, PROPOSAL_INBOX
 from neuralbrewery.main import create_app
 
 SRC = Path(neuralbrewery.__file__).parent
@@ -137,6 +138,16 @@ class TestThePlantAgent:
         assert isinstance(agent.reader, PlantReader)
         assert not isinstance(agent.reader, PlantCommander)
         assert not isinstance(agent.reader, SimulationControl)
+
+    def test_of_the_queue_the_agent_gets_the_decisions_and_reads(self):
+        """[SEC] Its memory: the reader of the decisions, not the inbox."""
+        app = create_app(with_keys("claude", claude_key="sk-ant-test"))
+
+        agent = PLANT_AGENT.get(app.state)
+
+        assert isinstance(agent.decisions, DecisionReader)
+        assert not isinstance(agent.decisions, ProposalInbox)
+        assert agent.decisions is not PROPOSAL_INBOX.get(app.state)
 
     def test_without_a_key_there_is_no_agent(self, settings):
         """[EC] The default: the endpoint answers 503 (tests/features/agents)."""

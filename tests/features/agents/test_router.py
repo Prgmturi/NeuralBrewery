@@ -38,6 +38,7 @@ from neuralbrewery.features.agents.router import (
 from tests.features.agents.fakes import (
     DIAGNOSIS,
     PROPOSAL_ID,
+    FakeDecisions,
     RecordingInbox,
     ScriptedClient,
     call,
@@ -58,7 +59,8 @@ def agent_answers(app, inbox):
     """The app's plant agent, on a client given by the test."""
 
     def use(client) -> None:
-        agent = PlantAgent(PLANT_READER.get(app.state), client, GENERATION)
+        reader = PLANT_READER.get(app.state)
+        agent = PlantAgent(reader, FakeDecisions(), client, GENERATION)
         app.dependency_overrides[get_plant_agent] = lambda: agent
         app.dependency_overrides[get_proposal_inbox] = lambda: inbox
 

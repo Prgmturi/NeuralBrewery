@@ -1,6 +1,7 @@
 from typing import Protocol, runtime_checkable
 from uuid import UUID
 
+from neuralbrewery.core.approvals.schemas import Actor
 from neuralbrewery.features.approvals.domain.proposal import (
     Action,
     Answer,
@@ -31,8 +32,14 @@ class ProposalLog(Protocol):
         """Every event of the proposal, oldest first; empty if there is none."""
         ...
 
-    async def page(self, limit: int, offset: int) -> list[QueuedProposal]:
-        """One page of proposals, the newest first."""
+    async def page(
+        self, limit: int, offset: int, actor: Actor | None = None
+    ) -> list[QueuedProposal]:
+        """One page of proposals, the newest first.
+
+        With an actor, only the proposals it made: filtered before the
+        page is cut, so the others push none of them out.
+        """
         ...
 
 
