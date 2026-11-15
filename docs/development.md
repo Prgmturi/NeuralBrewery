@@ -40,7 +40,7 @@ An action reaches the plant only after the brewer approves it. Until M2 the simu
 - **A restart builds a new plant.** It starts from `PLANT_START` (`brew_day` or `fermentation`) with `PLANT_SEED`, and what happened to the old plant is gone. The queue stays in Postgres.
 - **Time moves only when you move it**, with `/simulation/advance`.
 
-The stack of `compose.yaml` has everything the demo needs: the simulation routes are on, the approval token is `brewer-dev-token`, and `ANTHROPIC_API_KEY` comes from `.env`, for the agent endpoint only. With `AGENT_PROVIDER=openai_compat` and `OPENAI_COMPAT_API_KEY` in `.env`, the agent runs on Gemini instead; the demo stays on Claude.
+The stack of `compose.yaml` has everything the demo needs: the simulation routes are on, the approval token is `brewer-dev-token`, and `ANTHROPIC_API_KEY` comes from `.env`, for the agent endpoint only. Compose also reads `AGENT_PROVIDER` and `OPENAI_COMPAT_API_KEY` from `.env`: with `AGENT_PROVIDER=openai_compat` there, the agent of the stack runs on Gemini. The demo stays on Claude, so keep `AGENT_PROVIDER` out of `.env`, or at `claude`.
 
 ```bash
 docker compose up --build --wait
@@ -176,7 +176,7 @@ The stack takes its ports from `SERVER_PORT`, `KEYCLOAK_PORT` and `DATABASE_PORT
 
 `uv run pytest -m eval` runs the plant agent on a real model, on four fault scenarios with a fixed seed (`tests/evals/scenarios.py`): an offset probe in the fermenter, a blocked pump at the mash-in, the drive of the agitator in fault, and a probe repaired while the block of the controller is still on, where only `reset` passes. The verdict is pass or fail, by code, on the diagnosis the agent hands in and on its trajectory: no LLM is the judge.
 
-The model is the one of `AGENT_PROVIDER`, exported or in `.env`, as for the app:
+The model is the one of `AGENT_PROVIDER`, as for the app. Export it for the run rather than writing it in `.env`, where compose would read it too and move the demo to Gemini:
 
 ```bash
 uv run pytest -m eval                                # Claude, the default
