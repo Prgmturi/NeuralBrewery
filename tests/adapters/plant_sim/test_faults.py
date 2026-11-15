@@ -53,6 +53,26 @@ class TestMeasurementFaults:
         refused = await plant.set_temperature(Vessel.HLT, 70)
         assert refused.code is CommandCode.PROBE_FAULT
 
+    async def test_a_block_says_it_waits_for_reset_a_warning_does_not(self, plant):
+        """[EC] TT1 repaired: the warning is gone, the block still says reset.
+
+        WHY: a panel shows which alarms are latched. Without it, "sonda TT1
+        non valida" with TT1 reading good led Gemini Flash-Lite to propose
+        resume_program, which the controller refuses while the block is on.
+        """
+        await plant.set_temperature(Vessel.HLT, 72)
+        await plant.inject_fault(Fault(kind=FaultKind.PROBE_BROKEN, target="TT1"))
+        await plant.advance(1)
+        texts = {alarm.code: alarm.text for alarm in (await plant.snapshot()).alarms}
+        assert "serve reset" not in texts[AlarmCode.SIGNAL_FAULT]
+
+        await plant.clear_faults()
+        await plant.advance(1)
+
+        texts = {alarm.code: alarm.text for alarm in (await plant.snapshot()).alarms}
+        assert AlarmCode.SIGNAL_FAULT not in texts
+        assert texts[AlarmCode.CONTROL_PROBE_FAULT].endswith("(bloccato: serve reset)")
+
     async def test_pt100_broken_wire_in_the_fermenter_moves_to_the_spare_probe(self):
         """[EC] TT5b takes over, and gives the job back only when the brewer says."""
         sim = fermentation()

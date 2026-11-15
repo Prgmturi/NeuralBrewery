@@ -113,7 +113,7 @@ def decisions_tool(decisions: DecisionReader) -> Tool:
                 "non risponde. Diagnostica con i tool dell'impianto."
             )
         if not past:
-            return "Nessuna tua proposta passata: il birraio non ha ancora deciso."
+            return "Nessuna tua proposta passata."
         return json.dumps([asdict(decision) for decision in past], ensure_ascii=False)
 
     return Tool(
