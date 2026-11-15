@@ -39,6 +39,9 @@ logger = get_logger(__name__)
 
 NAME = "plant_agent"
 MAX_STEPS = 12
+# How a provider says it declined: Claude's stop reason, and the finish
+# reason of the APIs that copy OpenAI's, Gemini's included
+REFUSALS = {"refusal", "content_filter"}
 
 SYSTEM_PROMPT = """\
 Sei l'agente impianto di un birrificio pilota da 20 L. Quando il controllore o \
@@ -266,8 +269,8 @@ def _verdict(
         return run(Outcome.DIAGNOSED, "")
     if submission.error:
         return run(Outcome.INVALID_DIAGNOSIS, submission.error)
-    if any(step.stop_reason == "refusal" for step in calls):
-        return run(Outcome.REFUSED, "Claude ha rifiutato la richiesta.")
+    if any(step.stop_reason in REFUSALS for step in calls):
+        return run(Outcome.REFUSED, "Il modello ha rifiutato la richiesta.")
     if final_text:
         return run(Outcome.NO_DIAGNOSIS, f"Risposta senza diagnosi: {final_text}")
     return run(

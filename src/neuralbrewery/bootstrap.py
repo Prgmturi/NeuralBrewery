@@ -19,11 +19,12 @@ from mcp.server.transport_security import TransportSecuritySettings
 from starlette.datastructures import State
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
-from neuralbrewery.adapters.claude.client import create_client, generation_args
+from neuralbrewery.adapters.claude import client as claude_adapter
 from neuralbrewery.adapters.keycloak.client import KeycloakClient
 from neuralbrewery.adapters.keycloak.extractors import KeycloakClaimExtractor
 from neuralbrewery.adapters.keycloak.jwks import JWKSTokenDecoder
 from neuralbrewery.adapters.keycloak.jwks_manager import JWKSManager
+from neuralbrewery.adapters.openai_compat import client as compat_adapter
 from neuralbrewery.adapters.plant_sim.adapter import InProcessPlant
 from neuralbrewery.adapters.plant_sim.simulator import PlantSimulator
 from neuralbrewery.adapters.plant_sim.starts import brew_day, fermentation
@@ -45,11 +46,16 @@ from neuralbrewery.core.logging import (
     get_logger,
 )
 from neuralbrewery.core.plant.dependencies import PLANT_READER
+from neuralbrewery.core.plant.protocols import PlantReader
 from neuralbrewery.core.plant.readonly import ReadOnlyPlant, SimulationOnly
 from neuralbrewery.core.security import SecureHeadersMiddleware
 from neuralbrewery.features.agents.mcp_server import MCP_SERVER, create_mcp_server
 from neuralbrewery.features.agents.plant_agent import PlantAgent
-from neuralbrewery.features.agents.router import PLANT_AGENT, PROPOSAL_INBOX
+from neuralbrewery.features.agents.router import (
+    AGENT_SERVICE,
+    PLANT_AGENT,
+    PROPOSAL_INBOX,
+)
 from neuralbrewery.features.approvals.api.executor import EXECUTOR, Executor
 from neuralbrewery.features.approvals.api.inbox import QueueInbox, database_log
 from neuralbrewery.features.auth.router import OAUTH_PROVIDER
@@ -81,7 +87,8 @@ def init_plant(app: FastAPI, settings: Settings) -> None:
 
     The MCP server and the plant agent get the reader and the inbox of
     proposals, never the executor. The MCP server answers at /mcp, and
-    start_services() runs it; the agent exists only with ANTHROPIC_API_KEY.
+    start_services() runs it; the agent exists only with the key of its
+    provider (init_plant_agent).
     """
     plant_settings = settings.plant
     plant = InProcessPlant(STARTS[plant_settings.start](seed=plant_settings.seed))
@@ -93,10 +100,7 @@ def init_plant(app: FastAPI, settings: Settings) -> None:
 
     inbox = QueueInbox(database_log(lambda: DB_MANAGER.get(app.state)), reader)
     PROPOSAL_INBOX.set(app.state, inbox)
-    claude = settings.claude
-    if claude.api_key.get_secret_value():
-        agent = PlantAgent(reader, create_client(claude), generation_args(claude))
-        PLANT_AGENT.set(app.state, agent)
+    init_plant_agent(app, settings, reader)
 
     server = create_mcp_server(reader, inbox)
     MCP_SERVER.set(app.state, server)
@@ -109,6 +113,40 @@ def init_plant(app: FastAPI, settings: Settings) -> None:
         transport_security=mcp_transport_security(settings.server),
     )
     app.router.routes.extend(mcp_http.routes)
+
+
+def agent_key(settings: Settings) -> str:
+    """The key of the provider the agents run on: the other one does not count."""
+    if settings.agent.provider == "openai_compat":
+        return settings.openai_compat.api_key.get_secret_value()
+    return settings.claude.api_key.get_secret_value()
+
+
+def init_plant_agent(app: FastAPI, settings: Settings, reader: PlantReader) -> None:
+    """The plant agent on the provider of AGENT_PROVIDER, with the reader alone.
+
+    The agent takes a datapizza client and the arguments of every call, and
+    knows no more of its provider. Without the key of that provider there
+    is no agent, and its endpoint answers 503 naming the provider.
+    """
+    if settings.agent.provider == "openai_compat":
+        AGENT_SERVICE.set(app.state, compat_adapter.SERVICE)
+        if agent_key(settings):
+            agent = PlantAgent(
+                reader,
+                compat_adapter.create_client(settings.openai_compat),
+                compat_adapter.generation_args(),
+            )
+            PLANT_AGENT.set(app.state, agent)
+        return
+    AGENT_SERVICE.set(app.state, claude_adapter.SERVICE)
+    if agent_key(settings):
+        agent = PlantAgent(
+            reader,
+            claude_adapter.create_client(settings.claude),
+            claude_adapter.generation_args(settings.claude),
+        )
+        PLANT_AGENT.set(app.state, agent)
 
 
 def mcp_transport_security(settings: ServerSettings) -> TransportSecuritySettings:
@@ -154,8 +192,9 @@ async def start_services(
         start=settings.plant.start,
         seed=settings.plant.seed,
         simulation_control=settings.plant.simulation_control,
-        # Without ANTHROPIC_API_KEY the agent endpoint answers 503
-        agent=bool(settings.claude.api_key.get_secret_value()),
+        # Without the key of its provider the agent endpoint answers 503
+        agent_provider=settings.agent.provider,
+        agent=bool(agent_key(settings)),
     )
     db_manager = await init_database(app_state, settings.database)
     services.append(("database", db_manager.disconnect))

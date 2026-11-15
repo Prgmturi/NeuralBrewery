@@ -97,11 +97,15 @@ def say(text: str) -> Reply:
     return reply
 
 
-def refuse() -> Reply:
-    """The safety classifiers decline: nothing comes back."""
+def refuse(stop_reason: str = "refusal") -> Reply:
+    """The safety classifiers decline: nothing comes back.
+
+    "refusal" is Claude's stop reason; "content_filter" is the finish reason
+    of the APIs that copy OpenAI's, Gemini's included.
+    """
 
     def reply(tools: dict[str, Tool]) -> ClientResponse:
-        return ClientResponse(content=[], stop_reason="refusal", usage=TokenUsage())
+        return ClientResponse(content=[], stop_reason=stop_reason, usage=TokenUsage())
 
     return reply
 
