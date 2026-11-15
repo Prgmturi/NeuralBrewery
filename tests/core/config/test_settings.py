@@ -16,12 +16,14 @@ import pytest
 
 from neuralbrewery.core.config import Settings
 from neuralbrewery.core.config import app as app_module
+from neuralbrewery.core.config.agent import AgentSettings
 from neuralbrewery.core.config.app import AppSettings
 from neuralbrewery.core.config.approvals import ApprovalSettings
 from neuralbrewery.core.config.auth_cookie import AuthCookieSettings
 from neuralbrewery.core.config.claude import ClaudeSettings
 from neuralbrewery.core.config.database import DatabaseSettings
 from neuralbrewery.core.config.keycloak import KeycloakSettings
+from neuralbrewery.core.config.openai_compat import OpenAICompatSettings
 from neuralbrewery.core.config.plant import PlantSettings
 from neuralbrewery.core.config.server import ServerSettings
 from tests.conftest import SETTINGS_CLASSES
@@ -144,6 +146,62 @@ class TestClaudeSettings:
         """[EC] An effort the API does not know stops the startup, not the call."""
         with pytest.raises(pydantic.ValidationError, match="effort"):
             ClaudeSettings(effort=given)
+
+
+class TestAgentSettings:
+    """AgentSettings: which provider the agents run on.
+
+    WHY: the course asks for a multi-provider client (docs/decisioni.md,
+    "Secondo fornitore"). Claude stays the default, and the live demo on it.
+    """
+
+    def test_claude_by_default(self):
+        """[HP] Nothing set: Claude."""
+        assert AgentSettings().provider == "claude"
+
+    def test_read_from_the_environment(self, monkeypatch):
+        """[HP] AGENT_PROVIDER picks the second provider."""
+        monkeypatch.setenv("AGENT_PROVIDER", "openai_compat")
+
+        assert AgentSettings().provider == "openai_compat"
+
+    @pytest.mark.parametrize("given", ["gemini", "Claude", ""])
+    def test_unknown_provider_refused(self, given):
+        """[EC] A typo stops the startup, not the first diagnosis."""
+        with pytest.raises(pydantic.ValidationError, match="provider"):
+            AgentSettings(provider=given)
+
+
+class TestOpenAICompatSettings:
+    """OpenAICompatSettings: the second provider, through an API like OpenAI's.
+
+    WHY: the defaults are the outcome of the gate of M6: Gemini's endpoint
+    for the OpenAI SDK, and a model pinned, not the -latest alias, which
+    moves under the evals.
+    """
+
+    def test_defaults(self):
+        """[HP] Gemini Flash-Lite, and no key."""
+        settings = OpenAICompatSettings()
+
+        assert (
+            settings.base_url
+            == "https://generativelanguage.googleapis.com/v1beta/openai/"
+        )
+        assert settings.model == "gemini-3.5-flash-lite"
+        assert settings.api_key.get_secret_value() == ""
+
+    def test_read_from_the_environment(self, monkeypatch):
+        """[HP] All three as OPENAI_COMPAT_*: Groq, say, with its own key."""
+        monkeypatch.setenv("OPENAI_COMPAT_BASE_URL", "https://api.groq.com/openai/v1")
+        monkeypatch.setenv("OPENAI_COMPAT_MODEL", "llama-4-scout")
+        monkeypatch.setenv("OPENAI_COMPAT_API_KEY", "gsk-from-the-env")
+
+        settings = OpenAICompatSettings()
+
+        assert settings.base_url == "https://api.groq.com/openai/v1"
+        assert settings.model == "llama-4-scout"
+        assert settings.api_key.get_secret_value() == "gsk-from-the-env"
 
 
 class TestPlantSettings:
@@ -544,6 +602,7 @@ class TestSecrets:
             database=DatabaseSettings(password="db-secret-value"),
             keycloak=KeycloakSettings(client_secret="kc-secret-value"),
             claude=ClaudeSettings(api_key="sk-ant-secret-value"),
+            openai_compat=OpenAICompatSettings(api_key="gm-secret-value"),
             approvals=ApprovalSettings(token="approval-secret-value"),
         )
 
@@ -553,6 +612,7 @@ class TestSecrets:
             "db-secret-value",
             "kc-secret-value",
             "sk-ant-secret-value",
+            "gm-secret-value",
             "approval-secret-value",
         ],
     )

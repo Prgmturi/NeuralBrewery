@@ -4,9 +4,10 @@ Module under test: src/neuralbrewery/features/agents/router.py
 Layer: FastAPI route; the plant agent on a scripted client, no network
 
 WHY these tests exist: the plant agent proposes like the MCP server, into
-the same queue, as from "agent". Served by the API, a failure of Anthropic
-must answer 503 in the problem format (ADR 0006), not 500, and the CI
-must never call the network: the scripted client of M5 answers here.
+the same queue, as from "agent". Served by the API, a failure of its
+provider, Claude or the second one, must answer 503 or 502 in the problem
+format (ADR 0006), not 500, and the CI must never call the network: the
+scripted client of M5 answers here.
 """
 
 from types import SimpleNamespace
@@ -14,11 +15,20 @@ from types import SimpleNamespace
 import httpx
 import pytest
 from anthropic import AsyncAnthropic
+from openai import AsyncOpenAI
 
 from neuralbrewery.adapters.claude.client import create_client
+from neuralbrewery.adapters.openai_compat.client import SERVICE as COMPAT_SERVICE
+from neuralbrewery.adapters.openai_compat.client import OpenAICompatClient
+from neuralbrewery.adapters.openai_compat.client import (
+    create_client as create_compat_client,
+)
 from neuralbrewery.core.approvals.protocols import ProposalInbox
 from neuralbrewery.core.approvals.schemas import Actor
+from neuralbrewery.core.config import ServerSettings, Settings
+from neuralbrewery.core.config.agent import AgentSettings
 from neuralbrewery.core.config.claude import ClaudeSettings
+from neuralbrewery.core.config.openai_compat import OpenAICompatSettings
 from neuralbrewery.core.plant.dependencies import PLANT_READER
 from neuralbrewery.features.agents.plant_agent import PlantAgent
 from neuralbrewery.features.agents.router import (
@@ -122,6 +132,76 @@ class TestUnavailable:
         agent_answers(claude)
 
         assert_problem(await client.post(URL), 503)
+        assert inbox.proposals == []
+
+
+def second_provider_answering(handler) -> OpenAICompatClient:
+    """The second provider's client of the app, its HTTP answered by handler."""
+    compat = create_compat_client(OpenAICompatSettings(api_key="gm-test"))
+    compat.a_client = AsyncOpenAI(
+        api_key="gm-test",
+        base_url="http://compat.test/v1/",
+        http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        max_retries=0,
+    )
+    return compat
+
+
+def refused(request: httpx.Request) -> httpx.Response:
+    raise httpx.ConnectError("refused")
+
+
+def over_the_limits(request: httpx.Request) -> httpx.Response:
+    return httpx.Response(429, json=[{"error": {"code": 429, "message": "quota"}}])
+
+
+def unusable(request: httpx.Request) -> httpx.Response:
+    return httpx.Response(
+        200,
+        json={
+            "id": "x",
+            "object": "chat.completion",
+            "created": 0,
+            "model": "m",
+            "choices": [],
+        },
+    )
+
+
+class TestOnTheSecondProvider:
+    """AGENT_PROVIDER=openai_compat: the same endpoint, the same answers.
+
+    WHY: the agent does not know its provider, and neither does a client of
+    the API: an error is 503 or 502 in the problem format with either.
+    """
+
+    @pytest.fixture
+    def settings(self) -> Settings:
+        """The second provider chosen; only Claude has a key."""
+        return Settings(
+            server=ServerSettings(trusted_hosts=["testserver"]),
+            agent=AgentSettings(provider="openai_compat"),
+            claude=ClaudeSettings(api_key="sk-ant-test"),
+        )
+
+    async def test_without_its_key_the_agent_is_503(self, client):
+        """[EC] The key of Claude is no help: the chosen provider has none."""
+        body = assert_problem(await client.post(URL), 503)
+
+        assert body["service"] == COMPAT_SERVICE
+
+    @pytest.mark.parametrize(
+        ("handler", "code"),
+        [(refused, 503), (over_the_limits, 503), (unusable, 502)],
+        ids=["unreachable", "over-the-limits", "unusable"],
+    )
+    async def test_its_errors_keep_the_problem_format(
+        self, client, agent_answers, inbox, handler, code
+    ):
+        """[EC] The real client of the app: 503 retry later, 502 do not."""
+        agent_answers(second_provider_answering(handler))
+
+        assert_problem(await client.post(URL), code)
         assert inbox.proposals == []
 
 

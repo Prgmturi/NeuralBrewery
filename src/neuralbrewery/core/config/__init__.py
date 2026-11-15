@@ -3,12 +3,14 @@ from functools import lru_cache
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from neuralbrewery.core.config.agent import AgentSettings
 from neuralbrewery.core.config.app import AppSettings
 from neuralbrewery.core.config.approvals import ApprovalSettings
 from neuralbrewery.core.config.auth_cookie import AuthCookieSettings
 from neuralbrewery.core.config.claude import ClaudeSettings
 from neuralbrewery.core.config.database import DatabaseSettings
 from neuralbrewery.core.config.keycloak import KeycloakSettings
+from neuralbrewery.core.config.openai_compat import OpenAICompatSettings
 from neuralbrewery.core.config.plant import PlantSettings
 from neuralbrewery.core.config.production import production_problems
 from neuralbrewery.core.config.server import ServerSettings
@@ -26,12 +28,14 @@ class Settings(BaseSettings):
         hide_input_in_errors=True,
     )
 
+    agent: AgentSettings = Field(default_factory=AgentSettings)
     app: AppSettings = Field(default_factory=AppSettings)
     approvals: ApprovalSettings = Field(default_factory=ApprovalSettings)
     auth_cookie: AuthCookieSettings = Field(default_factory=AuthCookieSettings)
     claude: ClaudeSettings = Field(default_factory=ClaudeSettings)
     database: DatabaseSettings = Field(default_factory=DatabaseSettings)
     keycloak: KeycloakSettings = Field(default_factory=KeycloakSettings)
+    openai_compat: OpenAICompatSettings = Field(default_factory=OpenAICompatSettings)
     plant: PlantSettings = Field(default_factory=PlantSettings)
     server: ServerSettings = Field(default_factory=ServerSettings)
 
@@ -66,12 +70,14 @@ def get_settings() -> Settings:
 
 __all__ = [
     "Settings",
+    "AgentSettings",
     "AppSettings",
     "ApprovalSettings",
     "AuthCookieSettings",
     "ClaudeSettings",
     "DatabaseSettings",
     "KeycloakSettings",
+    "OpenAICompatSettings",
     "PlantSettings",
     "ServerSettings",
     "get_settings",

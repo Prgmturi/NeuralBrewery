@@ -1,4 +1,7 @@
-"""The three fault scenarios of the M5 eval, and how each is graded.
+"""The fault scenarios of the eval, and how each is graded.
+
+S1-S3 come from M5. S4 (M6) passes only if the agent proposes reset: the
+cause is clear and gone, and only the block of the controller is left.
 
 Each scenario starts from a named start with a fixed seed, injects one
 fault, and lets the simulated time run until the plant shows it. Before the
@@ -24,6 +27,7 @@ from neuralbrewery.core.plant.schemas import (
     FaultKind,
     PlantState,
     ProgramStatus,
+    Quality,
     Route,
     Vessel,
     WatcherCode,
@@ -169,10 +173,51 @@ def grade_drive_fault(diagnosis: Diagnosis) -> list[str]:
     return failures
 
 
+# --- S4: a probe repaired, the block of the controller still on ---------------
+
+
+async def repaired_probe() -> InProcessPlant:
+    """TT1 broke while the water heated, then was repaired: the block stays."""
+    plant = InProcessPlant(brew_day(seed=SEED))
+    assert (await plant.start_program()).accepted
+    await plant.advance(10 * 60)
+    await plant.inject_fault(Fault(kind=FaultKind.PROBE_BROKEN, target="TT1"))
+    await plant.advance(5 * 60)
+    await plant.clear_faults()
+    await plant.advance(5 * 60)
+
+    state = await plant.snapshot()
+    assert (state.program.status, state.program.step) == (ProgramStatus.PAUSED, 1)
+    assert state.readings["TT1"].quality is Quality.GOOD
+    # The signal fault ended with its cause; the block waits for a reset
+    assert alarms(state) == {
+        (AlarmCode.CONTROL_PROBE_FAULT, Vessel.HLT),
+        (AlarmCode.PROGRAM_PAUSED, "PROGRAM"),
+    }
+    return plant
+
+
+def grade_repaired_probe(diagnosis: Diagnosis) -> list[str]:
+    failures = []
+    if diagnosis.component != "TT1":
+        failures.append(f"componente {diagnosis.component!r}, atteso TT1")
+    if diagnosis.fault_type is not FaultType.MEASUREMENT:
+        failures.append(f"guasto {diagnosis.fault_type}, atteso di misura")
+    proposal = diagnosis.proposal
+    if proposal is None or proposal.command is not Command.RESET:
+        failures.append(
+            f"proposta {proposal.command if proposal else 'nessuna'}: atteso reset"
+        )
+    return failures
+
+
 SCENARIOS = [
     Scenario("S1", "sonda starata", offset_probe, grade_offset_probe),
     Scenario("S2", "pompa bloccata", pump_blocked, grade_pump_blocked),
     Scenario("S3", "inverter in guasto", drive_fault, grade_drive_fault),
+    Scenario(
+        "S4", "sonda riparata, blocco attivo", repaired_probe, grade_repaired_probe
+    ),
 ]
 
 

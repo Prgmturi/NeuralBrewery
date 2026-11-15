@@ -162,13 +162,18 @@ class TestOutcomes:
         assert run.diagnosis is None
         assert "Credo sia la sonda TT5a." in run.detail
 
-    async def test_a_refusal_stops_at_the_first_call(self, plant):
-        """[EC] datapizza would ask again until max_steps: the hook stops it."""
-        client = ScriptedClient(refuse())
+    @pytest.mark.parametrize("stop_reason", ["refusal", "content_filter"])
+    async def test_a_refusal_stops_at_the_first_call(self, plant, stop_reason):
+        """[EC] datapizza would ask again until max_steps: the hook stops it.
+
+        Claude and the second provider name a refusal differently.
+        """
+        client = ScriptedClient(refuse(stop_reason))
 
         run = await agent_for(plant, client).diagnose()
 
         assert run.outcome is Outcome.REFUSED
+        assert "Claude" not in run.detail
         assert len(client.calls) == 1
 
     async def test_the_steps_run_out(self, plant):

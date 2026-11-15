@@ -73,8 +73,11 @@ services:
       # approves with the token of .env.example. Production refuses both.
       PLANT_SIMULATION_CONTROL: "true"
       APPROVAL_TOKEN: brewer-dev-token
-      # For the agent endpoint: read from .env or the shell, never written here
+      # For the agent endpoint: read from .env or the shell, never written here.
+      # Claude unless AGENT_PROVIDER says openai_compat (Gemini by default)
+      AGENT_PROVIDER: ${AGENT_PROVIDER:-claude}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_COMPAT_API_KEY: ${OPENAI_COMPAT_API_KEY:-}
     ports:
       - "${SERVER_PORT:-8000}:8000"
     # The image's HEALTHCHECK, probed every 2 seconds while the app starts

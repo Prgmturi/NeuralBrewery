@@ -39,6 +39,9 @@ logger = get_logger(__name__)
 
 NAME = "plant_agent"
 MAX_STEPS = 12
+# How a provider says it declined: Claude's stop reason, and the finish
+# reason of the APIs that copy OpenAI's, Gemini's included
+REFUSALS = {"refusal", "content_filter"}
 
 SYSTEM_PROMPT = """\
 Sei l'agente impianto di un birrificio pilota da 20 L. Quando il controllore o \
@@ -87,6 +90,11 @@ percorso se non si può dire di più.
 - command è un pulsante del pannello, o nessuno se prima servono verifiche. \
 Proponi il più prudente: non far ripartire ciò che si è fermato finché la causa \
 non è chiara.
+- Se la causa non dà più segni (l'allarme che la segnalava è finito, lo \
+strumento legge di nuovo con qualità good) e resta solo un blocco del \
+controllore, proponi reset: riarma solo ciò che non ha più la sua causa, e ciò \
+che ce l'ha ancora si blocca di nuovo. Finché il blocco c'è, resume_program è \
+rifiutato.
 - explanation e checks sono per il birraio: in italiano, brevi e concreti.
 """
 
@@ -261,8 +269,8 @@ def _verdict(
         return run(Outcome.DIAGNOSED, "")
     if submission.error:
         return run(Outcome.INVALID_DIAGNOSIS, submission.error)
-    if any(step.stop_reason == "refusal" for step in calls):
-        return run(Outcome.REFUSED, "Claude ha rifiutato la richiesta.")
+    if any(step.stop_reason in REFUSALS for step in calls):
+        return run(Outcome.REFUSED, "Il modello ha rifiutato la richiesta.")
     if final_text:
         return run(Outcome.NO_DIAGNOSIS, f"Risposta senza diagnosi: {final_text}")
     return run(
