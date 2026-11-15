@@ -22,10 +22,16 @@ class EventKind(StrEnum):
     EXECUTION_FAILED = "execution_failed"  # no answer from the plant
 
 
-# A proposal has one event of each step at most: the table enforces it too
 BIRTHS = frozenset({EventKind.PROPOSED, EventKind.BLOCKED})
 DECISIONS = frozenset({EventKind.APPROVED, EventKind.REJECTED})
 OUTCOMES = frozenset({EventKind.EXECUTED, EventKind.EXECUTION_FAILED})
+# The seq of an event is its step: 0 the birth, 1 the decision, 2 the
+# outcome. One event per step, so one decision and one outcome at most: the
+# table enforces it too, with a unique (proposal_id, seq).
+STEPS = (BIRTHS, DECISIONS, OUTCOMES)
+
+# The longest name of who acts: the requests and the table take it too
+BY_MAX_LENGTH = 100
 
 
 @dataclass(frozen=True)

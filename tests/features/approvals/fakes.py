@@ -1,8 +1,8 @@
 """The ports of the approvals in memory: the log, the panel, the clock.
 
 InMemoryProposalLog keeps the rules of the table: an event is never
-changed or deleted, a proposal has one birth, one decision and one
-outcome, and the data must be JSON that Postgres takes (no NaN).
+changed or deleted, its seq is its step (birth, decision, outcome) and
+comes once, and the data must be JSON that Postgres takes (no NaN).
 """
 
 import asyncio
@@ -11,9 +11,7 @@ from uuid import UUID
 
 from neuralbrewery.core.exceptions import ConflictError
 from neuralbrewery.features.approvals.domain.proposal import (
-    BIRTHS,
-    DECISIONS,
-    OUTCOMES,
+    STEPS,
     Action,
     Answer,
     ProposalEvent,
@@ -27,10 +25,8 @@ class InMemoryProposalLog:
 
     async def append(self, event: ProposalEvent) -> None:
         json.dumps(dict(event.data), allow_nan=False)  # what JSONB refuses
+        assert event.kind in STEPS[event.seq]  # the CHECK of the table
         mine = [e for e in self.events if e.proposal_id == event.proposal_id]
-        for step in (BIRTHS, DECISIONS, OUTCOMES):
-            if event.kind in step and any(e.kind in step for e in mine):
-                raise ConflictError("already decided", resource="Proposal")
         if any(e.seq == event.seq for e in mine):
             raise ConflictError("already decided", resource="Proposal")
         self.events.append(event)
