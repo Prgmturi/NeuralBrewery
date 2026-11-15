@@ -87,6 +87,11 @@ percorso se non si può dire di più.
 - command è un pulsante del pannello, o nessuno se prima servono verifiche. \
 Proponi il più prudente: non far ripartire ciò che si è fermato finché la causa \
 non è chiara.
+- Se la causa non dà più segni (l'allarme che la segnalava è finito, lo \
+strumento legge di nuovo con qualità good) e resta solo un blocco del \
+controllore, proponi reset: riarma solo ciò che non ha più la sua causa, e ciò \
+che ce l'ha ancora si blocca di nuovo. Finché il blocco c'è, resume_program è \
+rifiutato.
 - explanation e checks sono per il birraio: in italiano, brevi e concreti.
 """
 
