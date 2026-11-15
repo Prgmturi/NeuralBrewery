@@ -140,7 +140,7 @@ A whole round on `brew_day` with seed 42. It is scenario S4 of the evals:
    curl -s -X POST localhost:8000/simulation/advance \
      -H "Content-Type: application/json" -d '{"seconds": 300}'
    ```
-   The last `advance` shows that `signal_fault` on TT1 is gone. `control_probe_fault` on HLT and the pause stay: the controller does not restart by itself.
+   The last `advance` shows that `signal_fault` on TT1 is gone. `control_probe_fault` on HLT and the pause stay: the controller does not restart by itself. The text of the block ends with "(bloccato: serve reset)".
 3. Call the agent endpoint. It names TT1, as a fault of measure, and puts `reset` in the queue, from `agent`.
 
 From here the brewer decides, and either way is a round of its own.

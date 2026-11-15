@@ -59,14 +59,21 @@ sui manuali e più agenti.
     non ripropone un pulsante rifiutato per la stessa causa;
   - il server MCP non ha il tool.
 
-  Eval (15 novembre): su Claude 5 su 5, e S5 3 volte su 3. Su Gemini Flash-Lite 4 su 5: S5
-  passa, S4 no. Al posto di `reset` propone `resume_program`, che il controllore rifiuta
-  finché il blocco c'è, o nessun comando. Con questo codice S4 passa 0 volte su 4; con il
-  codice di M6, 3 su 3. Provata anche una variante con il prompt identico a quello di M6 e la
-  regola nella descrizione del tool: 0 su 3, quindi è stata tolta. In quei giri Gemini spesso
-  non chiama nemmeno il tool. Proposta, da confermare a fine fase: accettarlo come limite di
-  Gemini. La demo è su Claude, e inseguire un modello piccolo con ritocchi al prompt rischia di
-  peggiorare ciò che funziona.
+  Un difetto che la memoria ha fatto emergere, nel testo degli allarmi (15 novembre). Con il
+  tool nuovo Gemini Flash-Lite sbagliava S4: al posto di `reset` proponeva `resume_program`,
+  che il controllore rifiuta finché il blocco c'è. 0 volte su 4, contro 3 su 3 con il codice
+  di M6. Non dipendeva da che cosa dice il tool: con la regola nella sua descrizione 0 su 3,
+  con una descrizione di una riga, mai chiamata, 1 su 3. La causa stava nell'impianto: con TT1
+  riparata il blocco diceva ancora "sonda TT1 non valida: regolazione sospesa", senza una parola
+  sul riarmo. Claude lo deduceva dal prompt; Gemini ci arrivava per poco, e un tool in più
+  bastava a farlo cadere. Ora il testo di un blocco che si riarma con `reset` finisce con
+  "(bloccato: serve reset)", come sul pannello di un impianto vero (`docs/impianto.md`). Con
+  questo S4 su Gemini passa 3 volte su 3, e `resume_program` non compare più.
+
+  Eval sul codice finale: Claude passa tutti e cinque, S5 3 volte su 3; S3 una volta su 4 ha
+  proposto di spegnere l'agitatore, un comando prudente che lo scenario non ammette. Gemini
+  passa tutti e cinque; S2 una volta su 4 ha indicato la valvola EV2a invece della pompa, senza
+  proporre niente. Nessuno dei due errori si ripete su tre giri: si tengono così.
 
   Limite: se la causa è "la stessa" lo giudica il modello. Il guardrail non ferma una proposta
   già rifiutata: la memoria è un consiglio all'agente, non una regola in codice. L'eval S5 lo
