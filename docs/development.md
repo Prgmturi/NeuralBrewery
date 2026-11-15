@@ -40,7 +40,7 @@ An action reaches the plant only after the brewer approves it. Until M2 the simu
 - **A restart builds a new plant.** It starts from `PLANT_START` (`brew_day` or `fermentation`) with `PLANT_SEED`, and what happened to the old plant is gone. The queue stays in Postgres.
 - **Time moves only when you move it**, with `/simulation/advance`.
 
-The stack of `compose.yaml` has everything the demo needs: the simulation routes are on, the approval token is `brewer-dev-token`, and `ANTHROPIC_API_KEY` comes from `.env`, for the agent endpoint only.
+The stack of `compose.yaml` has everything the demo needs: the simulation routes are on, the approval token is `brewer-dev-token`, and `ANTHROPIC_API_KEY` comes from `.env`, for the agent endpoint only. With `AGENT_PROVIDER=openai_compat` and `OPENAI_COMPAT_API_KEY` in `.env`, the agent runs on Gemini instead; the demo stays on Claude.
 
 ```bash
 docker compose up --build --wait
@@ -111,8 +111,8 @@ curl -s -X POST localhost:8000/agents/plant/diagnose
 The agent reads the plant now and hands in its diagnosis. If the diagnosis has a command, it goes into the queue as from `agent`, through the same guardrail, and step 2 approves it.
 
 What this endpoint costs and needs:
-- One diagnosis costs a few cents, on `ANTHROPIC_API_KEY`.
-- Without the key it answers 503, and 503 again when Claude cannot be reached.
+- One diagnosis costs a few cents on Claude, nothing on the free tier of Gemini.
+- Without the key of the chosen provider it answers 503, and 503 again when the provider cannot be reached or is over its limits. An answer that cannot be used is a 502.
 - The agent proposes the most prudent action. When manual checks come first, it proposes nothing. When the cause gives no more signs and only a block of the controller is left, it proposes `reset`.
 
 A whole round, as run on 15 November on `brew_day` with seed 42. It is scenario S4 of the evals:
@@ -149,7 +149,7 @@ uv run pytest tests/core/auth/test_service.py::TestValidateToken  # one class
 uv run pytest --cov                        # with coverage, as CI runs it
 uv run pytest -m integration               # only the integration tests, on a real Postgres
 uv run pytest -m e2e                       # a login through the running stack
-uv run pytest -m eval                      # the plant agent on the real Claude: costs money, by hand
+uv run pytest -m eval                      # the plant agent on a real model (AGENT_PROVIDER), by hand
 ```
 
 - **Unit tests** are async, and outside `tests/integration/` they use stubs (`AsyncMock`): no database and no Keycloak. The root `conftest.py` provides the app, an HTTP client, mock services, and users with different roles.
@@ -174,11 +174,23 @@ The stack takes its ports from `SERVER_PORT`, `KEYCLOAK_PORT` and `DATABASE_PORT
 
 ### Eval of the agents
 
-`uv run pytest -m eval` runs the plant agent on the real Claude, on four fault scenarios with a fixed seed (`tests/evals/scenarios.py`): an offset probe in the fermenter, a blocked pump at the mash-in, the drive of the agitator in fault, and a probe repaired while the block of the controller is still on, where only `reset` passes. The verdict is pass or fail, by code, on the diagnosis the agent hands in and on its trajectory: no LLM is the judge.
+`uv run pytest -m eval` runs the plant agent on a real model, on four fault scenarios with a fixed seed (`tests/evals/scenarios.py`): an offset probe in the fermenter, a blocked pump at the mash-in, the drive of the agitator in fault, and a probe repaired while the block of the controller is still on, where only `reset` passes. The verdict is pass or fail, by code, on the diagnosis the agent hands in and on its trajectory: no LLM is the judge.
 
-- It costs money, about 12 cents for the four, and needs `ANTHROPIC_API_KEY`, exported or in `.env`. A plain `uv run pytest` leaves it out, and CI does not run it.
+The model is the one of `AGENT_PROVIDER`, exported or in `.env`, as for the app:
+
+```bash
+uv run pytest -m eval                                # Claude, the default
+AGENT_PROVIDER=openai_compat uv run pytest -m eval   # Gemini Flash-Lite, free tier
+```
+
+On PowerShell, `$env:AGENT_PROVIDER = 'openai_compat'` before the command.
+
+- **On Claude** it costs about 12 cents for the four, and needs `ANTHROPIC_API_KEY`.
+- **On Gemini** it costs nothing, and needs `OPENAI_COMPAT_API_KEY`, from Google AI Studio. The free tier allows 15 requests a minute and a scenario makes up to 12, so the scenarios start a minute apart: about 3 minutes for the four.
+- A plain `uv run pytest` leaves the evals out, and CI does not run them.
 - Before the agent is called, each scenario checks that the plant shows its fault: a scenario that went wrong costs nothing.
-- At the end a table gives the verdict, the tokens and the cost of each scenario. `.evals/`, ignored by git, keeps one JSON per scenario, with the diagnosis and every step of the trace.
+- At the end a table gives the verdict, the tokens and the cost of each scenario. A second table compares the last run of each provider, once both have run.
+- `.evals/<provider>/`, ignored by git, keeps one JSON per scenario, with the diagnosis and every step of the trace.
 - The model is not deterministic: a scenario that passed may fail on the next run. Read its JSON before changing the prompt.
 
 ## What CI runs

@@ -126,6 +126,32 @@ sui manuali e più agenti.
   su questo portatile, senza scheda grafica, lo sarebbe ancora di più. I limiti veri si leggono
   in Google AI Studio. Sul piano gratuito Google può usare le richieste per migliorare i suoi
   prodotti: qui è innocuo, perché i dati dell'impianto sono finti.
+- **Gemini, provato con chiamate vere** (15 novembre, cancello di M6: client openai-like
+  0.0.11, `openai` 2.54):
+  - il modello è `gemini-3.5-flash-lite`, fissato. `gemini-flash-lite-latest` è un altro nome
+    che punta già a un 3.x, e cambierebbe modello sotto gli eval; `gemini-2.5-flash-lite`
+    risponde 404, "non più disponibile per i nuovi utenti";
+  - tool e schema di `submit_diagnosis` reggono. Una chiamata dura da 0,6 a 2,2 s, una diagnosi
+    da 4 a 7 s. Gemini legge un tool per chiamata, Claude ne chiede più insieme: in entrata
+    Gemini usa da 1,3 a 2,3 volte i token di Claude, in uscita da 4 a 6 volte meno;
+  - il piano gratuito dà 15 richieste al minuto per modello, lette dal corpo del 429
+    (`RESOURCE_EXHAUSTED`, "riprova tra 14 s"). Il limite al giorno si legge in AI Studio. Uno
+    scenario fa fino a 12 chiamate, e le due riprove dell'SDK non aspettano 14 s: sul piano
+    gratuito gli eval partono a un minuto l'uno dall'altro;
+  - due cose che datapizza sbaglia con Gemini 3, sistemate nell'adapter
+    (`adapters/openai_compat/`), che ridefinisce due metodi del client di datapizza:
+    - la firma del ragionamento (`thought_signature`) che Gemini mette sulla prima chiamata a
+      un tool di ogni risposta: datapizza non la rimanda, e Gemini risponde 400 alla seconda
+      chiamata della diagnosi. L'adapter la tiene per id della chiamata e la rimette;
+    - due chiamate parallele della stessa risposta: datapizza le rimanda in due messaggi, e
+      Gemini rifiuta la seconda come un turno senza firma (400). L'adapter le rimette in un
+      messaggio solo, come vuole anche OpenAI. `parallel_tool_calls=False` viene accettato ma
+      ignorato.
+
+  *Perché*: è la strada più corta per avere il secondo fornitore con lo stesso agente; Groq,
+  il ripiego, non regge diagnosi da 13–30 mila token in entrata con 8 mila token al minuto.
+  Limite: se datapizza cambia quei due metodi interni, l'adapter si rompe. I test della CI
+  rifanno la conversazione con le risposte di Gemini, senza rete, e se ne accorgono.
 - **Cache dei prompt su ogni chiamata**: datapizza non la attiva, e l'adapter passa
   `cache_control` come argomento della chiamata. Provata nell'eval di M5: in S2, 6,6 mila token
   scritti nella cache e 15,6 mila letti. *Perché*: in un ciclo con i tool ogni chiamata rimanda
@@ -138,7 +164,8 @@ sui manuali e più agenti.
 - **Eval degli agenti a mano**, fuori dalla CI (`uv run pytest -m eval`): scenari di guasto con
   seed fisso, verdetto passa / non passa con controlli in codice sulla risposta strutturata e
   sulla traiettoria, niente LLM come giudice. *Perché*: costa, e la CI non ha la chiave; un
-  giudice LLM sarebbe un'altra fonte di errore da valutare.
+  giudice LLM sarebbe un'altra fonte di errore da valutare. Da M6 girano sul fornitore di
+  `AGENT_PROVIDER`, e una tabella confronta l'ultimo giro di ciascuno.
 - **Sorvegliante su richiesta**: una funzione a regole fisse che riceve solo `PlantReader`,
   chiamata dopo ogni avanzamento del tempo o da un tool dell'agente; nessun ciclo in background.
   Si costruisce con il primo agente (M5), non in M2. *Perché*: con il tempo a passi l'impianto è
