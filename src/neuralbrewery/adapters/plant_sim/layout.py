@@ -7,6 +7,7 @@ same numbers, with their sources.
 
 from dataclasses import dataclass
 
+from neuralbrewery.core.plant.panel import MAX_SETPOINT_C
 from neuralbrewery.core.plant.schemas import Route, Vessel
 
 
@@ -22,11 +23,23 @@ class VesselPlate:
     thermostat_c: float  # where the wired thermostat opens K1
 
 
+# The highest setpoints are on the panel, where the queue of approvals reads
+# them too
+_MAX = MAX_SETPOINT_C
+
 VESSELS: dict[Vessel, VesselPlate] = {
-    Vessel.HLT: VesselPlate(40.0, "LT1", "TT1", "R1", 3000.0, 8.0, 85.0, 90.0),
-    Vessel.MASH: VesselPlate(30.0, "LT2", "TT2", "R2", 2000.0, 6.0, 80.0, 85.0),
-    Vessel.BOIL: VesselPlate(40.0, "LT3", "TT3", "R3", 3500.0, 6.0, 100.0, 105.0),
-    Vessel.FERM: VesselPlate(26.5, "LT4", "TT5a", "R4", 100.0, 4.0, 30.0, 35.0),
+    Vessel.HLT: VesselPlate(
+        40.0, "LT1", "TT1", "R1", 3000.0, 8.0, _MAX[Vessel.HLT], 90.0
+    ),
+    Vessel.MASH: VesselPlate(
+        30.0, "LT2", "TT2", "R2", 2000.0, 6.0, _MAX[Vessel.MASH], 85.0
+    ),
+    Vessel.BOIL: VesselPlate(
+        40.0, "LT3", "TT3", "R3", 3500.0, 6.0, _MAX[Vessel.BOIL], 105.0
+    ),
+    Vessel.FERM: VesselPlate(
+        26.5, "LT4", "TT5a", "R4", 100.0, 4.0, _MAX[Vessel.FERM], 35.0
+    ),
 }
 
 # The fermenter has a second probe: for comparison, and as a spare

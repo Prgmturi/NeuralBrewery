@@ -20,13 +20,8 @@ from pydantic import BaseModel, Field, ValidationError
 from neuralbrewery.core.exceptions import NotFoundError
 from neuralbrewery.core.plant import watcher
 from neuralbrewery.core.plant.protocols import PlantReader
-from neuralbrewery.core.plant.schemas import Route, Vessel
-from neuralbrewery.features.agents.diagnosis import (
-    Command,
-    Diagnosis,
-    FaultType,
-    Proposal,
-)
+from neuralbrewery.core.plant.schemas import Command, Proposal, Route, Vessel
+from neuralbrewery.features.agents.diagnosis import Diagnosis, FaultType
 
 MINUTE = 60.0
 
