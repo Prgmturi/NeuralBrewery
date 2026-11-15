@@ -12,9 +12,7 @@ blocked with the reason, and nothing it gets back carries real time
 
 import inspect
 import json
-from collections.abc import Mapping
 from typing import Any
-from uuid import UUID
 
 import pytest
 from mcp import Client
@@ -24,28 +22,9 @@ from neuralbrewery.adapters.plant_sim.starts import brew_day
 from neuralbrewery.core.approvals.schemas import Actor, Receipt
 from neuralbrewery.core.plant.panel import Command
 from neuralbrewery.features.agents.mcp_server import create_mcp_server
+from tests.features.agents.fakes import PROPOSAL_ID, RecordingInbox
 
-PROPOSAL_ID = UUID("6f1c2a5e-0000-4000-8000-000000000001")
 READING = {"read_plant", "read_events", "read_history", "run_watcher"}
-
-
-class RecordingInbox:
-    """The ProposalInbox port: records each proposal, answers as told."""
-
-    def __init__(self, receipt: Receipt | None = None) -> None:
-        self.proposals: list[tuple[str, dict[str, Any], Actor, str, str]] = []
-        self._receipt = receipt or Receipt(PROPOSAL_ID, "proposed")
-
-    async def propose(
-        self,
-        command: str,
-        arguments: Mapping[str, Any],
-        actor: Actor,
-        by: str,
-        why: str,
-    ) -> Receipt:
-        self.proposals.append((command, dict(arguments), actor, by, why))
-        return self._receipt
 
 
 @pytest.fixture

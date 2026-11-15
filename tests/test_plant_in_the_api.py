@@ -17,13 +17,19 @@ from pathlib import Path
 import pytest
 
 import neuralbrewery
-from neuralbrewery.core.config import PlantSettings, ServerSettings, Settings
+from neuralbrewery.core.config import (
+    ClaudeSettings,
+    PlantSettings,
+    ServerSettings,
+    Settings,
+)
 from neuralbrewery.core.plant.dependencies import PLANT_READER
 from neuralbrewery.core.plant.protocols import (
     PlantCommander,
     PlantReader,
     SimulationControl,
 )
+from neuralbrewery.features.agents.router import PLANT_AGENT
 from neuralbrewery.main import create_app
 
 SRC = Path(neuralbrewery.__file__).parent
@@ -101,3 +107,25 @@ class TestSimulationOnlyWhenAsked:
 
         assert not isinstance(control, PlantReader)
         assert not isinstance(control, PlantCommander)
+
+
+class TestThePlantAgent:
+    def test_with_a_key_the_agent_reads_and_nothing_more(self):
+        """[SEC] ANTHROPIC_API_KEY set: an agent, holding a reader alone."""
+        app = create_app(
+            Settings(
+                server=ServerSettings(trusted_hosts=["testserver"]),
+                claude=ClaudeSettings(api_key="sk-ant-test"),
+            )
+        )
+
+        reader = PLANT_AGENT.get(app.state).reader
+
+        assert isinstance(reader, PlantReader)
+        assert not isinstance(reader, PlantCommander)
+        assert not isinstance(reader, SimulationControl)
+
+    def test_without_a_key_there_is_no_agent(self, settings):
+        """[EC] The default: the endpoint answers 503 (tests/features/agents)."""
+        with pytest.raises(AttributeError):
+            PLANT_AGENT.get(create_app(settings).state)

@@ -19,6 +19,7 @@ from mcp.server.transport_security import TransportSecuritySettings
 from starlette.datastructures import State
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+from neuralbrewery.adapters.claude.client import create_client, generation_args
 from neuralbrewery.adapters.keycloak.client import KeycloakClient
 from neuralbrewery.adapters.keycloak.extractors import KeycloakClaimExtractor
 from neuralbrewery.adapters.keycloak.jwks import JWKSTokenDecoder
@@ -47,6 +48,8 @@ from neuralbrewery.core.plant.dependencies import PLANT_READER
 from neuralbrewery.core.plant.readonly import ReadOnlyPlant, SimulationOnly
 from neuralbrewery.core.security import SecureHeadersMiddleware
 from neuralbrewery.features.agents.mcp_server import MCP_SERVER, create_mcp_server
+from neuralbrewery.features.agents.plant_agent import PlantAgent
+from neuralbrewery.features.agents.router import PLANT_AGENT, PROPOSAL_INBOX
 from neuralbrewery.features.approvals.api.executor import EXECUTOR, Executor
 from neuralbrewery.features.approvals.api.inbox import QueueInbox, database_log
 from neuralbrewery.features.auth.router import OAUTH_PROVIDER
@@ -76,8 +79,9 @@ def init_plant(app: FastAPI, settings: Settings) -> None:
     SimulationOnly, only when PLANT_SIMULATION_CONTROL is on. Nothing runs
     in the background: time moves only through those routes.
 
-    The MCP server gets the reader and the inbox of proposals, and answers
-    at /mcp; start_services() runs it.
+    The MCP server and the plant agent get the reader and the inbox of
+    proposals, never the executor. The MCP server answers at /mcp, and
+    start_services() runs it; the agent exists only with ANTHROPIC_API_KEY.
     """
     plant_settings = settings.plant
     plant = InProcessPlant(STARTS[plant_settings.start](seed=plant_settings.seed))
@@ -88,6 +92,12 @@ def init_plant(app: FastAPI, settings: Settings) -> None:
         SIMULATION_CONTROL.set(app.state, SimulationOnly(plant))
 
     inbox = QueueInbox(database_log(lambda: DB_MANAGER.get(app.state)), reader)
+    PROPOSAL_INBOX.set(app.state, inbox)
+    claude = settings.claude
+    if claude.api_key.get_secret_value():
+        agent = PlantAgent(reader, create_client(claude), generation_args(claude))
+        PLANT_AGENT.set(app.state, agent)
+
     server = create_mcp_server(reader, inbox)
     MCP_SERVER.set(app.state, server)
     # Stateless, one JSON answer per request: no session to keep between
@@ -144,6 +154,8 @@ async def start_services(
         start=settings.plant.start,
         seed=settings.plant.seed,
         simulation_control=settings.plant.simulation_control,
+        # Without ANTHROPIC_API_KEY the agent endpoint answers 503
+        agent=bool(settings.claude.api_key.get_secret_value()),
     )
     db_manager = await init_database(app_state, settings.database)
     services.append(("database", db_manager.disconnect))
