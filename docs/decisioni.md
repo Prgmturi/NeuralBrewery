@@ -129,11 +129,16 @@ su ogni passaggio.
   costruisce da una partenza con nome e lo mette in `app.state`, con uno `StateKey` per porta. Il
   tempo avanza solo con un comando di `SimulationControl` esposto dall'API in sviluppo, e dopo
   ogni avanzamento si chiama il sorvegliante; nessun ciclo in background. Un solo worker: con più
-  worker ci sarebbero più impianti, ognuno diverso. *Perché*: un processo solo e deterministico,
-  e la demo si guida a passi; il tempo che scorre da solo è il lavoro di M2.
+  worker ci sarebbero più impianti, ognuno diverso: `SERVER_WORKERS` diverso da 1 ferma l'avvio.
+  Un riavvio costruisce un impianto nuovo dalla stessa partenza; la coda resta in Postgres. Il
+  timeout dell'esecutore c'è, ma con l'impianto nel processo un comando risponde subito: conta
+  dal servizio di M2. *Perché*: un processo solo e deterministico, e la demo si guida a passi;
+  il tempo che scorre da solo è il lavoro di M2.
 - **Server MCP dentro l'API**, su HTTP: i tool di lettura e uno per proporre un'azione, che mette
   la proposta in coda. Non approva e non comanda. *Perché*: vede lo stesso impianto e la stessa
-  coda, senza un secondo processo; il pacchetto `mcp` è già installato, lo porta datapizza.
+  coda, senza un secondo processo. `mcp` è una dipendenza diretta (`>=2.3.0,<3`, dentro i
+  limiti di datapizza); la sua protezione degli host prende `SERVER_TRUSTED_HOSTS`, che
+  altrimenti rifiuterebbe ogni host fuori da localhost con 421.
 - **Chi approva: chi ha il token di approvazione** (14 novembre). Approvare e rifiutare chiedono
   un token dal `.env` (`APPROVAL_TOKEN`) e il nome di chi approva, che l'audit registra come
   dichiarato, non verificato. Il token non arriva mai ai tool MCP né all'agente, e
@@ -149,6 +154,18 @@ su ogni passaggio.
   controllano: è il guardrail su un tool che chiede il corso, un secondo livello dopo gli
   interlock. *Perché*: l'approvazione è codice, mai una decisione dell'LLM, e ogni passaggio resta
   scritto.
+- **Una proposta fuori dai limiti è "bloccata"** (15 novembre): un tipo di evento in più, oltre a
+  proposta, approvata, rifiutata, eseguita, esecuzione fallita. Il guardrail la ferma prima della
+  coda, chi l'ha mandata riceve il motivo, e il blocco resta nell'audit. *Perché*: nell'audit si
+  distingue chi ha detto no, il guardrail o il birraio. Il passo di ogni evento è il suo `seq`
+  (0 la nascita, 1 la decisione, 2 l'esito): un vincolo unico su (proposta, `seq`) e un controllo
+  che lega il tipo al passo danno a ogni proposta una sola decisione e un solo esito, anche con
+  due approvazioni nello stesso istante. Ogni evento si salva nella sua transazione, prima del
+  passo dopo.
+- **Il controllo della simulazione è spento se non lo si chiede** (15 novembre):
+  `PLANT_SIMULATION_CONTROL` vale false per default, il compose di sviluppo e `.env.example` lo
+  accendono, staging e produzione lo rifiutano. *Perché*: chiunque raggiunga quelle rotte
+  muove il tempo dell'impianto e lo guasta.
 - **Anche l'agente mette in coda**: un endpoint diagnostica l'impianto adesso e mette in coda la
   proposta della diagnosi, se c'è. Esposto dall'API, l'agente deve tradurre gli errori di
   Anthropic (ADR 0006): lo fa una sottoclasse minima del client di datapizza, nell'adapter, che
@@ -187,6 +204,12 @@ su ogni passaggio.
 - Secondo fornitore per il client multi-provider, e quale modello per ogni ruolo.
 - Un'interfaccia per leggere i trace (Langfuse o Phoenix): solo se serve alla demo.
 - Approvazione con identità verificata (Keycloak, un ruolo `brewer`): solo se avanza tempo.
+- Claude Desktop come client MCP: i suoi connettori partono dal cloud di Anthropic e non
+  raggiungono `localhost`; la configurazione locale lancia programmi, quindi servirebbe un ponte
+  (`npx mcp-remote http://localhost:8000/mcp`). La demo di M4 usa Claude Code, che parla HTTP.
+- `/mcp` e `/agents/plant/diagnose` non chiedono login: in sviluppo va bene, fuori no. Chi
+  raggiunge l'API legge l'impianto, mette proposte in coda e spende diagnosi; approvare no, serve
+  il token.
 - MQTT: solo se serve, dopo.
 - UI e notifiche.
 - M2, se si fa: tempo a passi e un comando di `SimulationControl` per ripartire da una partenza
@@ -206,7 +229,7 @@ su ogni passaggio.
 | M1b | Programma della cotta nel controllore | Una cotta intera simulata, con 20 L nel fermentatore |
 | M2 | Servizio plant-sim, adapter REST, impostazioni, compose | Test di contratto in-process e REST verdi |
 | M3 | Storico su Postgres + Grafana (facoltativo, solo se avanza tempo) | Grafici di una cotta simulata |
-| M4 | Impianto nel processo dell'API, server MCP (lettura + proposta), coda approvazioni con audit ed esecutore, l'agente che mette in coda | Proposta → approvazione → esecuzione da Claude Desktop |
+| M4 | Impianto nel processo dell'API, server MCP (lettura + proposta), coda approvazioni con audit ed esecutore, l'agente che mette in coda | Proposta → approvazione → esecuzione da Claude Code (15 novembre: Claude Desktop non è installato e vorrebbe un ponte, vedi sotto) |
 | M5 | Primo agente (impianto) + sorvegliante + tracing + primo eval | Eval pass/fail su 3 scenari |
 | M6 | RAG sui manuali + RAGAS | RAGAS sopra soglia |
 | M7 | Multi-agente + baseline, guardrail, red teaming, eval in CI, UI | Requisiti del corso coperti |

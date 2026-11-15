@@ -33,6 +33,88 @@ uv run uvicorn neuralbrewery.main:create_app --factory --reload
 
 Then open http://localhost:8000/docs. `docker compose up --wait api` starts the container again.
 
+## The demo: from a proposal to the plant
+
+An action reaches the plant only after the brewer approves it. Until M2 the simulated plant lives in the API process.
+
+- **A restart builds a new plant.** It starts from `PLANT_START` (`brew_day` or `fermentation`) with `PLANT_SEED`, and what happened to the old plant is gone. The queue stays in Postgres.
+- **Time moves only when you move it**, with `/simulation/advance`.
+
+The stack of `compose.yaml` has everything the demo needs: the simulation routes are on, the approval token is `brewer-dev-token`, and `ANTHROPIC_API_KEY` comes from `.env`, for the agent endpoint only.
+
+```bash
+docker compose up --build --wait
+```
+
+### 1. Connect Claude Code to the MCP server
+
+The API serves MCP at `/mcp`, over HTTP. It has four tools that read the plant, and `propose_action`, which only puts a proposal in the queue:
+
+```bash
+claude mcp add --transport http neuralbrewery http://localhost:8000/mcp
+```
+
+Then ask Claude Code, for example: *read the plant and propose to the brewer to start the brew program*. The tool answers with the id of the proposal and its status:
+- `proposed`: it waits for the brewer;
+- `blocked`: it is out of limits, and `reason` says why. For example, a setpoint of 45 °C on the fermenter, whose maximum is 30 °C.
+
+Claude Desktop is not connected. Its custom connectors call from Anthropic's cloud and cannot reach `localhost`. Its local configuration starts programs, not addresses, so it needs a bridge such as `npx mcp-remote http://localhost:8000/mcp`.
+
+### 2. Read the queue, approve or reject
+
+Reading needs no token. Approving and rejecting need the `X-Approval-Token` header and the name of the person who decides. The name is written in the audit as declared, and nobody checks it:
+
+```bash
+APPROVAL_TOKEN=brewer-dev-token                        # the one of compose.yaml and .env.example
+curl -s localhost:8000/approvals                       # newest first, each with every event
+curl -s -X POST localhost:8000/approvals/<id>/approve \
+  -H "X-Approval-Token: $APPROVAL_TOKEN" -H "Content-Type: application/json" \
+  -d '{"by": "Salvatore"}'
+curl -s -X POST localhost:8000/approvals/<id>/reject \
+  -H "X-Approval-Token: $APPROVAL_TOKEN" -H "Content-Type: application/json" \
+  -d '{"by": "Salvatore", "reason": "first I check TT5a"}'
+```
+
+`approve` executes at once and answers with the outcome:
+- `executed`, with the controller's answer. A refusal by an interlock counts as an answer: `accepted` is false, and `code` and `reason` say why.
+- `execution_failed`, if the plant did not answer.
+
+The responses for other cases:
+- without the right token: 401;
+- a proposal that is not waiting, because it was already approved, rejected or blocked: 409.
+
+The status of a proposal is its last event, and `approval_events` keeps them all. Rows are only added: a trigger refuses UPDATE, DELETE and TRUNCATE.
+
+### 3. Move the time, break the plant
+
+```bash
+curl -s localhost:8000/plant                           # what the controller shows now
+curl -s -X POST localhost:8000/simulation/advance \
+  -H "Content-Type: application/json" -d '{"seconds": 3600}'
+curl -s -X POST localhost:8000/simulation/faults \
+  -H "Content-Type: application/json" -d '{"kind": "drive_fault", "target": "M1", "value": 11}'
+curl -s -X DELETE localhost:8000/simulation/faults
+```
+
+`advance` answers with the new simulated time, the controller's alarms, and the watcher's judgements.
+- It takes at most a day per call.
+- On a brew day it blocks the API for about 0.16 s per simulated hour.
+
+The faults and their targets are in `docs/impianto.md`. Scenario S3 of the evals, for example: start the program, advance until step 4, then inject `drive_fault` on M1 with 11.
+
+### 4. Let the plant agent diagnose
+
+```bash
+curl -s -X POST localhost:8000/agents/plant/diagnose
+```
+
+The agent reads the plant now and hands in its diagnosis. If the diagnosis has a command, it goes into the queue as from `agent`, through the same guardrail, and step 2 approves it.
+
+What this endpoint costs and needs:
+- One diagnosis costs a few cents, on `ANTHROPIC_API_KEY`.
+- Without the key it answers 503, and 503 again when Claude cannot be reached.
+- The agent proposes the most prudent action. When manual checks come first, it proposes nothing.
+
 ## Tests
 
 ```bash
