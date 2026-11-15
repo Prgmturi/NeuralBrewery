@@ -113,7 +113,32 @@ The agent reads the plant now and hands in its diagnosis. If the diagnosis has a
 What this endpoint costs and needs:
 - One diagnosis costs a few cents, on `ANTHROPIC_API_KEY`.
 - Without the key it answers 503, and 503 again when Claude cannot be reached.
-- The agent proposes the most prudent action. When manual checks come first, it proposes nothing.
+- The agent proposes the most prudent action. When manual checks come first, it proposes nothing. When the cause gives no more signs and only a block of the controller is left, it proposes `reset`.
+
+A whole round, as run on 15 November on `brew_day` with seed 42. It is scenario S4 of the evals:
+
+1. Ask Claude Code to propose `start_program`, and approve it (step 2).
+2. Break TT1 while the water heats, then repair it:
+   ```bash
+   curl -s -X POST localhost:8000/simulation/advance \
+     -H "Content-Type: application/json" -d '{"seconds": 600}'
+   curl -s -X POST localhost:8000/simulation/faults \
+     -H "Content-Type: application/json" -d '{"kind": "probe_broken", "target": "TT1"}'
+   curl -s -X POST localhost:8000/simulation/advance \
+     -H "Content-Type: application/json" -d '{"seconds": 300}'   # program paused
+   curl -s -X DELETE localhost:8000/simulation/faults
+   curl -s -X POST localhost:8000/simulation/advance \
+     -H "Content-Type: application/json" -d '{"seconds": 300}'
+   ```
+   The last `advance` shows that `signal_fault` on TT1 is gone. `control_probe_fault` on HLT and the pause stay: the controller does not restart by itself.
+3. Call the agent endpoint. It names TT1, as a fault of measure, and puts `reset` in the queue, from `agent`. Approve it: `executed`, and the block goes.
+4. The program still waits. Ask Claude Code to propose `resume_program`, and approve it. After an `advance` the program runs again, and TT1 climbs towards 72 °C.
+
+Each button is a proposal of its own, with its own approval:
+- `reset` re-arms what no longer has its cause;
+- `resume_program` takes the step up again, and is refused while a block is on.
+
+When a fault goes and leaves no block, as when a drive is repaired, `resume_program` alone is enough.
 
 ## Tests
 
@@ -149,9 +174,9 @@ The stack takes its ports from `SERVER_PORT`, `KEYCLOAK_PORT` and `DATABASE_PORT
 
 ### Eval of the agents
 
-`uv run pytest -m eval` runs the plant agent on the real Claude, on three fault scenarios with a fixed seed (`tests/evals/scenarios.py`): an offset probe in the fermenter, a blocked pump at the mash-in, the drive of the agitator in fault. The verdict is pass or fail, by code, on the diagnosis the agent hands in and on its trajectory: no LLM is the judge.
+`uv run pytest -m eval` runs the plant agent on the real Claude, on four fault scenarios with a fixed seed (`tests/evals/scenarios.py`): an offset probe in the fermenter, a blocked pump at the mash-in, the drive of the agitator in fault, and a probe repaired while the block of the controller is still on, where only `reset` passes. The verdict is pass or fail, by code, on the diagnosis the agent hands in and on its trajectory: no LLM is the judge.
 
-- It costs money, about 10 cents for the three, and needs `ANTHROPIC_API_KEY`, exported or in `.env`. A plain `uv run pytest` leaves it out, and CI does not run it.
+- It costs money, about 12 cents for the four, and needs `ANTHROPIC_API_KEY`, exported or in `.env`. A plain `uv run pytest` leaves it out, and CI does not run it.
 - Before the agent is called, each scenario checks that the plant shows its fault: a scenario that went wrong costs nothing.
 - At the end a table gives the verdict, the tokens and the cost of each scenario. `.evals/`, ignored by git, keeps one JSON per scenario, with the diagnosis and every step of the trace.
 - The model is not deterministic: a scenario that passed may fail on the next run. Read its JSON before changing the prompt.
