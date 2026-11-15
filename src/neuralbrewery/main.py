@@ -95,7 +95,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     # Built here, not in the lifespan: it opens no connection, and a test
     # that skips the lifespan still has its plant
-    init_plant(app.state, settings.plant)
+    init_plant(app, settings)
 
     app.include_router(health_router)
     app.include_router(auth_router)

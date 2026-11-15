@@ -17,6 +17,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi import FastAPI
+from httpx import ASGITransport, AsyncClient
 
 from neuralbrewery import main
 from neuralbrewery.core.config import AppSettings, Settings
@@ -72,6 +73,14 @@ class TestCreateApp:
         assert app.url_path_for("create_note") == "/notes"
         for name in ("get_note", "update_note", "delete_note"):
             assert app.url_path_for(name, note_id="n") == "/notes/n"
+
+    def test_includes_plant_and_approval_routes(self, settings):
+        app = create_app(settings)
+
+        assert app.url_path_for("read_plant") == "/plant"
+        assert app.url_path_for("list_proposals") == "/approvals"
+        assert app.url_path_for("approve", proposal_id="p") == "/approvals/p/approve"
+        assert app.url_path_for("reject", proposal_id="p") == "/approvals/p/reject"
 
     def test_includes_root_route(self, settings):
         app = create_app(settings)
@@ -188,6 +197,19 @@ def logged_events(logger: MagicMock) -> list[str]:
     return [call.args[0] for call in logger.info.call_args_list]
 
 
+# An MCP client's request for the tools: stateless, so no session first
+TOOLS_LIST = {"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}
+MCP_HEADERS = {"Accept": "application/json, text/event-stream"}
+
+
+async def list_tools(app: FastAPI, host: str = "testserver"):
+    async with AsyncClient(
+        transport=ASGITransport(app=app, raise_app_exceptions=False),
+        base_url=f"http://{host}",
+    ) as client:
+        return await client.post("/mcp", json=TOOLS_LIST, headers=MCP_HEADERS)
+
+
 # start_services() in bootstrap.py calls them: patched where it looks them up
 @patch("neuralbrewery.bootstrap.init_oauth_provider")
 @patch("neuralbrewery.bootstrap.init_auth_service")
@@ -300,6 +322,47 @@ class TestLifespan:
 
         assert init_auth_service.call_args.args[2].is_closed
         init_database.return_value.disconnect.assert_awaited_once()
+
+    async def test_mcp_answers_while_the_app_runs(
+        self, init_database, init_auth_service, init_oauth_provider, settings
+    ):
+        """[HP] /mcp lists the tools through create_app, behind its middleware.
+
+        WHY: the MCP server is a route of the app, not a second process.
+        Its session manager runs only inside the lifespan.
+        """
+        app = create_app(settings)
+
+        async with lifespan(app):
+            response = await list_tools(app)
+
+        assert response.status_code == 200
+        tools = {tool["name"] for tool in response.json()["result"]["tools"]}
+        assert {"read_plant", "propose_action"} <= tools
+        assert response.headers["X-Request-ID"]
+
+    async def test_mcp_takes_the_trusted_hosts_with_a_port(
+        self, init_database, init_auth_service, init_oauth_provider, settings
+    ):
+        """[HP] localhost:8000, as Claude Code sends it: no 421 from MCP."""
+        app = create_app(settings)
+
+        async with lifespan(app):
+            response = await list_tools(app, host="localhost:8000")
+
+        assert response.status_code == 200
+
+    async def test_mcp_stops_with_the_app(
+        self, init_database, init_auth_service, init_oauth_provider, settings
+    ):
+        """[EC] After the lifespan nothing serves MCP: the request fails."""
+        app = create_app(settings)
+        async with lifespan(app):
+            pass
+
+        response = await list_tools(app)
+
+        assert response.status_code == 500
 
     async def test_started_is_logged_once_the_services_run(
         self,

@@ -9,11 +9,13 @@ mypy checks there that the adapter still matches the port.
 """
 
 from collections.abc import Awaitable, Callable
+from contextlib import AsyncExitStack
 from typing import Any
 
 import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from mcp.server.transport_security import TransportSecuritySettings
 from starlette.datastructures import State
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
@@ -30,7 +32,6 @@ from neuralbrewery.core.body_limit import BodySizeLimitMiddleware
 from neuralbrewery.core.config import (
     DatabaseSettings,
     KeycloakSettings,
-    PlantSettings,
     ServerSettings,
     Settings,
 )
@@ -45,7 +46,9 @@ from neuralbrewery.core.logging import (
 from neuralbrewery.core.plant.dependencies import PLANT_READER
 from neuralbrewery.core.plant.readonly import ReadOnlyPlant, SimulationOnly
 from neuralbrewery.core.security import SecureHeadersMiddleware
+from neuralbrewery.features.agents.mcp_server import MCP_SERVER, create_mcp_server
 from neuralbrewery.features.approvals.api.executor import EXECUTOR, Executor
+from neuralbrewery.features.approvals.api.inbox import QueueInbox, database_log
 from neuralbrewery.features.auth.router import OAUTH_PROVIDER
 from neuralbrewery.features.health.router import health_router
 from neuralbrewery.features.plant.router import SIMULATION_CONTROL
@@ -60,7 +63,10 @@ STARTS: dict[str, Callable[..., PlantSimulator]] = {
 }
 
 
-def init_plant(app_state: State, settings: PlantSettings) -> InProcessPlant:
+MCP_PATH = "/mcp"
+
+
+def init_plant(app: FastAPI, settings: Settings) -> None:
     """The simulated plant in this process, each consumer with its own port.
 
     Until M2 the plant lives here, built from a named start: a restart
@@ -69,13 +75,48 @@ def init_plant(app_state: State, settings: PlantSettings) -> InProcessPlant:
     executor alone the buttons, and the routes of the simulation a
     SimulationOnly, only when PLANT_SIMULATION_CONTROL is on. Nothing runs
     in the background: time moves only through those routes.
+
+    The MCP server gets the reader and the inbox of proposals, and answers
+    at /mcp; start_services() runs it.
     """
-    plant = InProcessPlant(STARTS[settings.start](seed=settings.seed))
-    PLANT_READER.set(app_state, ReadOnlyPlant(plant))
-    EXECUTOR.set(app_state, Executor(plant))
-    if settings.simulation_control:
-        SIMULATION_CONTROL.set(app_state, SimulationOnly(plant))
-    return plant
+    plant_settings = settings.plant
+    plant = InProcessPlant(STARTS[plant_settings.start](seed=plant_settings.seed))
+    reader = ReadOnlyPlant(plant)
+    PLANT_READER.set(app.state, reader)
+    EXECUTOR.set(app.state, Executor(plant))
+    if plant_settings.simulation_control:
+        SIMULATION_CONTROL.set(app.state, SimulationOnly(plant))
+
+    inbox = QueueInbox(database_log(lambda: DB_MANAGER.get(app.state)), reader)
+    server = create_mcp_server(reader, inbox)
+    MCP_SERVER.set(app.state, server)
+    # Stateless, one JSON answer per request: no session to keep between
+    # calls. Its route joins the app's, behind the same middleware.
+    mcp_http = server.streamable_http_app(
+        streamable_http_path=MCP_PATH,
+        stateless_http=True,
+        json_response=True,
+        transport_security=mcp_transport_security(settings.server),
+    )
+    app.router.routes.extend(mcp_http.routes)
+
+
+def mcp_transport_security(settings: ServerSettings) -> TransportSecuritySettings:
+    """The MCP server's own check of Host and Origin, on the app's lists.
+
+    Left to itself it allows only 127.0.0.1 and localhost with a port: the
+    test client's Host, or a domain in SERVER_TRUSTED_HOSTS, would get 421.
+    With "*" (development only) TrustedHostMiddleware takes any Host, and
+    so does this.
+    """
+    if "*" in settings.trusted_hosts:
+        return TransportSecuritySettings(enable_dns_rebinding_protection=False)
+    return TransportSecuritySettings(
+        allowed_hosts=[
+            name for host in settings.trusted_hosts for name in (host, f"{host}:*")
+        ],
+        allowed_origins=settings.cors_origins,
+    )
 
 
 def _log_start_failure(event: str, error: Exception) -> None:
@@ -115,6 +156,18 @@ async def start_services(
 
     await init_auth_service(app_state, settings.keycloak, keycloak_http)
     await init_oauth_provider(app_state, settings.keycloak, keycloak_http)
+
+    # Last: the MCP server answers once what it reaches is open
+    await start_mcp_server(app_state, services)
+
+
+async def start_mcp_server(
+    app_state: State, services: list[tuple[str, CleanupFn]]
+) -> None:
+    """Run the session manager of the MCP server until the app stops."""
+    stack = AsyncExitStack()
+    await stack.enter_async_context(MCP_SERVER.get(app_state).session_manager.run())
+    services.append(("mcp_server", stack.aclose))
 
 
 async def init_database(
