@@ -37,6 +37,8 @@ Then open http://localhost:8000/docs. `docker compose up --wait api` starts the 
 
 An action reaches the plant only after the brewer approves it. Until M2 the simulated plant lives in the API process.
 
+This section drives the API by hand, with `curl` and Claude Code. From M7b the live demo runs from the brewer's panel, in Streamlit, and needs neither.
+
 - **A restart builds a new plant.** It starts from `PLANT_START` (`brew_day` or `fermentation`) with `PLANT_SEED`, and what happened to the old plant is gone. The queue stays in Postgres.
 - **Time moves only when you move it**, with `/simulation/advance`.
 

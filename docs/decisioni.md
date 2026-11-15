@@ -189,6 +189,20 @@ sui manuali e più agenti.
   coda, senza un secondo processo. `mcp` è una dipendenza diretta (`>=2.3.0,<3`, dentro i
   limiti di datapizza); la sua protezione degli host prende `SERVER_TRUSTED_HOSTS`, che
   altrimenti rifiuterebbe ogni host fuori da localhost con 421.
+- **La demo si fa da un pannello del birraio in Streamlit** (15 novembre, a fine M6). È una
+  pagina sola sopra l'API che c'è già, senza cambiare il backend:
+  - stato dell'impianto e allarmi;
+  - comandi della simulazione, solo in sviluppo;
+  - il pulsante della diagnosi, con la spiegazione dell'agente;
+  - la coda, con approva e rifiuta.
+
+  `streamlit` è una dipendenza approvata. Niente chat e niente orchestratore: restano dopo il
+  corso, con il multi-agente. Claude Code esce dalla demo dal vivo; il server MCP resta nel
+  codice e si racconta in una slide. Nella demo di M6 la ripresa della cotta la proponeva
+  Claude Code: chi la propone dal pannello si decide nel piano di M7b. *Perché*: con i `curl`
+  in un terminale, in un discorso di 10 minuti si capisce poco. Claude Code in demo sembrava
+  parte del prodotto, ed era un punto in più in cui incepparsi. Il pannello viene dopo la
+  memoria (M7), che il corso chiede, e prima del README (M8).
 - **Chi approva: chi ha il token di approvazione** (14 novembre). Approvare e rifiutare chiedono
   un token dal `.env` (`APPROVAL_TOKEN`) e il nome di chi approva, che l'audit registra come
   dichiarato, non verificato. Il token non arriva mai ai tool MCP né all'agente, e
@@ -255,7 +269,8 @@ sui manuali e più agenti.
 - Approvazione con identità verificata (Keycloak, un ruolo `brewer`): solo se avanza tempo.
 - Claude Desktop come client MCP: i suoi connettori partono dal cloud di Anthropic e non
   raggiungono `localhost`; la configurazione locale lancia programmi, quindi servirebbe un ponte
-  (`npx mcp-remote http://localhost:8000/mcp`). La demo di M4 usa Claude Code, che parla HTTP.
+  (`npx mcp-remote http://localhost:8000/mcp`). La demo di M4 usava Claude Code, che parla HTTP;
+  da M7b la demo dal vivo non usa nessun client MCP.
 - `/mcp` e `/agents/plant/diagnose` non chiedono login: in sviluppo va bene, fuori no. Chi
   raggiunge l'API legge l'impianto, mette proposte in coda e spende diagnosi; approvare no, serve
   il token. Deciso il 15 novembre: per il corso resta così, ed è un limite noto. Proteggerli
@@ -267,7 +282,7 @@ sui manuali e più agenti.
   testato, ma dal vivo non scatta, perché l'impianto risponde nello stesso processo; far
   avanzare il tempo blocca l'API per circa 0,16 s per ora simulata. M2 non si fa per il corso.
 - MQTT: solo se serve, dopo.
-- UI e notifiche.
+- Notifiche, e un'interfaccia completa: dopo il corso. Per il corso c'è il pannello di M7b.
 - M2, dopo il corso: tempo a passi e un comando di `SimulationControl` per ripartire da una
   partenza con nome, invece di riavviare il container (preferenze, da confermare).
 - Adattatore verso un controllore vero (per esempio OPC UA): le letture hanno già la sua forma
@@ -290,9 +305,11 @@ sui manuali e più agenti.
 | M5 | Primo agente (impianto) + sorvegliante + tracing + primo eval | Eval pass/fail su 3 scenari |
 | M6 | L'agente propone `reset` quando la causa è risolta; lo stesso agente anche su Gemini | Una proposta dell'agente in coda, approvata ed eseguita dal vivo; eval su tutti e due i fornitori, confrontati |
 | M7 | Memoria persistente: le decisioni del birraio, lette dalla coda | Un eval in cui l'agente usa una decisione passata |
+| M7b | Pannello del birraio in Streamlit, sopra l'API: impianto, simulazione, diagnosi, coda con approva e rifiuta | La demo si fa tutta dal pannello, senza `curl` né Claude Code |
 | M8 | README dell'impianto e della demo, scan dell'immagine, prova della demo | La demo gira da zero seguendo il README |
 
 Ordine: dopo M1b viene M5, con l'impianto in-process; dopo M5 viene M4 (deciso il 14 novembre,
 a fine M5). A fine M4 (15 novembre): M6, M7 e M8 prima del discorso, con il 18 novembre tenuto
-per M8 e la prova della demo. Dopo il corso: M2, M3, RAG sui manuali con RAGAS, multi-agente con
-la baseline, red teaming, eval in CI, interfaccia.
+per M8 e la prova della demo. A fine M6 (15 novembre): M7 il 16, il pannello (M7b) il 17, M8 il
+18. Dopo il corso: M2, M3, RAG sui manuali con RAGAS, multi-agente con l'orchestratore e la
+baseline, red teaming, eval in CI, interfaccia completa.
