@@ -392,4 +392,8 @@ def main() -> None:
     queue_section(api)
 
 
-main()
+# Streamlit runs the page as __main__, and so does streamlit.testing.
+# Imported as a module, by a test that imports every module of the app,
+# it draws nothing and calls no API.
+if __name__ == "__main__":
+    main()

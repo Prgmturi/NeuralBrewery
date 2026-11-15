@@ -14,6 +14,7 @@ right token the page shows the 401, and the token never shows.
 
 import ast
 import logging
+import runpy
 from pathlib import Path
 
 import httpx
@@ -481,6 +482,21 @@ class TestApiOutOfReach:
 
 
 class TestBoundaries:
+    def test_imported_as_a_module_it_draws_nothing_and_calls_no_api(self, monkeypatch):
+        """[SEC] tests/core/database imports every module of the app: this one too.
+
+        WHY: the page drew itself on import, and called the API of
+        DASHBOARD_API_URL: the stack on this machine, or nothing in CI,
+        where the import failed. Found on 15 November.
+        """
+        calls = []
+        monkeypatch.setattr(dashboard_client, "connect", lambda: calls.append(1))
+
+        names = runpy.run_path(str(PAGE), run_name="neuralbrewery.dashboard.app")
+
+        assert calls == []
+        assert callable(names["main"])
+
     def test_the_dashboard_imports_nothing_of_the_app(self):
         """[SEC] A client of the API, like curl: no port, adapter or feature.
 
