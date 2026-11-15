@@ -197,12 +197,23 @@ sui manuali e più agenti.
   - la coda, con approva e rifiuta.
 
   `streamlit` è una dipendenza approvata. Niente chat e niente orchestratore: restano dopo il
-  corso, con il multi-agente. Claude Code esce dalla demo dal vivo; il server MCP resta nel
-  codice e si racconta in una slide. Nella demo di M6 la ripresa della cotta la proponeva
-  Claude Code: chi la propone dal pannello si decide nel piano di M7b. *Perché*: con i `curl`
-  in un terminale, in un discorso di 10 minuti si capisce poco. Claude Code in demo sembrava
-  parte del prodotto, ed era un punto in più in cui incepparsi. Il pannello viene dopo la
-  memoria (M7), che il corso chiede, e prima del README (M8).
+  corso, con il multi-agente. Nella demo di M6 la ripresa della cotta la proponeva Claude
+  Code: chi la propone dal pannello si decide nel piano di M7b. *Perché*: con i `curl` in un
+  terminale, in un discorso di 10 minuti si capisce poco. Claude Code in demo sembrava parte
+  del prodotto, ed era un punto in più in cui incepparsi. Il pannello viene dopo la memoria
+  (M7), che il corso chiede, e prima del README (M8).
+- **Il server MCP si mostra con un video, non dal vivo** (15 novembre). Claude Code esce dalla
+  demo dal vivo. Durante M7b o la prova di M8 si registra un video breve: Claude Code legge
+  l'impianto e propone, e la proposta compare nella coda del pannello con mittente `mcp`. Il
+  video va in una slide; se avanza tempo, dal vivo si rifà in 30 secondi. *Perché*: il corso
+  mette fra ciò che alza il livello "un MCP server custom usato anche da un altro host", e va
+  dimostrato, non solo raccontato.
+- **L'agente non passa dal server MCP** (15 novembre). Agente e server MCP usano gli stessi
+  strumenti: l'agente li chiama da dentro l'app, il server MCP li apre agli assistenti
+  esterni. Il corso consiglia, senza obbligarlo, di collegare un server MCP all'agente (S12).
+  *Perché*: farlo costerebbe circa un giorno, e gli eval, che oggi girano con l'impianto in
+  memoria, dovrebbero accendere l'app intera. Con memoria e README ancora da fare, non vale il
+  rischio.
 - **Chi approva: chi ha il token di approvazione** (14 novembre). Approvare e rifiutare chiedono
   un token dal `.env` (`APPROVAL_TOKEN`) e il nome di chi approva, che l'audit registra come
   dichiarato, non verificato. Il token non arriva mai ai tool MCP né all'agente, e
@@ -305,7 +316,7 @@ sui manuali e più agenti.
 | M5 | Primo agente (impianto) + sorvegliante + tracing + primo eval | Eval pass/fail su 3 scenari |
 | M6 | L'agente propone `reset` quando la causa è risolta; lo stesso agente anche su Gemini | Una proposta dell'agente in coda, approvata ed eseguita dal vivo; eval su tutti e due i fornitori, confrontati |
 | M7 | Memoria persistente: le decisioni del birraio, lette dalla coda | Un eval in cui l'agente usa una decisione passata |
-| M7b | Pannello del birraio in Streamlit, sopra l'API: impianto, simulazione, diagnosi, coda con approva e rifiuta | La demo si fa tutta dal pannello, senza `curl` né Claude Code |
+| M7b | Pannello del birraio in Streamlit, sopra l'API: impianto, simulazione, diagnosi, coda con approva e rifiuta | La demo si fa tutta dal pannello, senza `curl` né Claude Code; una proposta di Claude Code via MCP compare nella coda del pannello (il video per la slide) |
 | M8 | README dell'impianto e della demo, scan dell'immagine, prova della demo | La demo gira da zero seguendo il README |
 
 Ordine: dopo M1b viene M5, con l'impianto in-process; dopo M5 viene M4 (deciso il 14 novembre,
