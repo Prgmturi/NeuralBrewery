@@ -2,40 +2,47 @@
 
 ## In una frase
 
-Un sistema multi-agente per un impianto di birrificazione simulato: monitora i sensori,
-diagnostica i problemi usando RAG sui manuali e la memoria delle cotte passate, e propone
-azioni che vengono eseguite solo con l'approvazione del birraio, con guardrail e audit trail
-su ogni passaggio.
+Un agente AI per un impianto di birrificazione simulato: monitora i sensori, diagnostica i
+problemi con la memoria delle cotte passate, e propone azioni che vengono eseguite solo con
+l'approvazione del birraio, con guardrail e audit trail su ogni passaggio. Dopo il corso: RAG
+sui manuali e più agenti.
 
 ## Requisiti del corso e dove li copriamo
 
 | Requisito | Dove |
 |---|---|
 | Tool calling | Lettura impianto, calcoli, proposta azioni |
-| Client multi-provider | Modello economico per orchestratore e spiegazioni, modello forte per l'analista |
-| Memory persistente | Lezioni strutturate dalle cotte passate |
-| Architettura giustificata | Multi-agente per privilegio minimo, confrontato con una baseline ad agente singolo |
-| Flusso fisso (DagPipeline o equivalente) | Diagnosi su allarme: dati → memory → manuali → ipotesi → proposta |
-| Guardrail | Ingresso, parametri dei tool, uscita |
+| Client multi-provider | Lo stesso agente su Claude o su Gemini (via client compatibile OpenAI), scelto da un'impostazione; gli eval li confrontano (M6) |
+| Memory persistente | Le decisioni del birraio sulle proposte passate, che l'agente legge dalla coda (M7) |
+| Architettura giustificata | Agente singolo con privilegio minimo: legge e propone. Comanda solo l'esecutore, dopo il guardrail, la coda e l'approvazione del birraio |
+| Flusso fisso (DagPipeline, se il caso lo richiede) | Non serve per ora: un agente con i tool. Dopo il corso, con memoria e manuali |
+| Guardrail | Parametri del tool che propone, prima della coda (M4) |
 | Audit trail | Tracing di ogni passo + tabella di audit append-only (proposte, approvazioni, esecuzioni) |
-| Eval pass/fail | Scenari di guasto con seed fisso (trajectory) + RAGAS sui manuali |
-| README, deve girare | docker compose; al tester serve solo una chiave API |
-| RAG (facoltativo) | Manuali dei componenti, ricerca ibrida + rerank |
+| Eval pass/fail | Scenari di guasto con seed fisso (trajectory), su Claude e su Gemini |
+| README, deve girare | docker compose; al tester serve solo una chiave API (M8) |
+| RAG (facoltativo) | Dopo il corso: manuali dei componenti, ricerca ibrida + rerank |
 
 ## Scelte fatte
 
-- **Agenti**: orchestratore (parla con l'utente), agente impianto (unico che propone azioni),
-  agente analista (dati, calcoli, diagnosi). *Perché*: privilegi separati; chi legge testo non
-  fidato non deve poter proporre azioni.
+- **Agenti** (15 novembre): per il corso un agente solo, l'agente impianto, che legge e propone;
+  comanda solo l'esecutore, dopo l'approvazione. *Perché*: il corso accetta un agente singolo
+  con una riga di motivazione, e al discorso mancano 4 giorni. Dopo il corso: orchestratore
+  (parla con l'utente), agente impianto (unico che propone azioni), agente analista (dati,
+  calcoli, diagnosi), perché chi legge testo non fidato non deve poter proporre azioni.
 - **Codice, non LLM**: approvazione ed esecuzione, allarmi, interlock. *Perché*: devono
   funzionare anche se l'LLM sbaglia, è lento o viene manipolato. Gli allarmi hanno due
   fonti: il controllore dell'impianto riporta fatti ("sonda guasta", "K1 aperto"), il
   sorvegliante a regole fisse giudica il processo ("le due sonde non concordano").
-- **Diagnosi su allarme come flusso fisso**. *Perché*: prevedibile, economico, facile da valutare.
-  L'agente libero resta per la chat.
-- **Memory**: lezioni strutturate (evento, causa, intervento, esito), scritte solo a caso chiuso.
+- **Diagnosi su allarme come flusso fisso**, dopo il corso: per ora un agente con i tool.
+  *Perché*: prevedibile, economico, facile da valutare. L'agente libero resta per la chat.
+- **Memory**, dopo il corso: lezioni strutturate (evento, causa, intervento, esito), scritte solo a caso chiuso.
   I numeri restano nel database e si leggono con i tool. *Perché*: evita di avvelenare la memory.
-- **RAG classico** (ibrido + rerank) con metadati per componente e sigla. *Perché*: le relazioni
+- **Memoria di M7: le decisioni del birraio** (15 novembre). La coda conserva già ogni proposta
+  dell'agente, l'approvazione o il rifiuto con il suo motivo, e l'esito; un tool in più le fa
+  leggere all'agente. Niente tabella nuova. *Perché*: è la strada più corta, e la memoria che
+  serve è proprio ciò che il birraio ha deciso. Limite: ricorda solo le diagnosi che hanno
+  proposto un pulsante.
+- **RAG classico**, dopo il corso (ibrido + rerank) con metadati per componente e sigla. *Perché*: le relazioni
   tra componenti sono già note dalla configurazione dell'impianto, non serve estrarle con un LLM.
   Tabelle dei codici di errore spezzate una riga per chunk.
 - **Impianto**: vedi `docs/impianto.md`. Componenti reali con manuali pubblici, tenuti nel repo
@@ -79,8 +86,9 @@ su ogni passaggio.
   sorvegliante e primo eval (M5). Il servizio plant-sim (M2) viene dopo, ridotto, solo se serve
   alla demo. *Perché*: tutti i requisiti obbligatori del corso stanno nella parte AI e girano
   senza il servizio; al discorso (19 novembre) mancano 6 giorni.
-- **Framework agenti: datapizza-ai.** Solo `datapizza-ai-core` e `datapizza-ai-clients-anthropic`:
-  il pacchetto `datapizza-ai` installa anche OpenAI e Qdrant, che non usiamo. *Perché*: è il
+- **Framework agenti: datapizza-ai.** Solo `datapizza-ai-core`, `datapizza-ai-clients-anthropic`
+  e, da M6, `datapizza-ai-clients-openai-like`: il pacchetto `datapizza-ai` installa anche
+  Qdrant e altri client, che non usiamo. *Perché*: è il
   framework di riferimento del corso, e i requisiti ne nominano i pezzi (`DagPipeline`,
   `ContextTracing`).
 - **datapizza con Claude, provato con chiamate vere** (14 novembre: `datapizza-ai-core` 0.1.3,
@@ -104,9 +112,20 @@ su ogni passaggio.
   *Perché*: il resto del framework serve ai requisiti del corso, e un nostro client sarebbe
   codice in più da mantenere.
 - **Modello: Claude (Anthropic)**, primo agente su `claude-sonnet-5-5` (14 novembre), con il
-  fallback lato server sui rifiuti. Il secondo fornitore del client multi-provider si sceglie
-  dopo. *Perché*: costa la metà di `claude-opus-5-5` (2 $ e 10 $ per milione di token in
-  entrata e in uscita, contro 4 $ e 20 $).
+  fallback lato server sui rifiuti. *Perché*: costa la metà di `claude-opus-5-5` (2 $ e 10 $
+  per milione di token in entrata e in uscita, contro 4 $ e 20 $).
+- **Secondo fornitore: Gemini Flash-Lite, piano gratuito, con un client compatibile OpenAI**
+  (15 novembre). Lo stesso agente, scelto da un'impostazione; Claude resta il default e la demo
+  dal vivo resta su Claude. Gli eval girano su tutti e due e li confrontano. Il client è
+  `OpenAILikeClient` di datapizza: indirizzo, modello e chiave sono impostazioni, quindi lo
+  stesso codice raggiunge anche Groq o un modello locale. *Perché*: non abbiamo altre chiavi a
+  pagamento, e Mistral non dà più chiavi API senza il piano a pagamento. Per Gemini basta un
+  account Google: secondo fonti di ottobre 2026, Flash-Lite dà circa 15 richieste al minuto e
+  500 al giorno, mentre Flash ne dà 20 al giorno. Un giro di eval ne chiede 30–40. Groq, il
+  ripiego, limita i token al minuto (8 mila) e renderebbe lenta ogni diagnosi; un modello locale
+  su questo portatile, senza scheda grafica, lo sarebbe ancora di più. I limiti veri si leggono
+  in Google AI Studio. Sul piano gratuito Google può usare le richieste per migliorare i suoi
+  prodotti: qui è innocuo, perché i dati dell'impianto sono finti.
 - **Cache dei prompt su ogni chiamata**: datapizza non la attiva, e l'adapter passa
   `cache_control` come argomento della chiamata. Provata nell'eval di M5: in S2, 6,6 mila token
   scritti nella cache e 15,6 mila letti. *Perché*: in un ciclo con i tool ogni chiamata rimanda
@@ -201,7 +220,6 @@ su ogni passaggio.
 
 ## Ancora aperte
 
-- Secondo fornitore per il client multi-provider, e quale modello per ogni ruolo.
 - Un'interfaccia per leggere i trace (Langfuse o Phoenix): solo se serve alla demo.
 - Approvazione con identità verificata (Keycloak, un ruolo `brewer`): solo se avanza tempo.
 - Claude Desktop come client MCP: i suoi connettori partono dal cloud di Anthropic e non
@@ -209,16 +227,24 @@ su ogni passaggio.
   (`npx mcp-remote http://localhost:8000/mcp`). La demo di M4 usa Claude Code, che parla HTTP.
 - `/mcp` e `/agents/plant/diagnose` non chiedono login: in sviluppo va bene, fuori no. Chi
   raggiunge l'API legge l'impianto, mette proposte in coda e spende diagnosi; approvare no, serve
-  il token.
+  il token. Deciso il 15 novembre: per il corso resta così, ed è un limite noto. Proteggerli
+  chiederebbe un secondo token, perché quello del birraio non arriva mai all'AI.
+- Limite noto (15 novembre): se l'API cade tra il pulsante premuto e la scrittura dell'esito, la
+  proposta resta approvata senza esito e non si riesegue. Il pulsante non viene mai premuto due
+  volte, e l'impianto in-process riparte comunque da zero.
+- Limiti noti finché l'impianto vive nell'API (15 novembre): il timeout dell'esecutore c'è ed è
+  testato, ma dal vivo non scatta, perché l'impianto risponde nello stesso processo; far
+  avanzare il tempo blocca l'API per circa 0,16 s per ora simulata. M2 non si fa per il corso.
 - MQTT: solo se serve, dopo.
 - UI e notifiche.
-- M2, se si fa: tempo a passi e un comando di `SimulationControl` per ripartire da una partenza
-  con nome, invece di riavviare il container (preferenze, da confermare).
+- M2, dopo il corso: tempo a passi e un comando di `SimulationControl` per ripartire da una
+  partenza con nome, invece di riavviare il container (preferenze, da confermare).
 - Adattatore verso un controllore vero (per esempio OPC UA): le letture hanno già la sua forma
   (valore, qualità, tempo). Non serve al corso: solo se avanza tempo.
 - CI su GitHub: il controllo "Build container image" è rosso anche su `master`. La scansione
   trova due vulnerabilità in `zlib1g` dell'immagine base, e il rapporto non si carica da un
-  repo privato. Rimandato: non è un errore della sessione in corso.
+  repo privato. Si sistema in M8, dopo i requisiti obbligatori (15 novembre): il badge della CI
+  in cima al README è rosso.
 
 ## Roadmap
 
@@ -227,12 +253,15 @@ su ogni passaggio.
 | M0 | Rinomina del package, posti vuoti per l'impianto, contract, script manuali | Controlli della CI verdi |
 | M1 | Vocabolario, porte, processo, dispositivi e controllore con comandi manuali, interlock, allarmi e storico breve (Python puro) | Test di plausibilità, interlock e guasti verdi |
 | M1b | Programma della cotta nel controllore | Una cotta intera simulata, con 20 L nel fermentatore |
-| M2 | Servizio plant-sim, adapter REST, impostazioni, compose | Test di contratto in-process e REST verdi |
-| M3 | Storico su Postgres + Grafana (facoltativo, solo se avanza tempo) | Grafici di una cotta simulata |
+| M2 | Servizio plant-sim, adapter REST, impostazioni, compose (dopo il corso) | Test di contratto in-process e REST verdi |
+| M3 | Storico su Postgres + Grafana (dopo il corso) | Grafici di una cotta simulata |
 | M4 | Impianto nel processo dell'API, server MCP (lettura + proposta), coda approvazioni con audit ed esecutore, l'agente che mette in coda | Proposta → approvazione → esecuzione da Claude Code (15 novembre: Claude Desktop non è installato e vorrebbe un ponte, vedi sotto) |
 | M5 | Primo agente (impianto) + sorvegliante + tracing + primo eval | Eval pass/fail su 3 scenari |
-| M6 | RAG sui manuali + RAGAS | RAGAS sopra soglia |
-| M7 | Multi-agente + baseline, guardrail, red teaming, eval in CI, UI | Requisiti del corso coperti |
+| M6 | L'agente propone `reset` quando la causa è risolta; lo stesso agente anche su Gemini | Una proposta dell'agente in coda, approvata ed eseguita dal vivo; eval su tutti e due i fornitori, confrontati |
+| M7 | Memoria persistente: le decisioni del birraio, lette dalla coda | Un eval in cui l'agente usa una decisione passata |
+| M8 | README dell'impianto e della demo, scan dell'immagine, prova della demo | La demo gira da zero seguendo il README |
 
 Ordine: dopo M1b viene M5, con l'impianto in-process; dopo M5 viene M4 (deciso il 14 novembre,
-a fine M5). M2 si fa dopo, solo se serve alla demo. L'ordine del resto si decide a fine M4.
+a fine M5). A fine M4 (15 novembre): M6, M7 e M8 prima del discorso, con il 18 novembre tenuto
+per M8 e la prova della demo. Dopo il corso: M2, M3, RAG sui manuali con RAGAS, multi-agente con
+la baseline, red teaming, eval in CI, interfaccia.
