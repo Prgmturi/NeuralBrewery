@@ -6,6 +6,7 @@ from fastapi import FastAPI
 
 from neuralbrewery.bootstrap import (
     CleanupFn,
+    init_plant,
     register_middleware,
     shutdown_services,
     start_services,
@@ -14,9 +15,11 @@ from neuralbrewery.core.config import Settings, get_settings
 from neuralbrewery.core.logging import configure_logging, get_logger
 from neuralbrewery.core.problem_details import PROBLEM_RESPONSES
 from neuralbrewery.exception_handlers import register_exception_handlers
+from neuralbrewery.features.approvals.api.router import approvals_router
 from neuralbrewery.features.auth.router import auth_router
 from neuralbrewery.features.health.router import health_router
 from neuralbrewery.features.notes.api.router import notes_router
+from neuralbrewery.features.plant.router import plant_router, simulation_router
 
 logger = get_logger(__name__)
 
@@ -90,9 +93,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     register_middleware(app, settings.server)
     register_exception_handlers(app)
 
+    # Built here, not in the lifespan: it opens no connection, and a test
+    # that skips the lifespan still has its plant
+    init_plant(app.state, settings.plant)
+
     app.include_router(health_router)
     app.include_router(auth_router)
     app.include_router(notes_router)
+    app.include_router(plant_router)
+    app.include_router(approvals_router)
+    if settings.plant.simulation_control:
+        app.include_router(simulation_router)
 
     @app.get("/", include_in_schema=False)
     async def root() -> dict[str, Any]:

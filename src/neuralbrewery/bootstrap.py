@@ -21,12 +21,16 @@ from neuralbrewery.adapters.keycloak.client import KeycloakClient
 from neuralbrewery.adapters.keycloak.extractors import KeycloakClaimExtractor
 from neuralbrewery.adapters.keycloak.jwks import JWKSTokenDecoder
 from neuralbrewery.adapters.keycloak.jwks_manager import JWKSManager
+from neuralbrewery.adapters.plant_sim.adapter import InProcessPlant
+from neuralbrewery.adapters.plant_sim.simulator import PlantSimulator
+from neuralbrewery.adapters.plant_sim.starts import brew_day, fermentation
 from neuralbrewery.core.auth.dependencies import AUTH_SERVICE
 from neuralbrewery.core.auth.service import AuthService
 from neuralbrewery.core.body_limit import BodySizeLimitMiddleware
 from neuralbrewery.core.config import (
     DatabaseSettings,
     KeycloakSettings,
+    PlantSettings,
     ServerSettings,
     Settings,
 )
@@ -38,13 +42,40 @@ from neuralbrewery.core.logging import (
     LoggingMiddleware,
     get_logger,
 )
+from neuralbrewery.core.plant.dependencies import PLANT_READER
+from neuralbrewery.core.plant.readonly import ReadOnlyPlant, SimulationOnly
 from neuralbrewery.core.security import SecureHeadersMiddleware
+from neuralbrewery.features.approvals.api.executor import EXECUTOR, Executor
 from neuralbrewery.features.auth.router import OAUTH_PROVIDER
 from neuralbrewery.features.health.router import health_router
+from neuralbrewery.features.plant.router import SIMULATION_CONTROL
 
 logger = get_logger(__name__)
 
 CleanupFn = Callable[[], Awaitable[Any]]
+
+STARTS: dict[str, Callable[..., PlantSimulator]] = {
+    "brew_day": brew_day,
+    "fermentation": fermentation,
+}
+
+
+def init_plant(app_state: State, settings: PlantSettings) -> InProcessPlant:
+    """The simulated plant in this process, each consumer with its own port.
+
+    Until M2 the plant lives here, built from a named start: a restart
+    builds a new one. The in-process adapter implements the three ports in
+    one object, so nobody gets it as it is: readers a ReadOnlyPlant, the
+    executor alone the buttons, and the routes of the simulation a
+    SimulationOnly, only when PLANT_SIMULATION_CONTROL is on. Nothing runs
+    in the background: time moves only through those routes.
+    """
+    plant = InProcessPlant(STARTS[settings.start](seed=settings.seed))
+    PLANT_READER.set(app_state, ReadOnlyPlant(plant))
+    EXECUTOR.set(app_state, Executor(plant))
+    if settings.simulation_control:
+        SIMULATION_CONTROL.set(app_state, SimulationOnly(plant))
+    return plant
 
 
 def _log_start_failure(event: str, error: Exception) -> None:
@@ -66,6 +97,13 @@ async def start_services(
     caller can close it whatever happens next: a later service that fails
     to start, or a cancellation.
     """
+    # Built by create_app, which logs nothing: said here, as the app starts
+    logger.info(
+        "plant_ready",
+        start=settings.plant.start,
+        seed=settings.plant.seed,
+        simulation_control=settings.plant.simulation_control,
+    )
     db_manager = await init_database(app_state, settings.database)
     services.append(("database", db_manager.disconnect))
 
