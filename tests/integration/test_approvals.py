@@ -122,6 +122,25 @@ class TestOneDecision:
         kinds = [e.kind for e in await log.history(proposal.id)]
         assert kinds == [EventKind.PROPOSED, EventKind.APPROVED, EventKind.EXECUTED]
 
+    async def test_the_table_refuses_a_second_decision(self, queue, log):
+        """[SEC] Approved at seq 1, then rejected at seq 1: the table says no.
+
+        WHY: the race above passes whether the check on the status or the
+        table stops the second approval. This one leaves the table alone.
+        """
+        proposal = await proposed(queue)
+        birth = proposal.events[0]
+
+        def decision(kind: EventKind):
+            return type(birth)(**{**vars(birth), "id": uuid4(), "seq": 1, "kind": kind})
+
+        await log.append(decision(EventKind.APPROVED))
+        with pytest.raises(ConflictError):
+            await log.append(decision(EventKind.REJECTED))
+
+        kinds = [e.kind for e in await log.history(proposal.id)]
+        assert kinds == [EventKind.PROPOSED, EventKind.APPROVED]
+
     async def test_a_kind_out_of_its_step_is_refused(self, queue, log):
         """[SEC] An outcome where the decision goes: the check of the table."""
         proposal = await proposed(queue)
