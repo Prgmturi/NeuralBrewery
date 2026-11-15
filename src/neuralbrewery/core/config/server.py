@@ -1,4 +1,4 @@
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -21,9 +21,10 @@ class ServerSettings(BaseSettings):
         default=8000,
         description="Port to listen on",
     )
+    # One: the plant lives in the process of the API (docs/decisioni.md)
     workers: int = Field(
         default=1,
-        description="Number of worker processes",
+        description="Number of worker processes: only 1",
     )
     timeout_keep_alive: int = Field(
         default=5,
@@ -69,3 +70,14 @@ class ServerSettings(BaseSettings):
         default=["localhost", "127.0.0.1"],
         description="Allowed Host headers (TrustedHostMiddleware)",
     )
+
+    @field_validator("workers")
+    @classmethod
+    def one_worker(cls, workers: int) -> int:
+        # Each worker would build a plant of its own, with its own time
+        if workers != 1:
+            raise ValueError(
+                "SERVER_WORKERS must be 1: the plant lives in the process of "
+                "the API, and each worker would hold a different one"
+            )
+        return workers

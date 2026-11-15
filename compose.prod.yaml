@@ -48,6 +48,8 @@ services:
       KEYCLOAK_AUDIENCE: ${KEYCLOAK_AUDIENCE:-}
       SERVER_TRUSTED_HOSTS: ${SERVER_TRUSTED_HOSTS:?set SERVER_TRUSTED_HOSTS in .env, the API's domain}
       SERVER_CORS_ORIGINS: ${SERVER_CORS_ORIGINS:?set SERVER_CORS_ORIGINS in .env, the frontend's origin}
+      APPROVAL_TOKEN: ${APPROVAL_TOKEN:?set APPROVAL_TOKEN in .env, a long random value}
+      PLANT_SIMULATION_CONTROL: "false"
       # The proxy on the server reaches the containers from the gateway of
       # the stack's network (below): uvicorn takes the client's address from
       # X-Forwarded-For only on connections from that network.

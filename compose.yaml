@@ -69,6 +69,12 @@ services:
       # from .env: it must match the imported realm. Production refuses it.
       KEYCLOAK_CLIENT_SECRET: neuralbrewery-dev-secret
       SERVER_TRUSTED_HOSTS: '["localhost", "127.0.0.1"]'
+      # The plant lives in this process: the demo moves its time, and
+      # approves with the token of .env.example. Production refuses both.
+      PLANT_SIMULATION_CONTROL: "true"
+      APPROVAL_TOKEN: brewer-dev-token
+      # For the agent endpoint: read from .env or the shell, never written here
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     ports:
       - "${SERVER_PORT:-8000}:8000"
     # The image's HEALTHCHECK, probed every 2 seconds while the app starts

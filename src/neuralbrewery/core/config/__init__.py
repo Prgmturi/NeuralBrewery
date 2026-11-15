@@ -4,10 +4,12 @@ from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from neuralbrewery.core.config.app import AppSettings
+from neuralbrewery.core.config.approvals import ApprovalSettings
 from neuralbrewery.core.config.auth_cookie import AuthCookieSettings
 from neuralbrewery.core.config.claude import ClaudeSettings
 from neuralbrewery.core.config.database import DatabaseSettings
 from neuralbrewery.core.config.keycloak import KeycloakSettings
+from neuralbrewery.core.config.plant import PlantSettings
 from neuralbrewery.core.config.production import production_problems
 from neuralbrewery.core.config.server import ServerSettings
 
@@ -25,10 +27,12 @@ class Settings(BaseSettings):
     )
 
     app: AppSettings = Field(default_factory=AppSettings)
+    approvals: ApprovalSettings = Field(default_factory=ApprovalSettings)
     auth_cookie: AuthCookieSettings = Field(default_factory=AuthCookieSettings)
     claude: ClaudeSettings = Field(default_factory=ClaudeSettings)
     database: DatabaseSettings = Field(default_factory=DatabaseSettings)
     keycloak: KeycloakSettings = Field(default_factory=KeycloakSettings)
+    plant: PlantSettings = Field(default_factory=PlantSettings)
     server: ServerSettings = Field(default_factory=ServerSettings)
 
     @model_validator(mode="after")
@@ -38,7 +42,13 @@ class Settings(BaseSettings):
         # per mistake
         if not self.app.is_development:
             problems = production_problems(
-                self.app, self.auth_cookie, self.database, self.keycloak, self.server
+                self.app,
+                self.auth_cookie,
+                self.database,
+                self.keycloak,
+                self.server,
+                self.plant,
+                self.approvals,
             )
             if problems:
                 raise ValueError(
@@ -57,10 +67,12 @@ def get_settings() -> Settings:
 __all__ = [
     "Settings",
     "AppSettings",
+    "ApprovalSettings",
     "AuthCookieSettings",
     "ClaudeSettings",
     "DatabaseSettings",
     "KeycloakSettings",
+    "PlantSettings",
     "ServerSettings",
     "get_settings",
 ]
