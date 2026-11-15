@@ -47,9 +47,13 @@ src/neuralbrewery/
   features/plant/            GET /plant e, solo se acceso, /simulation
   features/approvals/        coda, guardrail, audit append-only ed esecutore, l'unico
                              codice che tiene PlantCommander
+  dashboard/                 la dashboard del birraio (Streamlit): un client HTTP
+                             dell'API, che non importa niente dell'app
 ```
 
-- Un solo package e una sola immagine; nel compose due servizi: `api` e `plant-sim`.
+- Un solo package e un'immagine per l'app; nel compose due servizi: `api` e `plant-sim`.
+  La dashboard ha un'immagine sua (`docker/dashboard.Dockerfile`), con il solo gruppo
+  `dashboard` di `pyproject.toml`: Streamlit non entra nell'immagine dell'API.
 - Le tre porte sono l'interfaccia del controllore dell'impianto, non dei singoli dispositivi:
   - `PlantReader`: lettura. La usano agenti, server MCP, sorvegliante.
   - `PlantCommander`: comandi ad alto livello. La usa **solo** l'esecutore delle azioni approvate.

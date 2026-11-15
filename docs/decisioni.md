@@ -236,7 +236,38 @@ sui manuali e più agenti.
   corso, con il multi-agente. *Perché*: con i `curl` in un terminale, in un discorso di 10
   minuti si capisce poco. Claude Code in demo sembrava parte del prodotto, ed era un punto in
   più in cui incepparsi. La dashboard viene dopo la memoria (M7), che il corso chiede, e prima
-  del README (M8).
+  del README (M8). Fatta così (M7b, 15 novembre):
+  - **un client dell'API, e basta**: `src/neuralbrewery/dashboard/` parla HTTP con l'API, come
+    `curl`, e non importa niente dell'app. Due contract di import-linter lo verificano, uno per
+    verso: la dashboard non importa l'app, l'app non importa né la dashboard né Streamlit;
+  - **un'immagine sua** (`docker/dashboard.Dockerfile`), servizio `dashboard` del compose, su
+    http://localhost:8501. Installa solo il gruppo `dashboard` di `pyproject.toml` (Streamlit,
+    httpx, pydantic-settings); `dev` lo include, per mypy e i test. *Perché*: Streamlit porta
+    13 pacchetti che l'API non usa, misurati il 15 novembre: pyarrow 165 MB, pandas 45, numpy
+    30, pydeck 23 e altri. Nell'immagine dell'API sarebbero passati da 276 a circa 590 MB, e
+    sarebbero stati pacchetti in più per la sua scansione. Quel giorno Grype, con la versione
+    della CI, non vi trovava nessuna High o Critical con una correzione: il motivo è il peso,
+    e le vulnerabilità che verranno. Così l'immagine dell'API resta com'era, e al tester di
+    M8 basta ancora `docker compose`. In produzione la dashboard parte solo con
+    `--profile dashboard`;
+  - **il token** lo legge da `DASHBOARD_APPROVAL_TOKEN`, che il compose imposta; il nome di chi
+    decide lo scrive il birraio nella pagina. Il token non compare mai nella pagina né nei log;
+  - **solo su 127.0.0.1**, anche in sviluppo: la pagina tiene il token, e nessuno sul Wi-Fi
+    della sala deve poter approvare. Streamlit non manda le statistiche d'uso, e non chiede a
+    un servizio esterno l'indirizzo pubblico della macchina, che altrimenti cerca per
+    stamparlo all'avvio (visto nella prova del container);
+  - **niente in background**: la pagina si ridisegna quando il birraio preme o scrive. Ogni
+    azione è un callback, quindi la pagina mostra l'impianto dopo l'azione. L'ultima diagnosi
+    resta sulla pagina, e scrivere un nome non richiama l'agente;
+  - **i comandi della simulazione** compaiono solo se la descrizione dell'API (`/openapi.json`)
+    elenca `/simulation/advance`. Fuori dallo sviluppo la descrizione non c'è, e la simulazione
+    è comunque rifiutata;
+  - **test senza rete**: `streamlit.testing` esegue la pagina sopra l'API vera in memoria (un
+    `TestClient`, che è un client httpx), con la coda in memoria e un agente finto. I 401, i
+    409 e i 503 vengono dall'app, non da JSON scritto a mano. Una fixture fa fallire ogni
+    chiamata che uscirebbe dal processo. Per misurare la pagina, che gira come script
+    (`__main__`), la copertura legge la cartella `src/neuralbrewery` invece del nome del
+    package.
 - **Il birraio propone dalla dashboard con il suo token** (M7b, 15 novembre). Nella demo di M6
   la ripresa della cotta (`resume_program`) e l'avvio (`start_program`) li proponeva Claude
   Code, via MCP. Ora li propone il birraio: `POST /approvals`, con `X-Approval-Token` e il nome
@@ -300,9 +331,10 @@ sui manuali e più agenti.
 
 ## Come si innesta nel template
 
-- **Un solo package, una sola immagine, due servizi nel compose**: `api` (il backend del
+- **Un solo package, un'immagine per l'app, due servizi nel compose**: `api` (il backend del
   template) e `plant-sim` (stessa immagine, comando diverso, un solo worker). Fino a M2 c'è solo
-  `api`, con l'impianto nel suo processo.
+  `api`, con l'impianto nel suo processo. Da M7b la dashboard del birraio ha un'immagine sua,
+  con il solo gruppo `dashboard`: è un client dell'API, non una parte dell'app (sopra).
 - **Il simulatore vive in `adapters/plant_sim/`.** Per il backend l'impianto è un servizio
   esterno, e il template vieta già alle feature di importare gli adapter: per toccare
   l'impianto devono passare dalle porte, e la CI lo controlla.
@@ -338,7 +370,17 @@ sui manuali e più agenti.
   testato, ma dal vivo non scatta, perché l'impianto risponde nello stesso processo; far
   avanzare il tempo blocca l'API per circa 0,16 s per ora simulata. M2 non si fa per il corso.
 - MQTT: solo se serve, dopo.
-- Notifiche, e un'interfaccia completa: dopo il corso. Per il corso c'è il pannello di M7b.
+- Notifiche, e un'interfaccia completa: dopo il corso. Per il corso c'è la dashboard di M7b.
+- Limiti noti della dashboard (15 novembre, dalla prova dal vivo):
+  - i token che mostra sono quelli che l'API riporta: fuori dalla cache e letti dalla cache.
+    Quelli scritti nella cache datapizza non li passa, quindi il costo di una diagnosi lo
+    misurano gli eval, sulle risposte del fornitore: 2 o 3 centesimi su Claude;
+  - dopo un `reset` approvato l'allarme resta sulla pagina fino al prossimo avanzamento del
+    tempo: il controllore lo toglie al suo giro successivo. Nella demo si avanza il tempo
+    subito dopo.
+- L'immagine della dashboard la CI la costruisce nello stack di e2e, ma non la scansiona, come
+  non scansiona quella di Keycloak. Ha la stessa immagine base dell'API: le vulnerabilità di
+  `zlib1g` sono anche sue. Da decidere in M8, con la scansione.
 - M2, dopo il corso: tempo a passi e un comando di `SimulationControl` per ripartire da una
   partenza con nome, invece di riavviare il container (preferenze, da confermare).
 - Adattatore verso un controllore vero (per esempio OPC UA): le letture hanno già la sua forma
@@ -361,7 +403,7 @@ sui manuali e più agenti.
 | M5 | Primo agente (impianto) + sorvegliante + tracing + primo eval | Eval pass/fail su 3 scenari |
 | M6 | L'agente propone `reset` quando la causa è risolta; lo stesso agente anche su Gemini | Una proposta dell'agente in coda, approvata ed eseguita dal vivo; eval su tutti e due i fornitori, confrontati |
 | M7 | Memoria persistente: le decisioni del birraio, lette dalla coda | Un eval in cui l'agente usa una decisione passata |
-| M7b | Pannello del birraio in Streamlit, sopra l'API: impianto, simulazione, diagnosi, coda con approva e rifiuta | La demo si fa tutta dal pannello, senza `curl` né Claude Code; una proposta di Claude Code via MCP compare nella coda del pannello (il video per la slide) |
+| M7b | Dashboard del birraio in Streamlit, sopra l'API: impianto, simulazione, diagnosi, coda con proponi, approva e rifiuta | La demo si fa tutta dalla dashboard, senza `curl` né Claude Code; una proposta di Claude Code via MCP compare nella coda della dashboard (il video per la slide) |
 | M8 | README dell'impianto e della demo, scan dell'immagine, prova della demo | La demo gira da zero seguendo il README |
 
 Ordine: dopo M1b viene M5, con l'impianto in-process; dopo M5 viene M4 (deciso il 14 novembre,

@@ -37,38 +37,112 @@ Then open http://localhost:8000/docs. `docker compose up --wait api` starts the 
 
 An action reaches the plant only after the brewer approves it. Until M2 the simulated plant lives in the API process.
 
-This section drives the API by hand, with `curl`; Claude Code is optional, as a client of the MCP server. From M7b the live demo runs from the brewer's panel, in Streamlit, and needs neither.
+The demo runs from the brewer's dashboard, one Streamlit page over the API: no `curl` and no Claude Code. The `curl` commands at the end stay as a reference of the API.
 
 - **A restart builds a new plant.** It starts from `PLANT_START` (`brew_day` or `fermentation`) with `PLANT_SEED`, and what happened to the old plant is gone. The queue stays in Postgres.
-- **Time moves only when you move it**, with `/simulation/advance`.
+- **Time moves only when you move it**, from the dashboard or with `/simulation/advance`.
 
-The stack of `compose.yaml` has everything the demo needs: the simulation routes are on, the approval token is `brewer-dev-token`, and `ANTHROPIC_API_KEY` comes from `.env`, for the agent endpoint only. Compose also reads `AGENT_PROVIDER` and `OPENAI_COMPAT_API_KEY` from `.env`: with `AGENT_PROVIDER=openai_compat` there, the agent of the stack runs on Gemini. The demo stays on Claude, so keep `AGENT_PROVIDER` out of `.env`, or at `claude`.
+The stack of `compose.yaml` has everything the demo needs:
+- the simulation routes are on;
+- the approval token is `brewer-dev-token`, for the API and for the dashboard;
+- `ANTHROPIC_API_KEY` comes from `.env`, for the agent endpoint only.
+
+Compose also reads `AGENT_PROVIDER` and `OPENAI_COMPAT_API_KEY` from `.env`: with `AGENT_PROVIDER=openai_compat` there, the agent of the stack runs on Gemini. The demo stays on Claude, so keep `AGENT_PROVIDER` out of `.env`, or at `claude`.
 
 ```bash
 docker compose up --build --wait
 ```
 
-### 1. Connect Claude Code to the MCP server
+Then open http://localhost:8501.
 
-The API serves MCP at `/mcp`, over HTTP. It has four tools that read the plant, and `propose_action`, which only puts a proposal in the queue:
+### The brewer's dashboard
+
+On the left, the brewer's own controls:
+- **their name**, which the audit records as declared, for every proposal, approval and rejection;
+- **a button to propose**, among those that take no argument, such as `start_program` and `resume_program`. It goes into the queue as from `user`, and waits for an approval like any other;
+- **the simulation**: move the time, inject a fault, clear the faults. Only when the API exposes these routes, that is in development with `PLANT_SIMULATION_CONTROL` on.
+
+In the page, from the top:
+- **the outcome of the last action**, in words: what the controller answered, or what the API refused and why, a 401 or a 409 included;
+- **the plant**: simulated time, program and step, the controller's alarms, the watcher's judgements after the last advance, the readings, and the devices in a box that opens;
+- **the diagnosis**: a button that calls the agent, then its explanation, the checks by hand, the proposal and what the queue made of it. A box shows each step of the agent and its tokens. The diagnosis stays on the page until the next one: typing or pressing anything else does not call the agent again;
+- **the queue**, the newest first. Each proposal shows who proposed it (`agent`, `mcp` or `user`), why, and each event since. The waiting ones have *Approva* and *Rifiuta*, with the reason of a rejection.
+
+What to know about it:
+- **It is a client of the API**, as `curl` is. It reads `DASHBOARD_API_URL` and `DASHBOARD_APPROVAL_TOKEN`, which compose sets. It imports nothing of the app, and approving stays code of the API: with a wrong token, approve and reject show the API's 401.
+- **It answers on 127.0.0.1 only.** The page holds the token, and nobody on the Wi-Fi of the room must reach it.
+- **Nothing runs in the background.** The page runs again when you press or type something. To see a proposal that came from elsewhere, from MCP for one, press `R` in the page, or any button.
+- **Its image is its own** (`docker/dashboard.Dockerfile`), with Streamlit and nothing of the API. The image of the API stays without Streamlit, about 300 MB less.
+- **The tokens it shows are those the API reports**: outside the prompt cache, and read from it. What is written into the cache is not counted, so the cost of a diagnosis comes from the evals. On Claude it is 2 or 3 cents.
+- **It runs on the host too**, while you change it: `docker compose stop dashboard`, put `DASHBOARD_APPROVAL_TOKEN` in `.env` (`.env.example`), then `uv run streamlit run src/neuralbrewery/dashboard/app.py`. `.streamlit/config.toml` keeps it on localhost and turns off the usage statistics that Streamlit sends by default.
+
+### The round of the speech
+
+On a clean queue ([below](#a-clean-queue-before-a-demo)), `brew_day` with seed 42. TT1 breaks twice in the same brew, with no restart.
+
+1. Write your name. Propose `start_program`, with *cotta di riferimento* as why, and approve it: the program runs, step 1, *Scalda l'acqua*.
+2. Advance 600 s. Inject `probe_broken` on `TT1`, then advance 300 s. Three alarms:
+   - `signal_fault` on TT1;
+   - `control_probe_fault` on HLT;
+   - `program_paused`.
+3. Clear the faults and advance 300 s. `signal_fault` goes. The block stays, and its text ends with *(bloccato: serve reset)*: the controller does not restart by itself.
+4. Press *Diagnostica adesso*. The agent names TT1, a fault of measure, and proposes `reset`: it is in the queue, from `agent`. Approve it. The alarm goes at the controller's next turn, the next time you move the time.
+5. The program still waits. Propose `resume_program` and approve it, then advance 300 s: the program runs, and TT1 climbs towards 72 °C.
+6. TT1 breaks again: inject the fault, advance 300 s, clear the faults, advance 300 s. Diagnose: the agent proposes `reset` again, because the brewer approved it last time, and it notes that the fault came back.
+7. Reject that `reset`, with the reason *TT1 ha un contatto intermittente: va sostituita prima di riarmare*.
+8. Diagnose again. The agent proposes nothing. Its explanation cites the rejection and its reason, and its checks include replacing TT1 before re-arming.
+9. If there is time: `docker compose restart api`. The plant starts over from zero, and the queue stays in Postgres. Repeat steps 1 to 3, then diagnose: the agent still recalls the rejection, and proposes no `reset`. The memory outlives the process.
+
+How the round went on 15 November, live on Claude:
+- the three diagnoses took 17, 11 and 10 s;
+- in the third the agent wrote *Il birraio ha già rifiutato il reset (…), quindi non lo ripropongo*;
+- the three cost about 8 cents together, measured as the evals measure S4 and S5.
+
+### A clean queue before a demo
+
+Every round writes into the queue, and the agent reads its own past proposals. Before the speech, start from an empty database:
 
 ```bash
-claude mcp add --transport http neuralbrewery http://localhost:8000/mcp
+docker compose down
+docker volume rm neuralbrewery_db_data
+docker compose up --build --wait
+docker compose exec db createdb -U appbase appbase_test   # the integration tests' database
 ```
 
-Then ask Claude Code, for example: *read the plant and propose to the brewer to start the brew program*. The tool answers with the id of the proposal and its status:
-- `proposed`: it waits for the brewer;
-- `blocked`: it is out of limits, and `reason` says why. For example, a setpoint of 45 °C on the fermenter, whose maximum is 30 °C.
+The volume takes its name from the folder of the clone: `docker volume ls` lists it.
+
+### The MCP server, for the video
+
+The API serves MCP at `/mcp`, over HTTP. It has four tools that read the plant, and `propose_action`, which only puts a proposal in the queue, as from `mcp`. The live demo uses no MCP client: a short video shows one.
+
+1. Start the stack and open the dashboard. Write your name.
+2. Connect Claude Code once. `claude mcp list` shows whether it is there already:
+   ```bash
+   claude mcp add --transport http neuralbrewery http://localhost:8000/mcp
+   ```
+   In Claude Code, `/mcp` shows `neuralbrewery` connected, with five tools.
+3. Put the browser and the terminal side by side, and start recording.
+4. Ask Claude Code: *Leggi l'impianto di NeuralBrewery e proponi al birraio di avviare il programma della cotta*. It calls `read_plant`, then `propose_action` with `start_program`. The answer holds the id of the proposal and `"status": "proposed"`.
+5. In the dashboard press `R`. The queue shows `start_program`, *in attesa*, *da mcp · mcp*.
+6. Approve it from the dashboard: *Eseguita*, and the program runs. Claude Code proposed; only the brewer pressed.
+7. If there is time, the guardrail: ask *proponi di portare il fermentatore a 45 °C*. The answer says `blocked`, with the maximum of 30 °C. In the dashboard the proposal shows as *bloccata dal guardrail*, with the reason, and with no button.
+
+About 40 seconds of video.
 
 Claude Desktop is not connected. Its custom connectors call from Anthropic's cloud and cannot reach `localhost`. Its local configuration starts programs, not addresses, so it needs a bridge such as `npx mcp-remote http://localhost:8000/mcp`.
 
-### 2. Read the queue, approve or reject
+### The API by hand, as a reference
 
-Reading needs no token. Approving and rejecting need the `X-Approval-Token` header and the name of the person who decides. The name is written in the audit as declared, and nobody checks it:
+What the dashboard calls. Reading needs no token. Proposing, approving and rejecting need the `X-Approval-Token` header and the name of the person who decides, which the audit writes as declared, and nobody checks.
+
+The queue:
 
 ```bash
 APPROVAL_TOKEN=brewer-dev-token                        # the one of compose.yaml and .env.example
 curl -s localhost:8000/approvals                       # newest first, each with every event
+curl -s -X POST localhost:8000/approvals \
+  -H "X-Approval-Token: $APPROVAL_TOKEN" -H "Content-Type: application/json" \
+  -d '{"command": "resume_program", "why": "TT1 a posto", "by": "Salvatore"}'
 curl -s -X POST localhost:8000/approvals/<id>/approve \
   -H "X-Approval-Token: $APPROVAL_TOKEN" -H "Content-Type: application/json" \
   -d '{"by": "Salvatore"}'
@@ -76,6 +150,10 @@ curl -s -X POST localhost:8000/approvals/<id>/reject \
   -H "X-Approval-Token: $APPROVAL_TOKEN" -H "Content-Type: application/json" \
   -d '{"by": "Salvatore", "reason": "first I check TT5a"}'
 ```
+
+`POST /approvals` puts a button in the queue as from `user`, through the same guardrail as the agent's and MCP's proposals. It answers 201:
+- `proposed`: it waits for an approval;
+- `blocked`: it is out of limits, and `blocked_reason` says why.
 
 `approve` executes at once and answers with the outcome:
 - `executed`, with the controller's answer. A refusal by an interlock counts as an answer: `accepted` is false, and `code` and `reason` say why.
@@ -87,7 +165,7 @@ The responses for other cases:
 
 The status of a proposal is its last event, and `approval_events` keeps them all. Rows are only added: a trigger refuses UPDATE, DELETE and TRUNCATE.
 
-### 3. Move the time, break the plant
+The plant and the simulation:
 
 ```bash
 curl -s localhost:8000/plant                           # what the controller shows now
@@ -104,63 +182,25 @@ curl -s -X DELETE localhost:8000/simulation/faults
 
 The faults and their targets are in `docs/impianto.md`. Scenario S3 of the evals, for example: start the program, advance until step 4, then inject `drive_fault` on M1 with 11.
 
-### 4. Let the plant agent diagnose
+The plant agent:
 
 ```bash
 curl -s -X POST localhost:8000/agents/plant/diagnose
 ```
 
-The agent reads the plant now and hands in its diagnosis. If the diagnosis has a command, it goes into the queue as from `agent`, through the same guardrail, and step 2 approves it.
+The agent reads the plant now and hands in its diagnosis. If the diagnosis has a command, it goes into the queue as from `agent`, through the same guardrail.
 
 What this endpoint costs and needs:
 - One diagnosis costs a few cents on Claude, nothing on the free tier of Gemini.
 - Without the key of the chosen provider it answers 503, and 503 again when the provider cannot be reached or is over its limits. An answer that cannot be used is a 502.
 - The agent proposes the most prudent action. When manual checks come first, it proposes nothing. When the cause gives no more signs and only a block of the controller is left, it proposes `reset`.
-- Before it proposes a button, the agent reads the brewer's decisions on its last 10 proposals, with the tool `read_decisions`. If the brewer rejected the same button for the same cause, it does not propose it again, and says so. It reads only its own proposals: those from MCP stay out. It reads no time either, real or simulated.
-
-A whole round on `brew_day` with seed 42. It is scenario S4 of the evals:
-
-1. Propose `start_program` through the MCP server, and approve it (step 2). Claude Code would do it from a sentence; `curl` does it too:
-   ```bash
-   curl -s -X POST localhost:8000/mcp -H "Content-Type: application/json" \
-     -H "Accept: application/json, text/event-stream" \
-     -d '{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "propose_action",
-          "arguments": {"command": "start_program", "why": "cotta di riferimento"}}}'
-   ```
-   The text of the answer holds the id of the proposal.
-2. Break TT1 while the water heats, then repair it:
-   ```bash
-   curl -s -X POST localhost:8000/simulation/advance \
-     -H "Content-Type: application/json" -d '{"seconds": 600}'
-   curl -s -X POST localhost:8000/simulation/faults \
-     -H "Content-Type: application/json" -d '{"kind": "probe_broken", "target": "TT1"}'
-   curl -s -X POST localhost:8000/simulation/advance \
-     -H "Content-Type: application/json" -d '{"seconds": 300}'   # program paused
-   curl -s -X DELETE localhost:8000/simulation/faults
-   curl -s -X POST localhost:8000/simulation/advance \
-     -H "Content-Type: application/json" -d '{"seconds": 300}'
-   ```
-   The last `advance` shows that `signal_fault` on TT1 is gone. `control_probe_fault` on HLT and the pause stay: the controller does not restart by itself. The text of the block ends with "(bloccato: serve reset)".
-3. Call the agent endpoint. It names TT1, as a fault of measure, and puts `reset` in the queue, from `agent`.
-
-From here the brewer decides, and either way is a round of its own.
-
-**Approve** (the round of M6, 15 November):
-
-4. Approve the `reset`: `executed`, and the block goes.
-5. The program still waits. Propose `resume_program` as in 1, and approve it. After an `advance` the program runs again, and TT1 climbs towards 72 °C.
+- Before it proposes a button, the agent reads the brewer's decisions on its last 10 proposals, with the tool `read_decisions`. If the brewer rejected the same button for the same cause, it does not propose it again, and says so. It reads only its own proposals: those from MCP and from the brewer stay out. It reads no time either, real or simulated.
 
 Each button is a proposal of its own, with its own approval:
 - `reset` re-arms what no longer has its cause;
 - `resume_program` takes the step up again, and is refused while a block is on.
 
 When a fault goes and leaves no block, as when a drive is repaired, `resume_program` alone is enough.
-
-**Reject, and the agent remembers** (the round of M7, 15 November):
-
-4. Reject the `reset`, with the reason *TT1 ha un contatto intermittente: va sostituita prima di riarmare* (step 2).
-5. Call the agent endpoint again, on the same plant. The agent reads its past decisions and proposes nothing: `queued` is null. Its explanation cites the rejection and its reason, and its checks include replacing TT1 before re-arming.
-6. Restart the API: `docker compose restart api`. The plant starts over from zero, and the queue stays in Postgres. Repeat steps 1 and 2, then call the agent endpoint: it still recalls the rejection, and does not propose `reset`. The memory outlives the process.
 
 ## Tests
 
