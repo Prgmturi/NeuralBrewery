@@ -208,6 +208,19 @@ class TestPlantInTheApi:
         """[SEC] On a server nobody moves the time of the plant or breaks it."""
         assert prod_env("api")["PLANT_SIMULATION_CONTROL"] == "false"
 
+    def test_development_answers_on_this_machine_only(self):
+        """[SEC] Nobody on the same network reaches the API of the demo.
+
+        WHY: in development the simulation routes are open, /mcp and the
+        agent ask for no login, and the approval token is public: on the
+        Wi-Fi of the room of the speech, anyone could break the plant or
+        approve (decided on 15 November).
+        """
+        ports = services()["api"]["ports"]
+
+        assert ports
+        assert all(port.startswith("127.0.0.1:") for port in ports)
+
 
 class TestDashboard:
     """The brewer's dashboard, the page the demo runs from (docs/decisioni.md)."""

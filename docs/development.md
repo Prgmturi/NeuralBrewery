@@ -70,7 +70,7 @@ In the page, from the top:
 
 What to know about it:
 - **It is a client of the API**, as `curl` is. It reads `DASHBOARD_API_URL` and `DASHBOARD_APPROVAL_TOKEN`, which compose sets. It imports nothing of the app, and approving stays code of the API: with a wrong token, approve and reject show the API's 401.
-- **The page answers on 127.0.0.1 only**, since it holds the token: it stays off the network. The API does not: the development stack publishes it on every interface, as before, and the development token is public ([decisioni.md](decisioni.md), *Ancora aperte*).
+- **The page answers on 127.0.0.1 only**, since it holds the token, and so does the API of the development stack: its simulation is open, `/mcp` and the agent ask for no login, and its token is public. Nobody on the Wi-Fi of the room reaches either.
 - **Nothing runs in the background.** The page runs again when you press or type something. To see a proposal that came from elsewhere, from MCP for one, press `R` in the page, or any button.
 - **Its image is its own** (`docker/dashboard.Dockerfile`), with Streamlit and nothing of the API. The image of the API stays without Streamlit, about 300 MB less.
 - **The tokens it shows are those the API reports**: outside the prompt cache, and read from it. What is written into the cache is not counted, so the cost of a diagnosis comes from the evals: on Claude, 1 to 3 cents for S4 and S5.

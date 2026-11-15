@@ -253,8 +253,7 @@ sui manuali e più agenti.
   - **il token** lo legge da `DASHBOARD_APPROVAL_TOKEN`, che il compose imposta; il nome di chi
     decide lo scrive il birraio nella pagina. Il token non compare mai nella pagina né nei log;
   - **solo su 127.0.0.1**, anche in sviluppo: la pagina tiene il token, e resta fuori dalla
-    rete. L'API no: il compose di sviluppo la pubblica su tutte le interfacce (sotto, in
-    "Ancora aperte"). Streamlit non manda le statistiche d'uso, e non chiede a
+    rete. Anche l'API, dal 15 novembre (sotto). Streamlit non manda le statistiche d'uso, e non chiede a
     un servizio esterno l'indirizzo pubblico della macchina, che altrimenti cerca per
     stamparlo all'avvio (visto nella prova del container);
   - **niente in background**: la pagina si ridisegna quando il birraio preme o scrive. Ogni
@@ -314,6 +313,11 @@ sui manuali e più agenti.
   che lega il tipo al passo danno a ogni proposta una sola decisione e un solo esito, anche con
   due approvazioni nello stesso istante. Ogni evento si salva nella sua transazione, prima del
   passo dopo.
+- **In sviluppo l'API risponde solo su 127.0.0.1** (15 novembre, M7b). Prima il compose la
+  pubblicava su tutte le interfacce: chi era sulla stessa rete, per esempio il Wi-Fi della
+  sala del discorso, leggeva l'impianto, muoveva la simulazione, chiedeva diagnosi e, con il
+  token di sviluppo, che è pubblico, approvava. *Perché*: la demo ha bisogno di quelle porte
+  aperte, ma solo sulla macchina di chi la fa. In produzione era già così.
 - **Il controllo della simulazione è spento se non lo si chiede** (15 novembre):
   `PLANT_SIMULATION_CONTROL` vale false per default, il compose di sviluppo e `.env.example` lo
   accendono, staging e produzione lo rifiutano. *Perché*: chiunque raggiunga quelle rotte
@@ -379,10 +383,8 @@ sui manuali e più agenti.
   - dopo un `reset` approvato l'allarme resta sulla pagina fino al prossimo avanzamento del
     tempo: il controllore lo toglie al suo giro successivo. Nella demo si avanza il tempo
     subito dopo.
-- In sviluppo il compose pubblica l'API su tutte le interfacce (porta 8000), come da sempre.
-  Chi è sulla stessa rete, per esempio il Wi-Fi della sala del discorso, legge l'impianto,
-  muove la simulazione, chiede diagnosi e, con il token di sviluppo, che è pubblico,
-  approva. Legarla a 127.0.0.1 è una riga del compose: da decidere (15 novembre).
+- Postgres (5433) e Keycloak (8080) del compose di sviluppo restano pubblicati su tutte le
+  interfacce, con le password di sviluppo: da M8, se serve.
 - L'immagine della dashboard la CI la costruisce nello stack di e2e, ma non la scansiona, come
   non scansiona quella di Keycloak. Ha la stessa immagine base dell'API: le vulnerabilità di
   `zlib1g` sono anche sue. Da decidere in M8, con la scansione.
