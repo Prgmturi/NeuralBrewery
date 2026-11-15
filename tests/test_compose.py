@@ -92,8 +92,15 @@ def env_example(name: str) -> str:
 
 class TestStack:
     def test_one_file_starts_everything(self):
-        """[HP] API, migrations, Postgres, Keycloak and its Postgres."""
-        assert set(services()) == {"api", "migrate", "db", "keycloak", "keycloak-db"}
+        """[HP] API, migrations, Postgres, Keycloak and its Postgres, the dashboard."""
+        assert set(services()) == {
+            "api",
+            "migrate",
+            "db",
+            "keycloak",
+            "keycloak-db",
+            "dashboard",
+        }
 
     def test_no_fixed_names(self):
         """[HP] Compose derives every name from the project.
@@ -200,6 +207,49 @@ class TestPlantInTheApi:
     def test_production_closes_the_simulation(self):
         """[SEC] On a server nobody moves the time of the plant or breaks it."""
         assert prod_env("api")["PLANT_SIMULATION_CONTROL"] == "false"
+
+
+class TestDashboard:
+    """The brewer's dashboard, the page the demo runs from (docs/decisioni.md)."""
+
+    def test_its_own_image(self):
+        """[HP] Not the API's: Streamlit stays out of the image of the API."""
+        assert services()["dashboard"]["build"]["dockerfile"] == (
+            "docker/dashboard.Dockerfile"
+        )
+
+    def test_reaches_the_api_inside_the_stack_with_its_token(self):
+        """[HP] As "api", with the token the API expects and .env.example holds."""
+        dashboard = services()["dashboard"]["environment"]
+        api = services()["api"]["environment"]
+
+        assert dashboard["DASHBOARD_API_URL"] == "http://api:8000"
+        assert dashboard["DASHBOARD_APPROVAL_TOKEN"] == api["APPROVAL_TOKEN"]
+        assert env_example("DASHBOARD_APPROVAL_TOKEN") == api["APPROVAL_TOKEN"]
+
+    def test_the_api_answers_to_the_name_it_is_called_by(self):
+        """[EC] TrustedHostMiddleware answers 400 to a host it does not list."""
+        hosts = json.loads(services()["api"]["environment"]["SERVER_TRUSTED_HOSTS"])
+
+        assert "api" in hosts
+        assert hosts[0] == "localhost"  # the Host of the image's health probe
+
+    def test_on_the_loopback_only_in_development_too(self):
+        """[SEC] The page holds the token: nobody on the room's Wi-Fi reaches it."""
+        ports = services()["dashboard"]["ports"]
+
+        assert ports
+        assert all(port.startswith("127.0.0.1:") for port in ports)
+
+    def test_starts_once_the_api_is_healthy(self):
+        """[HP] Its first page asks the API for the plant."""
+        assert services()["dashboard"]["depends_on"] == {
+            "api": {"condition": "service_healthy"}
+        }
+
+    def test_production_starts_it_only_when_asked(self):
+        """[SEC] A tool of the demo: on a server, only with --profile dashboard."""
+        assert prod()["services"]["dashboard"]["profiles"] == ["dashboard"]
 
 
 class TestProduction:
