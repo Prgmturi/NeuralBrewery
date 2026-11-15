@@ -134,10 +134,12 @@ sui manuali e più agenti.
   - tool e schema di `submit_diagnosis` reggono. Una chiamata dura da 0,6 a 2,2 s, una diagnosi
     da 4 a 7 s. Gemini legge un tool per chiamata, Claude ne chiede più insieme: in entrata
     Gemini usa da 1,3 a 2,3 volte i token di Claude, in uscita da 4 a 6 volte meno;
-  - il piano gratuito dà 15 richieste al minuto per modello, lette dal corpo del 429
-    (`RESOURCE_EXHAUSTED`, "riprova tra 14 s"). Il limite al giorno si legge in AI Studio. Uno
-    scenario fa fino a 12 chiamate, e le due riprove dell'SDK non aspettano 14 s: sul piano
-    gratuito gli eval partono a un minuto l'uno dall'altro;
+  - il piano gratuito dà, per progetto e per modello, 15 richieste al minuto, 250 mila token
+    al minuto e 500 richieste al giorno (Google AI Studio, 15 novembre). Le richieste al giorno
+    si azzerano a mezzanotte del Pacifico, le 9 in Italia (pagina dei limiti di Google). Oltre
+    il limite risponde 429 `RESOURCE_EXHAUSTED`, "riprova tra 14 s". Un giro di eval chiede
+    circa 21 richieste. Uno scenario fa fino a 12 chiamate, e le due riprove dell'SDK non
+    aspettano 14 s: sul piano gratuito gli eval partono a un minuto l'uno dall'altro;
   - due cose che datapizza sbaglia con Gemini 3, sistemate nell'adapter
     (`adapters/openai_compat/`), che ridefinisce due metodi del client di datapizza:
     - la firma del ragionamento (`thought_signature`) che Gemini mette sulla prima chiamata a
@@ -151,7 +153,9 @@ sui manuali e più agenti.
   *Perché*: è la strada più corta per avere il secondo fornitore con lo stesso agente; Groq,
   il ripiego, non regge diagnosi da 13–30 mila token in entrata con 8 mila token al minuto.
   Limite: se datapizza cambia quei due metodi interni, l'adapter si rompe. I test della CI
-  rifanno la conversazione con le risposte di Gemini, senza rete, e se ne accorgono.
+  rifanno la conversazione con le risposte di Gemini, senza rete, e se ne accorgono. Gli altri
+  modelli gratuiti non convengono: Gemini 2.5 Flash dà 20 richieste al giorno, un giro di
+  eval appena.
 - **Cache dei prompt su ogni chiamata**: datapizza non la attiva, e l'adapter passa
   `cache_control` come argomento della chiamata. Provata nell'eval di M5: in S2, 6,6 mila token
   scritti nella cache e 15,6 mila letti. *Perché*: in un ciclo con i tool ogni chiamata rimanda
