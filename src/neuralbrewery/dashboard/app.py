@@ -267,16 +267,21 @@ def diagnosis_section(api: Api) -> None:
             st.markdown(f"**Verifiche a mano**\n\n{checks}")
         proposal_of(diagnosis["proposal"], answer["queued"])
     with st.expander(
-        f"Passi dell'agente · token: {run['input_tokens']} in entrata, di cui "
-        f"{run['cached_tokens']} dalla cache, e {run['output_tokens']} in uscita"
+        f"Passi dell'agente · token: {run['input_tokens']} in entrata fuori dalla "
+        f"cache, {run['cached_tokens']} letti dalla cache, {run['output_tokens']} "
+        "in uscita"
     ):
+        # The API does not report what is written into the cache: the cost of a
+        # diagnosis is measured by the evals, on the answers of the provider
+        st.caption("Le scritture nella cache non sono contate.")
         for step in run["steps"]:
             if step["kind"] == "tool":
                 st.markdown(f"tool `{step['name']}` {step['arguments']}")
             else:
                 st.markdown(
                     f"modello {step['name']} · {step['input_tokens']} token in "
-                    f"entrata, {step['output_tokens']} in uscita"
+                    f"entrata fuori dalla cache, {step['cached_tokens']} letti dalla "
+                    f"cache, {step['output_tokens']} in uscita"
                 )
 
 
