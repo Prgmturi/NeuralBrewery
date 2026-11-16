@@ -1,0 +1,449 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1920 1080" font-family="'Segoe UI', Helvetica, Arial, sans-serif">
+<rect x="0" y="0" width="1920" height="1080" fill="#ffffff"/>
+
+<defs>
+  <!-- flow arrow, points along +x -->
+  <path id="arr" d="M7 0L-7 -5L-7 5Z"/>
+  <path id="arrs" d="M5.5 0L-5.5 -4L-5.5 4Z"/>
+  <!-- motorized ball valve, horizontal: actuator above -->
+  <g id="ev">
+    <line x1="0" y1="-5" x2="0" y2="-21" stroke="#222" stroke-width="2"/>
+    <path d="M-20 -13L-20 13L0 0ZM20 -13L20 13L0 0Z" fill="#fff" stroke="#222" stroke-width="2" stroke-linejoin="round"/>
+    <circle r="5" fill="#fff" stroke="#222" stroke-width="2"/>
+    <circle cy="-33" r="12" fill="#fff" stroke="#222" stroke-width="2"/>
+    <text y="-26.5" text-anchor="middle" font-size="18" font-weight="bold" fill="#222">M</text>
+  </g>
+  <!-- motorized ball valve, vertical: actuator on the left -->
+  <g id="evv">
+    <line x1="-5" y1="0" x2="-21" y2="0" stroke="#222" stroke-width="2"/>
+    <path d="M-13 -20L13 -20L0 0ZM-13 20L13 20L0 0Z" fill="#fff" stroke="#222" stroke-width="2" stroke-linejoin="round"/>
+    <circle r="5" fill="#fff" stroke="#222" stroke-width="2"/>
+    <circle cx="-33" r="12" fill="#fff" stroke="#222" stroke-width="2"/>
+    <text x="-33" y="6.5" text-anchor="middle" font-size="18" font-weight="bold" fill="#222">M</text>
+  </g>
+  <!-- centrifugal pump body (tangent discharge is drawn as process line) -->
+  <circle id="pump" r="28" fill="#fff" stroke="#222" stroke-width="3"/>
+  <!-- ISA field-mounted instrument bubble -->
+  <circle id="bub" r="30" fill="#fff" stroke="#222" stroke-width="2"/>
+  <!-- heating band hatch -->
+  <pattern id="hatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+    <line x1="0" y1="0" x2="0" y2="7" stroke="#222" stroke-width="1.6"/>
+  </pattern>
+</defs>
+
+<!-- ============ CONTROLLER ============ -->
+<g id="controller">
+  <rect x="40" y="24" width="1840" height="160" rx="6" fill="#f4f4f4" stroke="#222" stroke-width="3"/>
+  <path d="M580 40V168M1045 40V168M1415 40V168" stroke="#bdbdbd" stroke-width="1.5"/>
+  <text x="60" y="72" font-size="26" font-weight="bold" fill="#111">CONTROLLER (simulated PLC)</text>
+  <g font-size="18" font-style="italic" fill="#333">
+    <text x="60" y="112">Agents read and propose ·</text>
+    <text x="60" y="136">their commands run only after the brewer approves</text>
+  </g>
+  <g font-size="20" font-weight="bold" fill="#111">
+    <text x="600" y="60">Inputs</text>
+    <text x="1060" y="60">Logic</text>
+    <text x="1430" y="60">Outputs</text>
+  </g>
+  <g font-size="18" fill="#222">
+    <text y="88"><tspan x="600">4–20 mA</tspan><tspan x="730">TT1 TT2 TT3 TT5a TT5b · LT1–LT4</tspan></text>
+    <text y="112"><tspan x="600">Limit switches</tspan><tspan x="730">EV2a EV2b EV3–EV7 EV9</tspan></text>
+    <text y="136"><tspan x="600">Modbus</tspan><tspan x="730">M1 drive: run, Hz, A, fault code</tspan></text>
+    <text y="160"><tspan x="600">WiFi</tspan><tspan x="730">DT1 hydrometer, every 15 min</tspan></text>
+    <text x="1060" y="88">Interlocks</text>
+    <text x="1060" y="112">Routes, one at a time, 10 L/min</text>
+    <text x="1060" y="136">Brew program, 15 steps</text>
+    <text x="1060" y="160">Alarms and events, simulated time</text>
+    <text y="88"><tspan x="1430">On/off</tspan><tspan x="1585">P1 P2</tspan></text>
+    <text y="112"><tspan x="1430">Open/close</tspan><tspan x="1585">EV2a EV2b EV3–EV7 EV9</tspan></text>
+    <text y="136"><tspan x="1430">0–100 % via SSR</tspan><tspan x="1585">R1–R4</tspan></text>
+    <text y="160"><tspan x="1430">Run/stop</tspan><tspan x="1585">M1</tspan></text>
+  </g>
+</g>
+
+<!-- ============ VESSELS ============ -->
+<g id="HLT">
+  <path d="M130 410H330V665Q230 695 130 665Z" fill="#fff" stroke="#222" stroke-width="3" stroke-linejoin="round"/>
+  <text x="240" y="447" text-anchor="middle" font-size="28" font-weight="bold" fill="#111">HLT</text>
+  <g font-size="20" text-anchor="middle" fill="#222">
+    <text x="240" y="473">Hot liquor tank</text>
+    <text x="240" y="498">40 L</text>
+  </g>
+</g>
+<g id="MASH">
+  <path d="M540 410H760V665Q650 695 540 665Z" fill="#fff" stroke="#222" stroke-width="3" stroke-linejoin="round"/>
+  <text x="615" y="447" text-anchor="middle" font-size="28" font-weight="bold" fill="#111">MASH</text>
+  <g font-size="20" text-anchor="middle" fill="#222">
+    <text x="615" y="473">Mash tun</text>
+    <text x="615" y="498">30 L</text>
+  </g>
+  <g id="false-bottom">
+    <path d="M543 630H757" fill="none" stroke="#222" stroke-width="2.5" stroke-dasharray="7 5"/>
+    <text x="650" y="656" text-anchor="middle" font-size="20" fill="#222">false bottom</text>
+  </g>
+</g>
+<g id="BOIL">
+  <path d="M1000 410H1220V665Q1110 695 1000 665Z" fill="#fff" stroke="#222" stroke-width="3" stroke-linejoin="round"/>
+  <text x="1120" y="447" text-anchor="middle" font-size="28" font-weight="bold" fill="#111">BOIL</text>
+  <g font-size="20" text-anchor="middle" fill="#222">
+    <text x="1120" y="473">Kettle</text>
+    <text x="1120" y="498">40 L</text>
+  </g>
+</g>
+<g id="FERM">
+  <path d="M1510 410H1730V640L1636 735H1604L1510 640Z" fill="#fff" stroke="#222" stroke-width="3" stroke-linejoin="round"/>
+  <text x="1615" y="447" text-anchor="middle" font-size="28" font-weight="bold" fill="#111">FERM</text>
+  <g font-size="20" text-anchor="middle" fill="#222">
+    <text x="1615" y="473">Conical fermenter</text>
+    <text x="1615" y="498">26.5 L</text>
+  </g>
+</g>
+
+<!-- ============ PROCESS LINES (shared, grey) ============ -->
+<g id="process-lines" fill="none" stroke="#333" stroke-width="4">
+  <path d="M230 680V800H376"/>                 <!-- HLT outlet to P1 suction -->
+  <path d="M404 772H430V250H1100"/>            <!-- P1 discharge, T1, high lane to EV2b -->
+  <path d="M430 330H450"/>                     <!-- T1 to EV2a -->
+  <path d="M650 680V800H826"/>                 <!-- MASH outlet, EV3, T2, P2 suction -->
+  <path d="M1110 680V866H760V800"/>            <!-- BOIL outlet, EV4, collector to T2 -->
+  <path d="M854 772H880V330"/>                 <!-- P2 discharge, T3, T4 -->
+  <path d="M860 330H900"/>                     <!-- T4 to EV5 and EV6 -->
+  <path d="M880 750H900"/>                     <!-- T3 to EV7 -->
+</g>
+
+<!-- ============ ROUTES (coloured downstream of each route's own valve) ============ -->
+<g id="route-hlt_to_mash">
+  <path d="M490 330H580V410" fill="none" stroke="#D55E00" stroke-width="5"/>
+  <use xlink:href="#arr" transform="translate(580 399) rotate(90)" fill="#D55E00"/>
+  <circle cx="580" cy="366" r="13" fill="#D55E00"/>
+  <text x="580" y="372.5" text-anchor="middle" font-size="18" font-weight="bold" fill="#fff">1</text>
+</g>
+<g id="route-hlt_to_boil">
+  <path d="M1140 250H1190V410" fill="none" stroke="#E69F00" stroke-width="5"/>
+  <use xlink:href="#arr" transform="translate(1190 399) rotate(90)" fill="#E69F00"/>
+  <circle cx="1190" cy="318" r="13" fill="#E69F00"/>
+  <text x="1190" y="324.5" text-anchor="middle" font-size="18" font-weight="bold" fill="#fff">2</text>
+</g>
+<g id="route-mash_recirc">
+  <path d="M820 330H745V410" fill="none" stroke="#009E73" stroke-width="5"/>
+  <use xlink:href="#arr" transform="translate(745 399) rotate(90)" fill="#009E73"/>
+  <circle cx="783" cy="330" r="13" fill="#009E73"/>
+  <text x="783" y="336.5" text-anchor="middle" font-size="18" font-weight="bold" fill="#fff">3</text>
+</g>
+<g id="route-mash_to_boil">
+  <path d="M940 330H1045V410" fill="none" stroke="#0072B2" stroke-width="5"/>
+  <use xlink:href="#arr" transform="translate(1045 399) rotate(90)" fill="#0072B2"/>
+  <circle cx="1045" cy="366" r="13" fill="#0072B2"/>
+  <text x="1045" y="372.5" text-anchor="middle" font-size="18" font-weight="bold" fill="#fff">4</text>
+</g>
+<g id="route-boil_to_ferm">
+  <!-- hop over the BOIL outlet: the only pipe crossing -->
+  <path d="M940 750H1100A10 10 0 0 1 1120 750H1340" fill="none" stroke="#CC79A7" stroke-width="5"/>
+  <path d="M1370 560V330H1555V410" fill="none" stroke="#CC79A7" stroke-width="5"/>
+  <g fill="#CC79A7">
+    <use xlink:href="#arr" transform="translate(1250 750)"/>
+    <use xlink:href="#arr" transform="translate(1370 520) rotate(-90)"/>
+    <use xlink:href="#arr" transform="translate(1465 330)"/>
+    <use xlink:href="#arr" transform="translate(1555 399) rotate(90)"/>
+  </g>
+  <circle cx="1025" cy="750" r="13" fill="#CC79A7"/>
+  <text x="1025" y="756.5" text-anchor="middle" font-size="18" font-weight="bold" fill="#fff">5</text>
+  <circle cx="1370" cy="445" r="13" fill="#CC79A7"/>
+  <text x="1370" y="451.5" text-anchor="middle" font-size="18" font-weight="bold" fill="#fff">5</text>
+</g>
+
+<!-- ============ GLYCOL ============ -->
+<g id="glycol">
+  <path d="M1830 779V680H1690V615L1684 607L1674 623L1664 607L1654 623L1644 607L1634 623L1624 607L1614 623L1604 607L1594 623L1584 607L1574 623L1564 607L1554 623L1544 607L1536 615H1530V645H1612V835H1738" fill="none" stroke="#56B4E9" stroke-width="2.5" stroke-linejoin="round"/>
+  <g fill="#56B4E9">
+    <use xlink:href="#arrs" transform="translate(1830 766) rotate(-90)"/>
+    <use xlink:href="#arrs" transform="translate(1818 680) rotate(180)"/>
+    <use xlink:href="#arrs" transform="translate(1612 790) rotate(90)"/>
+  </g>
+  <g fill="#222">
+    <text x="1705" y="702" font-size="18">glycol supply</text>
+    <text x="1624" y="825" font-size="18">glycol return</text>
+    <text x="1499" y="622" font-size="20" text-anchor="end">glycol coil</text>
+  </g>
+</g>
+
+<!-- ============ SIGNAL LINES (one bundle per vessel) ============ -->
+<g id="signal-lines" fill="none" stroke="#555" stroke-width="2" stroke-dasharray="8 6">
+  <g id="signal-HLT">
+    <path d="M90 186V335"/>
+    <path d="M90 300H40V629H108"/>
+    <path d="M40 545H55"/>
+  </g>
+  <g id="signal-MASH">
+    <path d="M520 186V385H446V598H518"/>
+    <path d="M446 450H464M446 545H464"/>
+    <path d="M520 295H705V367"/>
+  </g>
+  <g id="signal-BOIL">
+    <path d="M975 186V385H896V629H978"/>
+    <path d="M896 450H912M896 545H912"/>
+  </g>
+  <g id="signal-FERM">
+    <path d="M1800 186V332"/>
+    <path d="M1800 290H1866V632H1815"/>
+    <path d="M1866 442H1743M1866 505H1815M1866 560H1781"/>
+    <path d="M1745 560H1660"/>
+    <path d="M1745 560L1750 551L1757 569L1764 551L1771 569L1778 551L1781 560" stroke-dasharray="none"/>
+  </g>
+</g>
+<g id="signal-labels" font-size="18" fill="#222" text-anchor="middle">
+  <text x="612" y="287">Modbus</text>
+  <text x="1763" y="588">WiFi</text>
+</g>
+
+<!-- ============ HEATERS AND AGITATOR ============ -->
+<g id="R1">
+  <path d="M120 618H155L162 611L172 625L182 611L192 625L202 611L212 625L222 611L232 625L242 611L252 625L262 611L272 625L280 618H290V640H120" fill="none" stroke="#222" stroke-width="2.5" stroke-linejoin="round"/>
+  <rect x="108" y="611" width="12" height="36" fill="#fff" stroke="#222" stroke-width="2"/>
+  <text x="170" y="600" font-size="20" fill="#222">R1 · 3 kW</text>
+</g>
+<g id="R2">
+  <path d="M530 588H562L569 581L579 595L589 581L599 595L609 581L619 595L629 581L639 595L646 588H655V608H530" fill="none" stroke="#222" stroke-width="2.5" stroke-linejoin="round"/>
+  <rect x="518" y="581" width="12" height="34" fill="#fff" stroke="#222" stroke-width="2"/>
+  <text x="575" y="570" font-size="20" fill="#222">R2 · 2 kW</text>
+</g>
+<g id="R3">
+  <path d="M990 618H1025L1032 611L1042 625L1052 611L1062 625L1072 611L1082 625L1092 611L1102 625L1112 611L1122 625L1132 611L1142 625L1150 618H1160V640H990" fill="none" stroke="#222" stroke-width="2.5" stroke-linejoin="round"/>
+  <rect x="978" y="611" width="12" height="36" fill="#fff" stroke="#222" stroke-width="2"/>
+  <text x="1040" y="600" font-size="20" fill="#222">R3 · 3.5 kW</text>
+</g>
+<g id="R4">
+  <rect x="1730" y="412" width="13" height="60" fill="url(#hatch)" stroke="#222" stroke-width="2"/>
+  <text x="1752" y="428" font-size="20" fill="#222">R4 · 100 W</text>
+</g>
+<g id="M1">
+  <path d="M705 397V535" stroke="#222" stroke-width="2.5"/>
+  <ellipse cx="690" cy="535" rx="14" ry="5" fill="#fff" stroke="#222" stroke-width="2"/>
+  <ellipse cx="720" cy="535" rx="14" ry="5" fill="#fff" stroke="#222" stroke-width="2"/>
+  <circle cx="705" cy="382" r="15" fill="#fff" stroke="#222" stroke-width="2.5"/>
+  <text x="705" y="388.5" text-anchor="middle" font-size="18" font-weight="bold" fill="#222">M</text>
+  <g text-anchor="end" fill="#111">
+    <text x="683" y="371" font-size="28" font-weight="bold">M1</text>
+    <text x="683" y="394" font-size="20" fill="#222">agitator</text>
+  </g>
+</g>
+
+<!-- ============ PLATE HEAT EXCHANGER ============ -->
+<g id="plate-heat-exchanger">
+  <path d="M1300 585H1340M1340 700H1300" fill="none" stroke="#333" stroke-width="4"/>
+  <g fill="#333">
+    <use xlink:href="#arr" transform="translate(1318 585)"/>
+    <use xlink:href="#arr" transform="translate(1318 700) rotate(180)"/>
+  </g>
+  <rect x="1340" y="560" width="60" height="205" fill="#fff" stroke="#222" stroke-width="3"/>
+  <path d="M1342 590L1398 630M1342 620L1398 660M1342 650L1398 690M1342 680L1398 720M1342 710L1398 750" stroke="#222" stroke-width="2"/>
+  <g font-size="18" fill="#222" text-anchor="end">
+    <text x="1292" y="591">CW in</text>
+    <text x="1292" y="706">CW out</text>
+  </g>
+  <text x="1370" y="800" text-anchor="middle" font-size="28" font-weight="bold" fill="#111">Plate heat exchanger</text>
+  <text x="1370" y="826" text-anchor="middle" font-size="20" fill="#222">passive · wort out 20 °C</text>
+</g>
+
+<!-- ============ CHILLER ============ -->
+<g id="CHILLER">
+  <rect x="1738" y="779" width="146" height="86" fill="#fff" stroke="#222" stroke-width="3"/>
+  <text x="1811" y="809" text-anchor="middle" font-size="28" font-weight="bold" fill="#111">CHILLER</text>
+  <g font-size="20" text-anchor="middle" fill="#222">
+    <text x="1811" y="834">Glycol chiller</text>
+    <text x="1811" y="856">stand-alone</text>
+  </g>
+</g>
+
+<!-- ============ PUMPS ============ -->
+<g id="P1">
+  <use xlink:href="#pump" x="404" y="800"/>
+  <text x="448" y="822" font-size="28" font-weight="bold" fill="#111">P1</text>
+  <text x="448" y="847" font-size="20" fill="#222">hot water pump</text>
+</g>
+<g id="P2">
+  <use xlink:href="#pump" x="854" y="800"/>
+  <text x="902" y="822" font-size="28" font-weight="bold" fill="#111">P2</text>
+  <text x="902" y="846" font-size="20" fill="#222">wort pump</text>
+</g>
+
+<!-- ============ VALVES ============ -->
+<g id="valves" font-size="18" font-weight="bold" fill="#111">
+  <g id="EV2a"><use xlink:href="#ev" x="470" y="330"/><text x="470" y="362" text-anchor="middle">EV2a</text></g>
+  <g id="EV2b"><use xlink:href="#ev" x="1120" y="250"/><text x="1120" y="282" text-anchor="middle">EV2b</text></g>
+  <g id="EV3"><use xlink:href="#evv" x="650" y="735"/><text x="672" y="741">EV3</text></g>
+  <g id="EV4"><use xlink:href="#evv" x="1110" y="808"/><text x="1132" y="814">EV4</text></g>
+  <g id="EV5"><use xlink:href="#ev" x="840" y="330"/><text x="840" y="362" text-anchor="middle">EV5</text></g>
+  <g id="EV6"><use xlink:href="#ev" x="920" y="330"/><text x="920" y="362" text-anchor="middle">EV6</text></g>
+  <g id="EV7"><use xlink:href="#ev" x="920" y="750"/><text x="920" y="782" text-anchor="middle">EV7</text></g>
+  <g id="EV9"><use xlink:href="#evv" x="1830" y="735"/><text x="1852" y="741">EV9</text></g>
+</g>
+
+<!-- ============ TEES AND FLOW ARROWS ============ -->
+<g id="tees" fill="#222">
+  <circle cx="430" cy="330" r="5"/>
+  <circle cx="760" cy="800" r="5"/>
+  <circle cx="880" cy="750" r="5"/>
+  <circle cx="880" cy="330" r="5"/>
+</g>
+<g id="flow-arrows" fill="#333">
+  <use xlink:href="#arr" transform="translate(300 800)"/>
+  <use xlink:href="#arr" transform="translate(430 560) rotate(-90)"/>
+  <use xlink:href="#arr" transform="translate(760 250)"/>
+  <use xlink:href="#arr" transform="translate(650 698) rotate(90)"/>
+  <use xlink:href="#arr" transform="translate(705 800)"/>
+  <use xlink:href="#arr" transform="translate(795 800)"/>
+  <use xlink:href="#arr" transform="translate(1110 718) rotate(90)"/>
+  <use xlink:href="#arr" transform="translate(1040 866) rotate(180)"/>
+  <use xlink:href="#arr" transform="translate(760 836) rotate(-90)"/>
+  <use xlink:href="#arr" transform="translate(880 560) rotate(-90)"/>
+</g>
+
+<!-- ============ INSTRUMENTS ============ -->
+<g id="instruments" font-size="18" font-weight="bold" fill="#111" text-anchor="middle">
+  <g id="LT1">
+    <path d="M120 365H150V590" fill="none" stroke="#222" stroke-width="2"/>
+    <use xlink:href="#bub" x="90" y="365"/>
+    <text x="90" y="362">LT</text><text x="90" y="381">1</text>
+  </g>
+  <g id="TT1">
+    <path d="M115 545H130" stroke="#222" stroke-width="2"/>
+    <circle cx="130" cy="545" r="4" fill="#222"/>
+    <use xlink:href="#bub" x="85" y="545"/>
+    <text x="85" y="542">TT</text><text x="85" y="561">1</text>
+  </g>
+  <g id="LT2">
+    <path d="M494 420V400H556V555" fill="none" stroke="#222" stroke-width="2"/>
+    <use xlink:href="#bub" x="494" y="450"/>
+    <text x="494" y="447">LT</text><text x="494" y="466">2</text>
+  </g>
+  <g id="TT2">
+    <path d="M524 545H540" stroke="#222" stroke-width="2"/>
+    <circle cx="540" cy="545" r="4" fill="#222"/>
+    <use xlink:href="#bub" x="494" y="545"/>
+    <text x="494" y="542">TT</text><text x="494" y="561">2</text>
+  </g>
+  <g id="LT3">
+    <path d="M942 420V400H1018V590" fill="none" stroke="#222" stroke-width="2"/>
+    <use xlink:href="#bub" x="942" y="450"/>
+    <text x="942" y="447">LT</text><text x="942" y="466">3</text>
+  </g>
+  <g id="TT3">
+    <path d="M972 545H1000" stroke="#222" stroke-width="2"/>
+    <circle cx="1000" cy="545" r="4" fill="#222"/>
+    <use xlink:href="#bub" x="942" y="545"/>
+    <text x="942" y="542">TT</text><text x="942" y="561">3</text>
+  </g>
+  <g id="LT4">
+    <path d="M1770 362H1713V520" fill="none" stroke="#222" stroke-width="2"/>
+    <use xlink:href="#bub" x="1800" y="362"/>
+    <text x="1800" y="359">LT</text><text x="1800" y="378">4</text>
+  </g>
+  <g id="TT5a">
+    <path d="M1755 505H1730" stroke="#222" stroke-width="2"/>
+    <circle cx="1730" cy="505" r="4" fill="#222"/>
+    <use xlink:href="#bub" x="1785" y="505"/>
+    <text x="1785" y="502">TT</text><text x="1785" y="521">5a</text>
+  </g>
+  <g id="TT5b">
+    <path d="M1755 632H1730" stroke="#222" stroke-width="2"/>
+    <circle cx="1730" cy="632" r="4" fill="#222"/>
+    <use xlink:href="#bub" x="1785" y="632"/>
+    <text x="1785" y="629">TT</text><text x="1785" y="648">5b</text>
+  </g>
+  <g id="DT1">
+    <rect x="-7" y="-22" width="14" height="44" rx="7" transform="translate(1560 560) rotate(25)" fill="#fff" stroke="#222" stroke-width="2"/>
+    <path d="M-7 -9H7" transform="translate(1560 560) rotate(25)" stroke="#222" stroke-width="2"/>
+    <use xlink:href="#bub" x="1630" y="560"/>
+    <text x="1630" y="557">DT</text><text x="1630" y="576">1</text>
+  </g>
+</g>
+
+<!-- ============ ROUTE LEGEND ============ -->
+<g id="legend-routes">
+  <g font-size="20" font-weight="bold" fill="#111">
+    <text x="40" y="886">Routes — the only paths the controller opens</text>
+    <text x="40" y="909">A command names a route, never a valve</text>
+  </g>
+  <circle cx="54" cy="931" r="13" fill="#D55E00"/>
+  <circle cx="54" cy="959" r="13" fill="#E69F00"/>
+  <circle cx="54" cy="987" r="13" fill="#009E73"/>
+  <circle cx="54" cy="1015" r="13" fill="#0072B2"/>
+  <circle cx="54" cy="1043" r="13" fill="#CC79A7"/>
+  <g font-size="18" font-weight="bold" fill="#fff" text-anchor="middle">
+    <text x="54" y="937.5">1</text>
+    <text x="54" y="965.5">2</text>
+    <text x="54" y="993.5">3</text>
+    <text x="54" y="1021.5">4</text>
+    <text x="54" y="1049.5">5</text>
+  </g>
+  <g font-size="18" fill="#111" font-family="Consolas, 'Courier New', monospace">
+    <text x="80" y="937.5">hlt_to_mash</text>
+    <text x="80" y="965.5">hlt_to_boil</text>
+    <text x="80" y="993.5">mash_recirc</text>
+    <text x="80" y="1021.5">mash_to_boil</text>
+    <text x="80" y="1049.5">boil_to_ferm</text>
+  </g>
+  <g font-size="18" fill="#222">
+    <text x="238" y="937.5">P1 · EV2a</text>
+    <text x="238" y="965.5">P1 · EV2b</text>
+    <text x="238" y="993.5">P2 · EV3 + EV5</text>
+    <text x="238" y="1021.5">P2 · EV3 + EV6</text>
+    <text x="238" y="1049.5">P2 · EV4 + EV7</text>
+    <text x="392" y="937.5">mash-in and sparge water</text>
+    <text x="392" y="965.5">hot water to the kettle</text>
+    <text x="392" y="993.5">recirculation, runs until stopped</text>
+    <text x="392" y="1021.5">first and second wort</text>
+    <text x="392" y="1049.5">wort through the heat exchanger</text>
+  </g>
+</g>
+
+<!-- ============ SYMBOL LEGEND ============ -->
+<g id="legend-symbols">
+  <g fill="#fff" stroke="#222" stroke-width="2">
+    <circle cx="740" cy="893" r="16"/>
+    <circle cx="740" cy="930" r="16"/>
+    <circle cx="740" cy="967" r="16"/>
+    <circle cx="740" cy="1004" r="15" stroke-width="2.5"/>
+  </g>
+  <path d="M740 1025H762" stroke="#333" stroke-width="3"/>
+  <circle cx="740" cy="1040" r="15" fill="#fff" stroke="#222" stroke-width="2.5"/>
+  <g font-size="18" font-weight="bold" fill="#111" text-anchor="middle">
+    <text x="740" y="899.5">TT</text>
+    <text x="740" y="936.5">LT</text>
+    <text x="740" y="973.5">DT</text>
+    <text x="740" y="1010.5">M</text>
+  </g>
+  <path d="M1132 912H1188" stroke="#333" stroke-width="4"/>
+  <use xlink:href="#ev" x="1160" y="912"/>
+  <path d="M1140 952L1145 945L1152 959L1159 945L1166 959L1173 945L1180 952" fill="none" stroke="#222" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M1140 988H1180" stroke="#333" stroke-width="4"/>
+  <path d="M1140 1016H1180" stroke="#56B4E9" stroke-width="2.5"/>
+  <path d="M1138 1044H1182" stroke="#555" stroke-width="2" stroke-dasharray="8 6"/>
+  <g font-size="18" fill="#222">
+    <text x="770" y="899.5">Temperature, PT100, 4–20 mA</text>
+    <text x="770" y="936.5">Level, TDR probe, 4–20 mA</text>
+    <text x="770" y="973.5">Density, WiFi hydrometer</text>
+    <text x="770" y="1010.5">Agitator, VFD on Modbus</text>
+    <text x="770" y="1046.5">Pump, on/off</text>
+    <text x="1200" y="918.5">Motorized valve, end switches</text>
+    <text x="1200" y="958.5">Heater, SSR 0–100 %</text>
+    <text x="1200" y="994.5">Process line</text>
+    <text x="1200" y="1022.5">Glycol line</text>
+    <text x="1200" y="1050.5">Signal line</text>
+  </g>
+</g>
+
+<!-- ============ TITLE BLOCK ============ -->
+<g id="title-block">
+  <rect x="1500" y="880" width="380" height="162" fill="#fff" stroke="#222" stroke-width="2"/>
+  <path d="M1500 928H1880M1500 996H1880" stroke="#222" stroke-width="1.5"/>
+  <text x="1520" y="914" font-size="26" font-weight="bold" fill="#111">NeuralBrewery</text>
+  <g font-size="18" fill="#222">
+    <text x="1520" y="956">Simulated pilot brewery · 20 L batch</text>
+    <text x="1520" y="982">Simplified P&amp;ID · ISA-5.1 symbols</text>
+    <text x="1520" y="1026">Rev. A · November 2026</text>
+  </g>
+</g>
+</svg>
