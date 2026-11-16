@@ -97,9 +97,11 @@ comando torna quando ogni servizio è pronto. Apri http://localhost:8501: è la 
 birraio.
 
 Se il comando si ferma con `dependency failed to start: container ...-keycloak-1 is unhealthy`,
-Keycloak non ha fatto in tempo. Quando parte, prepara la sua configurazione: su una macchina
-lenta o carica ci mette più dei circa 160 secondi che il compose gli concede. Intanto continua a
-partire. Quando `docker compose ps` lo mostra `healthy`, lancia di nuovo
+Keycloak non ha fatto in tempo. Ogni volta che il compose crea il suo container, la prima volta
+e dopo ogni `docker compose down`, Keycloak prepara la sua configurazione. Il controllo di salute
+di `compose.yaml` gli concede circa 160 secondi, e anche una macchina normale, scarica, può
+metterci di più: in prova ci sono voluti 215 secondi. Intanto Keycloak continua a partire.
+Quando `docker compose ps` lo mostra `healthy`, lancia di nuovo
 `docker compose up --build --wait`.
 
 | Servizio | Dove | Che cos'è |
