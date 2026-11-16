@@ -20,8 +20,8 @@ What it takes:
 | API and migrations | built from `docker/Dockerfile` | the image of the release |
 | Passwords and secrets | development values in the file | from the server's `.env`; compose stops while one is missing |
 | Keycloak | `start-dev`, the realm of `docker/keycloak/realm-dev.json` | `start`, HTTP behind the TLS proxy, no realm imported |
-| Ports | open on every interface | API and Keycloak on `127.0.0.1`, for the proxy; the databases on none |
-| Console of Keycloak | on the public address | reached only through an SSH tunnel: the port is on `127.0.0.1`, and the proxy does not serve `/admin/` |
+| Ports | every one on `127.0.0.1`, for the developer's machine | API and Keycloak on `127.0.0.1`, for the proxy; the databases on none |
+| Console of Keycloak | at http://localhost:8080/admin/, on the developer's machine | reached only through an SSH tunnel: the port is on `127.0.0.1`, and the proxy does not serve `/admin/` |
 | Logs | Docker's default, never rotated | 5 files of 10 MB per container |
 
 ## Before going live
