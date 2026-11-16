@@ -255,7 +255,7 @@ AGENT_PROVIDER=openai_compat uv run pytest -m eval   # Gemini Flash-Lite, free t
 On PowerShell, `$env:AGENT_PROVIDER = 'openai_compat'` before the command.
 
 - **On Claude** it costs about 15 cents for the five, and needs `ANTHROPIC_API_KEY`.
-- **On Gemini** it costs nothing, and needs `OPENAI_COMPAT_API_KEY`, from Google AI Studio. The free tier allows 15 requests a minute and a scenario makes up to 12, so the scenarios start a minute apart: about 4 minutes for the five.
+- **On Gemini** it costs nothing, and needs `OPENAI_COMPAT_API_KEY`, from Google AI Studio. The free tier allows 15 requests a minute and a scenario makes up to 12, so the scenarios start a minute apart: about 7 minutes for the five (6 min 35 s on 16 November).
 - A plain `uv run pytest` leaves the evals out, and CI does not run them.
 - Before the agent is called, each scenario checks that the plant shows its fault: a scenario that went wrong costs nothing.
 - At the end a table gives the verdict, the tokens and the cost of each scenario. A second table compares the last run of each provider, once both have run.

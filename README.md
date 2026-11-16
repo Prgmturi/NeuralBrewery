@@ -222,9 +222,10 @@ FastAPI.
 - **La memoria è un consiglio, non una regola.** Se la causa è "la stessa" lo giudica il
   modello, e il guardrail non ferma un pulsante già rifiutato. Ricorda solo le diagnosi che
   hanno proposto un pulsante.
-- **Il modello non è deterministico.** Sul codice finale gli eval passano tutti e cinque, su
-  Claude e su Gemini. In quattro giri, però, S3 su Claude e S2 su Gemini hanno sbagliato una
-  volta.
+- **Il modello non è deterministico.** Il 15 novembre gli eval passavano tutti e cinque, su
+  Claude e su Gemini, con S3 su Claude e S2 su Gemini sbagliati una volta in quattro giri. Il 16
+  novembre, su Gemini, ne sono passati 3 su 5: in S1 e in S2 l'agente ha indicato il componente
+  sbagliato.
 - **`/mcp` e la diagnosi non chiedono login.** Chi raggiunge l'API legge l'impianto, mette
   proposte in coda e spende diagnosi; approvare no, serve il token. Per questo API e dashboard
   rispondono solo su 127.0.0.1. Postgres e Keycloak invece sono pubblicati su tutte le
@@ -259,7 +260,7 @@ Python 3.13.
 uv sync
 uv run pytest                                        # i test: niente rete, niente database
 uv run pytest -m eval                                # l'agente su Claude, cinque scenari: circa 15 centesimi
-AGENT_PROVIDER=openai_compat uv run pytest -m eval   # lo stesso su Gemini, gratis: circa 4 minuti
+AGENT_PROVIDER=openai_compat uv run pytest -m eval   # lo stesso su Gemini, gratis: circa 7 minuti
 ```
 
 Gli eval leggono la chiave dal `.env`. In PowerShell, prima dell'ultimo comando:
