@@ -96,6 +96,12 @@ La prima volta costruisce due immagini e scarica Postgres e Keycloak: qualche mi
 comando torna quando ogni servizio è pronto. Apri http://localhost:8501: è la dashboard del
 birraio.
 
+Se il comando si ferma con `dependency failed to start: container ...-keycloak-1 is unhealthy`,
+Keycloak non ha fatto in tempo. Quando parte, prepara la sua configurazione: su una macchina
+lenta o carica ci mette più dei circa 160 secondi che il compose gli concede. Intanto continua a
+partire. Quando `docker compose ps` lo mostra `healthy`, lancia di nuovo
+`docker compose up --build --wait`.
+
 | Servizio | Dove | Che cos'è |
 |---|---|---|
 | `dashboard` | http://localhost:8501 | La dashboard del birraio, da cui si fa la demo |
