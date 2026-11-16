@@ -347,6 +347,13 @@ sui manuali e più agenti.
     la base delle due immagini nella stessa PR (codice di dependabot-core, letto il 16
     novembre). Il test che lega le due basi resta. La #9 toccava solo l'API perché è del 12
     novembre, prima della dashboard.
+- **Keycloak ha 5 minuti per il primo avvio** (16 novembre, M8a): `start_period: 300s` nel
+  compose di sviluppo. Su un portatile carico il primo avvio, con il realm da importare e lo
+  schema da creare, è durato 417 s, mentre il controllo di salute si arrendeva dopo circa
+  160 s: `docker compose up --wait` si fermava con "keycloak is unhealthy", e l'API non
+  partiva. In CI lo stack parte in 2 minuti. *Perché*: il valutatore avvia lo stack da zero,
+  su una macchina che non conosciamo. Nella `start_period` i controlli falliti non contano, e
+  il primo che passa rende Keycloak sano: una macchina veloce non aspetta di più.
 - **Il controllo della simulazione è spento se non lo si chiede** (15 novembre):
   `PLANT_SIMULATION_CONTROL` vale false per default, il compose di sviluppo e `.env.example` lo
   accendono, staging e produzione lo rifiutano. *Perché*: chiunque raggiunga quelle rotte
