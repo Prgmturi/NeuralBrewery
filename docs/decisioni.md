@@ -11,7 +11,7 @@ sui manuali e più agenti.
 
 | Requisito | Dove |
 |---|---|
-| Tool calling | Lettura impianto, calcoli, proposta azioni |
+| Tool calling | Lettura di impianto, eventi, storico, sorvegliante e decisioni passate; la diagnosi, con la proposta, si consegna con un tool (`submit_diagnosis`) |
 | Client multi-provider | Lo stesso agente su Claude o su Gemini (via client compatibile OpenAI), scelto da un'impostazione; gli eval li confrontano (M6) |
 | Memory persistente | Le decisioni del birraio sulle proposte passate, che l'agente legge dalla coda (M7) |
 | Architettura giustificata | Agente singolo con privilegio minimo: legge e propone. Comanda solo l'esecutore, dopo il guardrail, la coda e l'approvazione del birraio |
@@ -19,7 +19,7 @@ sui manuali e più agenti.
 | Guardrail | Parametri del tool che propone, prima della coda (M4) |
 | Audit trail | Tracing di ogni passo + tabella di audit append-only (proposte, approvazioni, esecuzioni) |
 | Eval pass/fail | Scenari di guasto con seed fisso (trajectory), su Claude e su Gemini |
-| README, deve girare | docker compose; al tester serve solo una chiave API (M8) |
+| README, deve girare | `README.md`, in italiano: Docker e una chiave API, poi `docker compose up`. Parla solo del progetto e rimanda ai documenti (M8) |
 | RAG (facoltativo) | Dopo il corso: manuali dei componenti, ricerca ibrida + rerank |
 
 ## Scelte fatte
@@ -431,7 +431,7 @@ sui manuali e più agenti.
 | M6 | L'agente propone `reset` quando la causa è risolta; lo stesso agente anche su Gemini | Una proposta dell'agente in coda, approvata ed eseguita dal vivo; eval su tutti e due i fornitori, confrontati |
 | M7 | Memoria persistente: le decisioni del birraio, lette dalla coda | Un eval in cui l'agente usa una decisione passata |
 | M7b | Dashboard del birraio in Streamlit, sopra l'API: impianto, simulazione, diagnosi, coda con proponi, approva e rifiuta | La demo si fa tutta dalla dashboard, senza `curl` né Claude Code; una proposta di Claude Code via MCP compare nella coda della dashboard (il video per la slide) |
-| M8 | README dell'impianto e della demo, scan dell'immagine, prova della demo | La demo gira da zero seguendo il README |
+| M8 | Parte A: immagini e CI, con lo scan. Parte B: README del progetto, e prova della demo da zero seguendolo | La demo gira da zero seguendo il README |
 
 Ordine: dopo M1b viene M5, con l'impianto in-process; dopo M5 viene M4 (deciso il 14 novembre,
 a fine M5). A fine M4 (15 novembre): M6, M7 e M8 prima del discorso, con il 18 novembre tenuto

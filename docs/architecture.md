@@ -742,7 +742,7 @@ What matters is keeping the rules of a feature free of SQL, when it has rules. S
 | Where the SQL is | A repository on `BaseRepository`, next to the router | `persistence/`, behind a port of the domain |
 | What the route handles | The SQLAlchemy model | A plain object, such as `Note` |
 | What a test needs | A stub of the session, or a real Postgres | A fake that keeps data in memory |
-| Example | [Read and write the database](../README.md#read-and-write-the-database), in the README | `features/notes/` |
+| Example | [Repositories](database.md#repositories), in the database guide | `features/notes/` |
 
 `SqlNoteRepository` implements a port with a real library, which is what an adapter does. It stays in the feature for a reason the layers impose: its methods take and return `Note`, a type of the feature, and [an adapter cannot import a feature](#imports-go-down). So it has the role of an adapter, and the folder of the feature.
 
