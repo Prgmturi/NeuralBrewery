@@ -71,6 +71,24 @@ class TestRuntimeStage:
         assert [step for step in self.runtime() if "src" in step] == []
         assert [step for step in steps if "PYTHONPATH" in step] == []
 
+    def test_debian_packages_are_only_upgraded(self):
+        """[SEC] The runtime takes Debian's security fixes, and adds no package.
+
+        WHY: on 16 November 2026 no python:3.13-slim had the zlib1g that
+        fixes CVE-2026-76844 and CVE-2026-85091, two High that failed the
+        scan of every build: the fix was in trixie-security only.
+        --only-upgrade moves a package the base already has and installs
+        nothing new, nothing recommended comes along, and the lists of apt
+        do not stay in the image.
+        """
+        [step] = [step for step in self.runtime() if "apt-get" in step]
+        apt = " ".join(step.split())
+
+        assert apt.startswith("RUN apt-get update && apt-get install ")
+        assert "--only-upgrade" in apt
+        assert "--no-install-recommends" in apt
+        assert apt.endswith("&& rm -rf /var/lib/apt/lists/*")
+
     def test_runs_as_production_by_default(self):
         """[SEC] Without APP_ENVIRONMENT the image runs as production.
 

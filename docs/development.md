@@ -268,7 +268,8 @@ On PowerShell, `$env:AGENT_PROVIDER = 'openai_compat'` before the command.
 |---|---|
 | `ci` | ruff, the format, mypy, the import contracts ([What checks each rule](architecture.md#what-checks-each-rule)), the unit tests with coverage, then the tests again in a production-like environment |
 | Integration tests | The migrations up, checked against the models, down and up again; then the integration tests, on a Postgres of their own |
-| Build container image | The image of `docker/Dockerfile`, a smoke test of the app inside it, the check that the app cannot change its own code, and the Grype scan |
+| Build container image | The image of `docker/Dockerfile`, a smoke test of the app inside it, the check that the app cannot change its own code, and the Grype scan, with what it found in the summary of the run |
+| Build dashboard image | The image of `docker/dashboard.Dockerfile` and its Grype scan, with the same thresholds |
 | Log in through the whole stack | `docker compose up` of the stack, then the end-to-end test |
 | Lint commit messages | Every commit of a pull request, and its title, through commitlint |
 
@@ -291,7 +292,8 @@ Only a change to what runs makes a release: `feat`, `fix`, `perf`, `deps` and `r
 What the project takes from others, and how it is checked:
 
 - **Actions pinned to a commit.** Every GitHub Action is pinned to a commit, with its version in a comment. A tag can be moved to other code: it happened to `aquasecurity/trivy-action` in March 2026.
-- **Dependabot** proposes updates once a week (`.github/dependabot.yml`): the actions, the base image of `docker/Dockerfile`, Postgres and Keycloak in the compose files, and `uv.lock`. What the image runs comes as `fix(deps)`, so it leads to a release; the tools of development come as `build(deps-dev)` or `ci`. New majors of Python, Postgres and Keycloak, and new versions of uv, are upgrades done by hand.
-- **Grype** scans the image in CI ([Grype](https://github.com/anchore/grype)), and fails on a High or Critical vulnerability that has a fix. The report goes to the Security tab of the repository.
+- **Dependabot** proposes updates once a week (`.github/dependabot.yml`): the actions, the base image of the two Dockerfiles, Postgres and Keycloak in the compose files, and `uv.lock`. It reads every file of `docker/` whose name holds "dockerfile", so the base of the API's image and of the dashboard's moves in one pull request. What the image runs comes as `fix(deps)`, so it leads to a release; the tools of development come as `build(deps-dev)` or `ci`. New majors of Python, Postgres and Keycloak, and new versions of uv, are upgrades done by hand.
+- **Grype** scans both images in CI, the API's and the dashboard's ([Grype](https://github.com/anchore/grype)). It fails on a High or Critical vulnerability that has a fix, and ignores none: no `.grype.yaml` in the repository, no `config` or `vex` input. Its log says only that it failed, so what it found goes to the summary of the run. The report goes to the Security tab once the repository is public: a private repository of a personal account has no Code scanning. The image of Keycloak is not scanned.
+- **Debian's security fixes, before the base has them.** On 16 November 2026 no `python:3.13-slim` had the `zlib1g` that fixes two High the scan failed on: the fix was in `trixie-security` only. The runtime stage of both images upgrades that package (`apt-get install --only-upgrade`, which adds none). Drop the step once Dependabot brings a base with the fix.
 - **gitleaks** runs in the pre-commit hook ([gitleaks](https://github.com/gitleaks/gitleaks)) on the staged changes, and stops a commit that holds a secret. When it takes for a secret a value that is not one, end that line with `# gitleaks:allow`, as `KC_DB_URL` does in `compose.yaml`.
 - **On GitHub**, turn on secret scanning and push protection (*Settings*, *Advanced Security*): they check every push.

@@ -8,11 +8,12 @@
 # more packages for its scan to watch. compose.yaml builds this one for the
 # demo; CI does not publish it.
 #
-# The same base image as the API's, by tag and by digest, and the same uv
-# (tests/test_dashboard_image.py).
+# The same base image as the API's, by tag and by digest, the same Debian
+# fixes and the same uv (tests/test_dashboard_image.py). Dependabot moves
+# the base of both in one pull request; CI scans this image too.
 # =============================================================================
 
-FROM python:3.13-slim@sha256:09a17cad02668ae61ece136b4fd36ac3849e14f670ebedb637ea3e15580525bc AS builder
+FROM python:3.13-slim@sha256:e48f59cdba69a3cbd9ed2cf0f348d90d45a8d350d98134cf1070bc106ee9ed90 AS builder
 
 WORKDIR /app
 
@@ -29,7 +30,7 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --locked --only-group dashboard --no-install-project
 
 
-FROM python:3.13-slim@sha256:09a17cad02668ae61ece136b4fd36ac3849e14f670ebedb637ea3e15580525bc AS runtime
+FROM python:3.13-slim@sha256:e48f59cdba69a3cbd9ed2cf0f348d90d45a8d350d98134cf1070bc106ee9ed90 AS runtime
 
 WORKDIR /app
 
@@ -51,6 +52,12 @@ ENV PYTHONUNBUFFERED=1 \
     STREAMLIT_SERVER_HEADLESS=true \
     STREAMLIT_BROWSER_GATHER_USAGE_STATS=false \
     STREAMLIT_SERVER_FILE_WATCHER_TYPE=none
+
+# The same Debian fixes as the API's image: zlib1g from trixie-security,
+# until the base brings it (docker/Dockerfile)
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends --only-upgrade zlib1g \
+    && rm -rf /var/lib/apt/lists/*
 
 # As in the API's image, the user owns nothing: code and packages are root's
 RUN useradd --no-create-home --shell /usr/sbin/nologin appuser

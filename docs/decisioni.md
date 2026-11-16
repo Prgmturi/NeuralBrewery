@@ -325,6 +325,28 @@ sui manuali e più agenti.
   una porta solo su 127.0.0.1 risponde dopo circa 2 s di tentativi, a ogni connessione nuova
   (misurato il 16 novembre): `.env.example` chiama il database a `127.0.0.1`. Keycloak resta
   `localhost`, perché l'API confronta l'issuer dei token con `KEYCLOAK_PUBLIC_URL`.
+- **Immagini e CI** (16 novembre, M8a). "Build container image" era rosso anche su `master`:
+  - **la base**: nessun `python:3.13-slim` pubblicato aveva lo `zlib1g` che corregge
+    CVE-2026-76844 e CVE-2026-85091, due High che fermavano la scansione. Né `09a17ca` né
+    `e48f59c` (5 novembre), né `debian:trixie-slim` (4 novembre): la correzione era solo in
+    `trixie-security`. Le due immagini passano a `e48f59c`, come chiedeva la PR #9 di
+    Dependabot, e il loro stadio runtime aggiorna `zlib1g` da `trixie-security`
+    (`apt-get install --only-upgrade`, che non aggiunge pacchetti). *Perché*: aspettare la base
+    nuova lasciava la CI rossa fino a una data che nessuno conosceva, e la soglia non si
+    abbassa né si ignora una CVE. Limite: lo stesso commit, costruito più avanti, può prendere
+    uno `zlib1g` più nuovo. Il passo si toglie quando Dependabot porta una base corretta;
+  - **il rapporto della scansione** va nella scheda Security solo da repo pubblico: su un repo
+    privato di un account personale Code scanning non c'è, e il caricamento faceva fallire il
+    job anche con la scansione verde. Quello che la scansione trova va nel riepilogo del job,
+    perché il suo log dice solo che è fallita. *Perché*: la CI è giusta da privato e da
+    pubblico; il repo diventa pubblico dopo la pulizia, e allora il rapporto arriva da solo;
+  - **l'immagine della dashboard** si scansiona in un job suo, "Build dashboard image", con
+    le stesse soglie. La CI non la pubblica, ma il compose la esegue, con Streamlit, pyarrow,
+    pandas e tornado, che la scansione dell'API non vede. Quella di Keycloak resta senza;
+  - **Dependabot** legge ogni file di `docker/` il cui nome contiene "dockerfile", e sposta
+    la base delle due immagini nella stessa PR (codice di dependabot-core, letto il 16
+    novembre). Il test che lega le due basi resta. La #9 toccava solo l'API perché è del 12
+    novembre, prima della dashboard.
 - **Il controllo della simulazione è spento se non lo si chiede** (15 novembre):
   `PLANT_SIMULATION_CONTROL` vale false per default, il compose di sviluppo e `.env.example` lo
   accendono, staging e produzione lo rifiutano. *Perché*: chiunque raggiunga quelle rotte
@@ -390,17 +412,10 @@ sui manuali e più agenti.
   - dopo un `reset` approvato l'allarme resta sulla pagina fino al prossimo avanzamento del
     tempo: il controllore lo toglie al suo giro successivo. Nella demo si avanza il tempo
     subito dopo.
-- L'immagine della dashboard la CI la costruisce nello stack di e2e, ma non la scansiona, come
-  non scansiona quella di Keycloak. Ha la stessa immagine base dell'API: le vulnerabilità di
-  `zlib1g` sono anche sue. Da decidere in M8, con la scansione.
 - M2, dopo il corso: tempo a passi e un comando di `SimulationControl` per ripartire da una
   partenza con nome, invece di riavviare il container (preferenze, da confermare).
 - Adattatore verso un controllore vero (per esempio OPC UA): le letture hanno già la sua forma
   (valore, qualità, tempo). Non serve al corso: solo se avanza tempo.
-- CI su GitHub: il controllo "Build container image" è rosso anche su `master`. La scansione
-  trova due vulnerabilità in `zlib1g` dell'immagine base, e il rapporto non si carica da un
-  repo privato. Si sistema in M8, dopo i requisiti obbligatori (15 novembre): il badge della CI
-  in cima al README è rosso.
 
 ## Roadmap
 
