@@ -138,6 +138,10 @@ girano gli eval.
 
 ## La demo dalla dashboard
 
+![La dashboard al passo 4 del giro: il blocco della HLT dopo il guasto di TT1, la diagnosi dell'agente con la proposta reset, e reset in attesa nella coda, con Approva e Rifiuta](docs/images/dashboard.png)
+
+*Il passo 4 del giro: l'agente ha proposto `reset`, e la proposta aspetta il birraio.*
+
 Nella barra a sinistra il birraio:
 - scrive il suo nome, che l'audit registra;
 - propone un pulsante, come `start_program`;
