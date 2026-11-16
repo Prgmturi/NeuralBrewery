@@ -16,6 +16,8 @@ from pathlib import Path
 ROOT = Path(__file__).parent.parent
 WORKFLOWS = sorted((ROOT / ".github" / "workflows").glob("*.yml"))
 DOCKERFILE = ROOT / "docker" / "Dockerfile"
+# The API's image and the dashboard's
+DOCKERFILES = sorted((ROOT / "docker").glob("*Dockerfile"))
 UV_IMAGE = re.compile(r"COPY --from=ghcr\.io/astral-sh/uv:(\S+) ")
 
 
@@ -119,17 +121,22 @@ class TestUvVersion:
         assert version_tuple(image_uv_version()) >= version_tuple(match.group(1))
 
     def test_every_install_checks_the_lock(self):
-        """[EC] uv sync fails, in CI and in the image, on a lock out of date.
+        """[EC] uv sync fails, in CI and in each image, on a lock out of date.
 
         WHY: --frozen installs what the lock says without comparing it with
-        pyproject.toml; --locked stops with an error.
+        pyproject.toml; --locked stops with an error. Until 16 November 2026
+        the test read only the API's Dockerfile, not the dashboard's.
         """
         installs = [
             line.strip()
-            for path in (*WORKFLOWS, DOCKERFILE)
+            for path in (*WORKFLOWS, *DOCKERFILES)
             for line in path.read_text().splitlines()
             if re.search(r"\buv sync\b", line) and not line.lstrip().startswith("#")
         ]
 
-        assert installs
+        assert {path.name for path in DOCKERFILES} == {
+            "Dockerfile",
+            "dashboard.Dockerfile",
+        }
+        assert any("--only-group dashboard" in line for line in installs)
         assert [line for line in installs if "--locked" not in line] == []

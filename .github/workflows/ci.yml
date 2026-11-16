@@ -171,7 +171,7 @@ jobs:
 
     permissions:
       contents: read
-      security-events: write   # the scan's report, in Code scanning
+      security-events: write   # the scan's report, in Code scanning once public
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -217,7 +217,9 @@ jobs:
       # Grype on the image just built, Debian packages and Python ones: it
       # fails on a High or Critical vulnerability that has a fix. On 25
       # October 2026 the image had 55 High without one, in Debian: failing
-      # on those would fail every build with nothing to do about it.
+      # on those would fail every build with nothing to do about it. These
+      # inputs and no others, and no .grype.yaml in the repository: nothing
+      # decides to ignore a CVE (tests/test_supply_chain.py).
       - name: Scan the image
         id: scan
         uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2
@@ -228,13 +230,74 @@ jobs:
           fail-build: true
           output-format: sarif
 
-      # The report in the Security tab of the repository, also when the scan
-      # has failed the build: scan-action sets its sarif output then too.
+      # What failed the scan, in the summary of the run: its log says only
+      # "Failed minimum severity level". Grype marks High and Critical
+      # "error" in the report. Without a scan there is no report.
+      - name: What the scan found
+        if: ${{ !cancelled() && steps.scan.outputs.sarif != '' }}
+        env:
+          SARIF: ${{ steps.scan.outputs.sarif }}
+        run: |
+          {
+            echo "### Grype on neuralbrewery:ci: High and Critical with a fix"
+            jq -r '[.runs[].results[] | select(.level == "error") | "- \(.ruleId): \(.message.text)"] | if length == 0 then "None." else .[] end' "$SARIF"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # The report in the Security tab, also when the scan has failed the
+      # build: scan-action sets its sarif output then too. Only on a public
+      # repository: a private one of a personal account has no Code
+      # scanning, and the upload would fail the job (15 November 2026).
       # Without a scan (a step before it failed) there is no report, and the
       # upload would only add an error of its own.
       - name: Upload the scan report
-        if: ${{ !cancelled() && steps.scan.outputs.sarif != '' }}
+        if: ${{ !cancelled() && steps.scan.outputs.sarif != '' && !github.event.repository.private }}
         uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
         with:
           sarif_file: ${{ steps.scan.outputs.sarif }}
           category: grype
+
+  dashboard-image:
+    name: Build dashboard image
+    runs-on: ubuntu-24.04
+
+    permissions:
+      contents: read
+      security-events: write   # the scan's report, in Code scanning once public
+
+    # The brewer's dashboard has an image of its own (docker/dashboard.Dockerfile).
+    # CI does not publish it, but compose.yaml runs it, with Streamlit,
+    # pyarrow, pandas and tornado: packages the API's scan never sees. The
+    # e2e job starts it and waits for its health check; this job scans it,
+    # as the job above scans the API's, with the same thresholds.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Build image
+        run: docker build -f docker/dashboard.Dockerfile -t neuralbrewery-dashboard:ci .
+
+      - name: Scan the image
+        id: scan
+        uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2
+        with:
+          image: neuralbrewery-dashboard:ci
+          only-fixed: true
+          severity-cutoff: high
+          fail-build: true
+          output-format: sarif
+
+      - name: What the scan found
+        if: ${{ !cancelled() && steps.scan.outputs.sarif != '' }}
+        env:
+          SARIF: ${{ steps.scan.outputs.sarif }}
+        run: |
+          {
+            echo "### Grype on neuralbrewery-dashboard:ci: High and Critical with a fix"
+            jq -r '[.runs[].results[] | select(.level == "error") | "- \(.ruleId): \(.message.text)"] | if length == 0 then "None." else .[] end' "$SARIF"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the scan report
+        if: ${{ !cancelled() && steps.scan.outputs.sarif != '' && !github.event.repository.private }}
+        uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          sarif_file: ${{ steps.scan.outputs.sarif }}
+          category: grype-dashboard

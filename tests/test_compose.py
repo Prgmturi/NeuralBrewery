@@ -137,6 +137,60 @@ class TestStack:
             "db": {"condition": "service_healthy"}
         }
 
+    def test_keycloak_has_time_for_a_slow_first_start(self):
+        """[EC] compose up --wait waits for a Keycloak that starts slowly.
+
+        WHY: on a busy laptop its first start, with the realm imported and
+        its schema created, took 417 s, while its probes gave up after
+        about 160 s: compose up --wait stopped with "keycloak is unhealthy"
+        and the API never started (16 November 2026). In CI the whole stack
+        starts in 2 minutes. Failed probes do not count during start_period,
+        and the first one that passes makes it healthy: a fast machine
+        waits no longer.
+        """
+        health = services()["keycloak"]["healthcheck"]
+
+        assert int(health["start_period"].removesuffix("s")) >= 300
+
+    def test_every_port_answers_on_this_machine_only(self):
+        """[SEC] Nobody on the same network reaches a service of the stack.
+
+        WHY: Postgres (5433) and Keycloak (8080) were published on every
+        interface, with the passwords written in this file: on the Wi-Fi
+        of the room of the speech, anyone could open the queue with psql,
+        or ask Keycloak for an administrator's token with admin/admin
+        (decided on 16 November). The API and the dashboard already were
+        on the loopback. Inside the stack nothing changes: the API calls
+        db:5432 and keycloak:8080, and the browser calls localhost.
+        """
+        published = {
+            name: service["ports"]
+            for name, service in services().items()
+            if "ports" in service
+        }
+
+        assert set(published) == {"api", "dashboard", "db", "keycloak"}
+        assert [
+            f"{name}: {port}"
+            for name, ports in published.items()
+            for port in ports
+            if not port.startswith("127.0.0.1:")
+        ] == []
+
+    def test_the_host_calls_the_database_on_ipv4(self):
+        """[EC] .env.example names 127.0.0.1, where the stack publishes Postgres.
+
+        WHY: on Windows, localhost is ::1 first, and a port published on
+        127.0.0.1 only answers there after about 2 s of retries: 2.1 to
+        2.3 s for each new connection of alembic, of the integration tests
+        and of the app on the host, against 0.002 s on 127.0.0.1 (measured
+        on 16 November 2026). Keycloak stays localhost: the issuer of its
+        tokens is http://localhost, and the API compares the two.
+        """
+        assert env_example("DATABASE_HOST") == "127.0.0.1"
+        assert env_example("TEST_DATABASE_HOST") == "127.0.0.1"
+        assert env_example("KEYCLOAK_HOST") == "localhost"
+
 
 class TestDevRealm:
     """The realm Keycloak imports, and the API settings that match it."""

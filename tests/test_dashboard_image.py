@@ -37,10 +37,15 @@ def base_images(path: Path) -> list[str]:
     return [i.split()[1] for i in instructions(path) if i.startswith("FROM ")]
 
 
-def runtime() -> list[str]:
-    steps = instructions(DASHBOARD)
+def runtime(path: Path = DASHBOARD) -> list[str]:
+    steps = instructions(path)
     start = next(i for i, step in enumerate(steps) if " AS runtime" in step)
     return steps[start:]
+
+
+def apt(path: Path) -> list[str]:
+    """The steps of the runtime stage that run apt-get."""
+    return [step for step in runtime(path) if "apt-get" in step]
 
 
 def environment() -> str:
@@ -67,6 +72,16 @@ class TestBase:
         """[HP] One base image to keep up to date, by tag and by digest."""
         assert len(base_images(DASHBOARD)) == 2
         assert set(base_images(DASHBOARD)) == set(base_images(API))
+
+    def test_the_same_debian_upgrades_as_the_api(self):
+        """[HP] Both runtimes upgrade the same Debian packages.
+
+        WHY: one base, the same vulnerabilities: on 16 November 2026 both
+        images had the two High of zlib1g. A fix in one image only would
+        leave the other one red in its scan (tests/test_dockerfile.py).
+        """
+        assert apt(DASHBOARD)
+        assert apt(DASHBOARD) == apt(API)
 
     def test_the_same_uv_as_the_api(self):
         """[HP] The uv that checks the lock in CI (tests/test_lockfile.py)."""

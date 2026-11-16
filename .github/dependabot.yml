@@ -17,7 +17,10 @@ updates:
     commit-message:
       prefix: ci
 
-  # docker/Dockerfile: the digest of the base image
+  # The digest of the base image, in docker/Dockerfile and
+  # docker/dashboard.Dockerfile. Dependabot reads every file of /docker whose
+  # name holds "dockerfile", and moves the base of both in one pull request
+  # (tests/test_supply_chain.py)
   - package-ecosystem: docker
     directory: /docker
     schedule:
