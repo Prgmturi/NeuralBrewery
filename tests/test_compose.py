@@ -137,6 +137,21 @@ class TestStack:
             "db": {"condition": "service_healthy"}
         }
 
+    def test_keycloak_has_time_for_a_slow_first_start(self):
+        """[EC] compose up --wait waits for a Keycloak that starts slowly.
+
+        WHY: on a busy laptop its first start, with the realm imported and
+        its schema created, took 417 s, while its probes gave up after
+        about 160 s: compose up --wait stopped with "keycloak is unhealthy"
+        and the API never started (16 November 2026). In CI the whole stack
+        starts in 2 minutes. Failed probes do not count during start_period,
+        and the first one that passes makes it healthy: a fast machine
+        waits no longer.
+        """
+        health = services()["keycloak"]["healthcheck"]
+
+        assert int(health["start_period"].removesuffix("s")) >= 300
+
     def test_every_port_answers_on_this_machine_only(self):
         """[SEC] Nobody on the same network reaches a service of the stack.
 

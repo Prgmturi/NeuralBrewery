@@ -177,7 +177,10 @@ services:
       interval: 5s
       timeout: 5s
       retries: 30
-      start_period: 10s
+      # The first start imports the realm and creates the schema: 417 s on
+      # a busy laptop, 2 minutes in CI. Failed probes do not count for these
+      # 5 minutes, and the first that passes makes it healthy at once.
+      start_period: 300s
     depends_on:
       keycloak-db:
         condition: service_healthy
