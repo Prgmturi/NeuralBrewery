@@ -92,30 +92,22 @@ immagini. Poi:
 docker compose up --build --wait
 ```
 
-La prima volta costruisce due immagini e scarica Postgres e Keycloak: qualche minuto. Il
-comando torna quando ogni servizio è pronto. Apri http://localhost:8501: è la dashboard del
-birraio.
-
-Se il comando si ferma con `dependency failed to start: container ...-keycloak-1 is unhealthy`,
-Keycloak non ha fatto in tempo. Ogni volta che il compose crea il suo container, la prima volta
-e dopo ogni `docker compose down`, Keycloak prepara la sua configurazione. Il controllo di salute
-di `compose.yaml` gli concede circa 160 secondi, e anche una macchina normale, scarica, può
-metterci di più: in prova ci sono voluti 215 secondi. Intanto Keycloak continua a partire.
-Quando `docker compose ps` lo mostra `healthy`, lancia di nuovo
-`docker compose up --build --wait`.
+La prima volta costruisce due immagini e scarica Postgres e Keycloak, che poi prepara la sua
+configurazione: qualche minuto. Il comando torna quando ogni servizio è pronto. Apri
+http://localhost:8501: è la dashboard del birraio.
 
 | Servizio | Dove | Che cos'è |
 |---|---|---|
 | `dashboard` | http://localhost:8501 | La dashboard del birraio, da cui si fa la demo |
 | `api` | http://localhost:8000, la documentazione su `/docs` | L'impianto simulato, l'agente, la coda e il server MCP su `/mcp` |
 | `migrate` | | Porta il database all'ultima migrazione, poi esce |
-| `db` | `localhost:5433` | Postgres: la coda delle proposte e l'audit |
+| `db` | `127.0.0.1:5433` | Postgres: la coda delle proposte e l'audit |
 | `keycloak`, `keycloak-db` | http://localhost:8080 | Il login del template da cui il progetto è nato: c'è, ma la demo non lo usa |
 
 È lo stack di sviluppo:
 - il token di approvazione è `brewer-dev-token`, ed è pubblico. La dashboard lo ha già;
 - i comandi della simulazione sono accesi: muovere il tempo, iniettare e togliere guasti;
-- API e dashboard rispondono solo su 127.0.0.1, non sulla rete.
+- ogni porta risponde solo su 127.0.0.1, non sulla rete: password e token sono pubblici.
 
 Con una porta già occupata, cambiala in `.env`: `SERVER_PORT` per l'API, `DATABASE_PORT`,
 `KEYCLOAK_PORT`, e per la dashboard una riga in più, `DASHBOARD_PORT=`. Gli indirizzi sopra
@@ -231,9 +223,8 @@ FastAPI.
   novembre, su Gemini, ne sono passati 3 su 5: in S1 e in S2 l'agente ha indicato il componente
   sbagliato.
 - **`/mcp` e la diagnosi non chiedono login.** Chi raggiunge l'API legge l'impianto, mette
-  proposte in coda e spende diagnosi; approvare no, serve il token. Per questo API e dashboard
-  rispondono solo su 127.0.0.1. Postgres e Keycloak invece sono pubblicati su tutte le
-  interfacce, con le password di sviluppo.
+  proposte in coda e spende diagnosi; approvare no, serve il token. Per questo lo stack di
+  sviluppo risponde solo su 127.0.0.1.
 - **L'impianto vive nel processo dell'API.** Un riavvio lo fa ripartire da zero, e muovere il
   tempo blocca l'API per circa 0,16 s per ora simulata.
 - **La dashboard non conta i token scritti nella cache**: il costo di una diagnosi lo misurano
