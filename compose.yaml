@@ -8,9 +8,12 @@
 #
 # On the host: the API on SERVER_PORT (8000), Keycloak on KEYCLOAK_PORT (8080),
 # Postgres on DATABASE_PORT (5433), the dashboard on DASHBOARD_PORT (8501).
-# The API and the dashboard on 127.0.0.1 only. Compose reads these and DATABASE_NAME,
-# DATABASE_USER, DATABASE_PASSWORD from the .env of this folder when there is
-# one: they are the values an app started on the host uses (.env.example).
+# Every port on 127.0.0.1 only: the passwords and the token of this file are
+# public, and nobody on the same network must reach the stack. On Windows,
+# call the database at 127.0.0.1, not localhost (.env.example). Compose
+# reads these ports and DATABASE_NAME, DATABASE_USER, DATABASE_PASSWORD from
+# the .env of this folder when there is one: they are the values an app
+# started on the host uses (.env.example).
 #
 # Compose derives every container, network and volume name from the project
 # (the folder): two clones never share a database (tests/test_compose.py).
@@ -37,8 +40,10 @@ services:
       POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-appbase_secret_change_me}
     volumes:
       - db_data:/var/lib/postgresql/data
+    # On this machine only: the password of the queue and of its audit is
+    # the development one
     ports:
-      - "${DATABASE_PORT:-5433}:5432"
+      - "127.0.0.1:${DATABASE_PORT:-5433}:5432"
     healthcheck:
       test: ["CMD-SHELL", 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
       interval: 2s
@@ -156,8 +161,10 @@ services:
       KC_HEALTH_ENABLED: "true"
     volumes:
       - ./docker/keycloak/realm-dev.json:/opt/keycloak/data/import/realm-dev.json:ro
+    # On this machine only: the administrator is admin/admin. The browser
+    # calls localhost, the address of KC_HOSTNAME.
     ports:
-      - "${KEYCLOAK_PORT:-8080}:8080"
+      - "127.0.0.1:${KEYCLOAK_PORT:-8080}:8080"
     # No curl in the image: bash talks HTTP to the management port itself.
     # Port 9000 (health, metrics) stays inside the stack.
     healthcheck:

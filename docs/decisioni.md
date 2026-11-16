@@ -313,11 +313,18 @@ sui manuali e più agenti.
   che lega il tipo al passo danno a ogni proposta una sola decisione e un solo esito, anche con
   due approvazioni nello stesso istante. Ogni evento si salva nella sua transazione, prima del
   passo dopo.
-- **In sviluppo l'API risponde solo su 127.0.0.1** (15 novembre, M7b). Prima il compose la
-  pubblicava su tutte le interfacce: chi era sulla stessa rete, per esempio il Wi-Fi della
-  sala del discorso, leggeva l'impianto, muoveva la simulazione, chiedeva diagnosi e, con il
-  token di sviluppo, che è pubblico, approvava. *Perché*: la demo ha bisogno di quelle porte
-  aperte, ma solo sulla macchina di chi la fa. In produzione era già così.
+- **In sviluppo lo stack risponde solo su 127.0.0.1** (15 novembre, M7b, per l'API; 16 novembre,
+  M8a, per Postgres e Keycloak). Prima il compose pubblicava l'API su tutte le interfacce: chi
+  era sulla stessa rete, per esempio il Wi-Fi della sala del discorso, leggeva l'impianto,
+  muoveva la simulazione, chiedeva diagnosi e, con il token di sviluppo, che è pubblico,
+  approvava. Lo stesso valeva per Postgres (5433) e Keycloak (8080), con le password scritte in
+  `compose.yaml`: si apriva la coda con `psql`, o si chiedeva a Keycloak un token da
+  amministratore con `admin`/`admin`. Dentro lo stack non cambia niente, e il browser chiama
+  `localhost` come prima. *Perché*: la demo ha bisogno di quelle porte aperte, ma solo sulla
+  macchina di chi la fa. In produzione era già così. Su Windows `localhost` è prima `::1`, e
+  una porta solo su 127.0.0.1 risponde dopo circa 2 s di tentativi, a ogni connessione nuova
+  (misurato il 16 novembre): `.env.example` chiama il database a `127.0.0.1`. Keycloak resta
+  `localhost`, perché l'API confronta l'issuer dei token con `KEYCLOAK_PUBLIC_URL`.
 - **Il controllo della simulazione è spento se non lo si chiede** (15 novembre):
   `PLANT_SIMULATION_CONTROL` vale false per default, il compose di sviluppo e `.env.example` lo
   accendono, staging e produzione lo rifiutano. *Perché*: chiunque raggiunga quelle rotte
@@ -383,8 +390,6 @@ sui manuali e più agenti.
   - dopo un `reset` approvato l'allarme resta sulla pagina fino al prossimo avanzamento del
     tempo: il controllore lo toglie al suo giro successivo. Nella demo si avanza il tempo
     subito dopo.
-- Postgres (5433) e Keycloak (8080) del compose di sviluppo restano pubblicati su tutte le
-  interfacce, con le password di sviluppo: da M8, se serve.
 - L'immagine della dashboard la CI la costruisce nello stack di e2e, ma non la scansiona, come
   non scansiona quella di Keycloak. Ha la stessa immagine base dell'API: le vulnerabilità di
   `zlib1g` sono anche sue. Da decidere in M8, con la scansione.
