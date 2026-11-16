@@ -111,6 +111,11 @@ docker compose exec db createdb -U appbase appbase_test   # the integration test
 
 The volume takes its name from the folder of the clone: `docker volume ls` lists it.
 
+The `up` after a `down` may stop with `dependency failed to start: container ...-keycloak-1 is unhealthy`, and then the API does not start:
+- `down` removed the container of Keycloak, and a new one prepares its configuration before it starts. On 16 November that took 215 seconds on an idle machine, while the healthcheck of `compose.yaml` allows about 160.
+- Keycloak keeps starting. When `docker compose ps` shows it `healthy`, run `docker compose up --build --wait` again, then the `createdb`.
+- So clean the queue well before the speech, not in the last minutes.
+
 ### The MCP server, for the video
 
 The API serves MCP at `/mcp`, over HTTP. It has four tools that read the plant, and `propose_action`, which only puts a proposal in the queue, as from `mcp`. The live demo uses no MCP client: a short video shows one.
