@@ -133,3 +133,29 @@ def test_a_code_of_the_v20_gives_its_own_meaning(manuals, code, meaning, next_ro
     assert (first.document, first.page) == (V20, 55)
     assert meaning in first.text
     assert next_row not in first.text
+
+
+@pytest.mark.parametrize(
+    ("query", "parameter", "meaning", "other"),
+    [
+        ("actual motor temperature", "r0035", "Actual motor temperature", "r0039"),
+        ("r0039", "r0039", "Energy consumpt. meter", "r0035"),
+    ],
+)
+def test_a_parameter_of_the_v20_gives_its_own_meaning(
+    manuals, query, parameter, meaning, other
+):
+    """[SEC] The same trap on the parameter list (pp. 45-53).
+
+    The plain text put the codes of p.46 apart from their descriptions,
+    r0035 and r0039 first, then what they mean: live, the agent wrote
+    "r0039 = motor temperature", which is r0035. Each parameter is now a
+    row of its own, checked on the PDF.
+    """
+    [first, *_] = manuals.search(query, tag="M1")
+    row = first.text.splitlines()[-1]
+
+    assert (first.document, first.page) == (V20, 46)
+    assert parameter in row
+    assert meaning in row
+    assert other not in row

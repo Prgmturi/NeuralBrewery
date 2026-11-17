@@ -197,7 +197,7 @@ Sempre in `docs/development.md`:
 | Audit trail | Ogni proposta, decisione ed esecuzione in una tabella a cui si aggiunge e basta: un trigger rifiuta UPDATE, DELETE e TRUNCATE. Ogni passo dell'agente nel tracing di datapizza (`ContextTracing`): la dashboard mostra quello dell'ultima diagnosi, e gli eval lo scrivono su file | [la migrazione](alembic/versions/00b0ef650519_create_approval_events_table.py), [plant_agent.py](src/neuralbrewery/features/agents/plant_agent.py) |
 | Eval pass/fail | Sei scenari di guasto con seed fisso; il sesto è F11 con i manuali. Il verdetto è codice, sulla diagnosi e sulla traiettoria: nessun LLM fa da giudice. Girano su Claude e su Gemini, e una tabella li confronta | [tests/evals/](tests/evals/) |
 | README che gira | Questo file: Docker e una chiave API | [Accenderlo](#accenderlo) |
-| RAG (facoltativo) | Leggero: BM25 in Python puro sui manuali dei componenti, con il filtro per sigla. Il testo è estratto una volta e sta nel repo, con le tabelle dei codici sistemate a mano. Un eval del retrieval (hit@1, hit@3) gira con i test. Spento di default: [come si accende](#con-i-manuali-dei-componenti) | [adapters/manuals/](src/neuralbrewery/adapters/manuals/), [test_retrieval.py](tests/adapters/manuals/test_retrieval.py) |
+| RAG (facoltativo) | Leggero: BM25 in Python puro sui manuali dei componenti, con il filtro per sigla. Il testo è estratto una volta e sta nel repo, con le tabelle dei codici e la lista dei parametri del V20 sistemate a mano. Un eval del retrieval (hit@1, hit@3) gira con i test. Spento di default: [come si accende](#con-i-manuali-dei-componenti) | [adapters/manuals/](src/neuralbrewery/adapters/manuals/), [test_retrieval.py](tests/adapters/manuals/test_retrieval.py) |
 | Un server MCP usato da un altro host | `/mcp` nell'API: quattro tool di lettura e `propose_action`, che mette in coda come `mcp`. Claude Code lo usa | [mcp_server.py](src/neuralbrewery/features/agents/mcp_server.py) |
 
 ## Com'è fatto
@@ -234,9 +234,10 @@ FastAPI.
   Claude e su Gemini, con S3 su Claude e S2 su Gemini sbagliati una volta in quattro giri. Il 16
   novembre, su Gemini, ne sono passati 3 su 5: in S1 e in S2 l'agente ha indicato il componente
   sbagliato.
-- **I manuali si leggono come li dà pdftotext**, tranne le tabelle da cui dipendono i guasti,
-  sistemate a mano. Una tabella non sistemata può dare a un codice il significato della riga
-  accanto: nella prova del 17 novembre, un parametro del V20 per un altro, fra le verifiche.
+- **I manuali si leggono come li dà pdftotext**, tranne le tabelle da cui dipendono i guasti e
+  la lista dei parametri del V20, sistemate a mano. Una tabella non sistemata può dare a un
+  codice il significato della riga accanto: nella prova del 17 novembre è successo con un
+  parametro del V20, fra le verifiche; quella lista ora è sistemata.
 - **`/mcp` e la diagnosi non chiedono login.** Chi raggiunge l'API legge l'impianto, mette
   proposte in coda e spende diagnosi; approvare no, serve il token. Per questo lo stack di
   sviluppo risponde solo su 127.0.0.1.

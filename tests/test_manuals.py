@@ -121,7 +121,8 @@ DOWNLOADED = sorted(
 TEXTS = sorted(path.stem for path in TEXT.glob("*.md"))
 # The tables fixed by hand on the PDF: --force would lose them
 FIXED_BY_HAND = {
-    "vfd-siemens-v20-getting-started": 2,  # fault and alarm codes, p. 55-56
+    # The parameter list, one mark a page, p. 45-53; fault and alarm codes, p. 55-56
+    "vfd-siemens-v20-getting-started": 11,
     "transmitter-itemp-tmt80": 1,  # signal on alarm, p. 2
     "level-sick-lfp-cubic-instructions": 2,  # 11.3 and 11.4, p. 54
     "valve-ussolid-motorized": 1,  # troubleshooting, p. 8

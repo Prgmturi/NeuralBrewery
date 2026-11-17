@@ -152,7 +152,11 @@ agenti.
   Limiti. Le tabelle non sistemate restano lette come le dà pdftotext: nella prova dal vivo
   Claude ha preso dalla lista dei parametri del V20 (pagina 46, letta per colonne) r0039 come
   temperatura del motore, che invece è r0035 (r0039 è il contatore dell'energia). Stava fra le
-  verifiche, non nel significato di F11; sistemare anche quella tabella è un lavoro a parte. Una
+  verifiche, non nel significato di F11. Prima di accendere i manuali di default anche quella
+  lista (pagine 45–53, 218 parametri) è stata sistemata a mano, un parametro per riga con le sue
+  opzioni: le righe vengono da `pdftotext -layout`, e ognuna è controllata sulle coordinate delle
+  parole del PDF (`pdftotext -bbox-layout`). Un test cerca r0035 e r0039 e vuole ognuno nella
+  sua riga. Una
   ricerca senza sigla trova sempre qualcosa, se una parola compare: "P1 pump" ha dato una pagina
   del V20. BM25 trova le parole, non i significati. Una ricerca in italiano, o con parole che il
   manuale non usa, non trova niente: la descrizione del tool chiede l'inglese, e la risposta vuota
