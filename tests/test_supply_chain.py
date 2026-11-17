@@ -2,9 +2,8 @@
 
 WHY these tests exist: on 19 March 2026 an attacker moved 76 of the 77
 tags of aquasecurity/trivy-action to code that stole the secrets of the
-workflows using them. Every action here was named by a tag. Dependabot
-sent security updates only, with no dependabot.yml; nothing scanned the
-image a release publishes; nothing stopped a secret before the commit
+workflows using them. Every action here was named by a tag; nothing
+scanned the image; nothing stopped a secret before the commit
 (all checked on 25 October 2026). On 16 November 2026 the image of the
 dashboard was built and never scanned, and the scan of the API's image was
 red on master: a red scan said nothing of what it found, and its report
@@ -19,7 +18,6 @@ import yaml
 ROOT = Path(__file__).parent.parent
 WORKFLOWS = sorted((ROOT / ".github" / "workflows").glob("*.yml"))
 CI_WORKFLOW = ROOT / ".github" / "workflows" / "ci.yml"
-DEPENDABOT = ROOT / ".github" / "dependabot.yml"
 PRE_COMMIT = ROOT / ".pre-commit-config.yaml"
 COMPOSE = ROOT / "compose.yaml"
 # owner/repo[/path]@<commit SHA> # v<version>
@@ -28,8 +26,7 @@ SCAN = "anchore/scan-action@"
 UPLOAD = "github/codeql-action/upload-sarif@"
 # docker build -f <Dockerfile> -t <image> .
 BUILD = re.compile(r"docker build -f (\S+) -t (\S+) \.")
-# The files Dependabot's docker ecosystem reads in its directory
-# (dependabot-core, docker/lib/dependabot/docker/file_fetcher.rb)
+# The names of a Dockerfile
 DOCKERFILE_NAME = re.compile(r"dockerfile|containerfile", re.I)
 # Folders that hold no file of the project, beside the hidden ones
 NOT_THE_PROJECT = {"node_modules", "_reference"}
@@ -42,20 +39,6 @@ def uses() -> list[str]:
         for path in WORKFLOWS
         for match in re.finditer(r"^\s*(?:- )?uses:\s*(.+)$", path.read_text(), re.M)
     ]
-
-
-def updates() -> dict[str, dict]:
-    """The entries of dependabot.yml, by ecosystem."""
-    config = yaml.safe_load(DEPENDABOT.read_text())
-    return {entry["package-ecosystem"]: entry for entry in config["updates"]}
-
-
-def ignored(ecosystem: str) -> dict[str, list[str]]:
-    """Dependency name -> the update types Dependabot must not propose."""
-    return {
-        rule["dependency-name"]: rule.get("update-types", ["all"])
-        for rule in updates()[ecosystem].get("ignore", [])
-    }
 
 
 def ci_jobs() -> dict[str, dict]:
@@ -94,7 +77,7 @@ def report_of(job: str) -> str:
 
 
 def dockerfiles() -> list[Path]:
-    """Every Dockerfile of the project, by the names Dependabot reads.
+    """Every Dockerfile of the project.
 
     Hidden folders (.git, .venv, the caches) and NOT_THE_PROJECT are left
     out; a test module named after a Dockerfile, or its bytecode, is not one.
@@ -124,81 +107,10 @@ class TestActions:
         """[SEC] owner/repo@<commit SHA> # v<version>, never a tag alone.
 
         WHY: a tag can be moved to other code, a commit cannot. The comment
-        keeps the version readable, and Dependabot updates both.
+        keeps the version readable, and an update moves both.
         """
         assert uses()
         assert [use for use in uses() if not PINNED.fullmatch(use)] == []
-
-
-class TestDependabot:
-    def test_every_ecosystem_is_updated_weekly(self):
-        """[HP] Actions, the Dockerfile, the compose files, the Python lock."""
-        directories = {name: entry["directory"] for name, entry in updates().items()}
-
-        assert directories == {
-            "github-actions": "/",
-            "docker": "/docker",
-            "docker-compose": "/",
-            "uv": "/",
-        }
-        assert {entry["schedule"]["interval"] for entry in updates().values()} == {
-            "weekly"
-        }
-
-    def test_what_the_image_runs_makes_a_release(self):
-        """[HP] Runtime updates are fix(deps), the rest is not.
-
-        WHY: release-please releases on fix. A new base image or a runtime
-        library reaches the published image only with a release; a new
-        test tool or action needs none.
-        """
-        prefixes = {name: entry["commit-message"] for name, entry in updates().items()}
-
-        assert prefixes["uv"] == {
-            "prefix": "fix(deps)",
-            "prefix-development": "build(deps-dev)",
-        }
-        assert prefixes["docker"] == {"prefix": "fix(deps)"}
-        assert prefixes["docker-compose"] == {"prefix": "fix(deps)"}
-        assert prefixes["github-actions"] == {"prefix": "ci"}
-
-    def test_no_upgrade_that_needs_more_than_a_review(self):
-        """[EC] Python 3.14, Postgres 18 and Keycloak 27 are upgrades by hand.
-
-        WHY: another Python in the image than in CI; a Postgres major does
-        not start on the data of the previous one; a Keycloak major can
-        need steps of its own. uv moves in three files at once
-        (tests/test_lockfile.py), and our own image moves with releases.
-        """
-        majors = ["version-update:semver-major"]
-
-        assert ignored("docker")["python"] == ["version-update:semver-minor", *majors]
-        assert ignored("docker")["ghcr.io/astral-sh/uv"] == ["all"]
-        assert ignored("docker-compose")["postgres"] == majors
-        assert ignored("docker-compose")["quay.io/keycloak/keycloak"] == majors
-        assert ignored("docker-compose")["ghcr.io/prgmturi/neuralbrewery"] == ["all"]
-
-    def test_every_dockerfile_moves_with_the_base(self):
-        """[HP] Dependabot reads each Dockerfile, and moves them in one PR.
-
-        WHY: the two images start from the same base, and a test ties them
-        (tests/test_dashboard_image.py). Dependabot reads every file of its
-        directory whose name matches DOCKERFILE_NAME, and updates a
-        dependency in every file that names it (dependabot-core,
-        docker/lib/dependabot/docker/file_fetcher.rb and file_parser.rb,
-        read on 16 November 2026); the group puts every update in one PR.
-        A Dockerfile in another folder would keep its old base, and the
-        pull request would fail that test.
-        """
-        docker = updates()["docker"]
-        directory = ROOT / docker["directory"].lstrip("/")
-
-        assert {path.name for path in dockerfiles()} >= {
-            "Dockerfile",
-            "dashboard.Dockerfile",
-        }
-        assert [path for path in dockerfiles() if path.parent != directory] == []
-        assert [group["patterns"] for group in docker["groups"].values()] == [["*"]]
 
 
 class TestImageScan:

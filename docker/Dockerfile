@@ -66,7 +66,8 @@ ENV PYTHONUNBUFFERED=1 \
 # CVE-2026-85091, two High that fail the scan of CI: the fix was in
 # trixie-security only. --only-upgrade moves a package the base already
 # has, to the newest version Debian serves, and installs nothing new. Drop
-# this step once Dependabot brings a base with the fix. The dashboard's
+# this step once a new digest of the base has the fix, moved by hand in
+# both Dockerfiles. The dashboard's
 # image runs the same step (tests/test_dashboard_image.py).
 RUN apt-get update \
     && apt-get install -y --no-install-recommends --only-upgrade zlib1g \

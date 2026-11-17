@@ -9,8 +9,8 @@
 # demo; CI does not publish it.
 #
 # The same base image as the API's, by tag and by digest, the same Debian
-# fixes and the same uv (tests/test_dashboard_image.py). Dependabot moves
-# the base of both in one pull request; CI scans this image too.
+# fixes and the same uv (tests/test_dashboard_image.py): a new base moves
+# in both files at once, by hand. CI scans this image too.
 # =============================================================================
 
 FROM python:3.13-slim@sha256:e48f59cdba69a3cbd9ed2cf0f348d90d45a8d350d98134cf1070bc106ee9ed90 AS builder

@@ -426,7 +426,7 @@ agenti.
     (`apt-get install --only-upgrade`, che non aggiunge pacchetti). *Perché*: aspettare la base
     nuova lasciava la CI rossa fino a una data che nessuno conosceva, e la soglia non si
     abbassa né si ignora una CVE. Limite: lo stesso commit, costruito più avanti, può prendere
-    uno `zlib1g` più nuovo. Il passo si toglie quando Dependabot porta una base corretta;
+    uno `zlib1g` più nuovo. Il passo si toglie quando una base nuova, spostata a mano nei due Dockerfile, ha la correzione;
   - **il rapporto della scansione** va nella scheda Security solo da repo pubblico: su un repo
     privato di un account personale Code scanning non c'è, e il caricamento faceva fallire il
     job anche con la scansione verde. Quello che la scansione trova va nel riepilogo del job,
@@ -434,11 +434,7 @@ agenti.
     pubblico; il repo diventa pubblico dopo la pulizia, e allora il rapporto arriva da solo;
   - **l'immagine della dashboard** si scansiona in un job suo, "Build dashboard image", con
     le stesse soglie. La CI non la pubblica, ma il compose la esegue, con Streamlit, pyarrow,
-    pandas e tornado, che la scansione dell'API non vede. Quella di Keycloak resta senza;
-  - **Dependabot** legge ogni file di `docker/` il cui nome contiene "dockerfile", e sposta
-    la base delle due immagini nella stessa PR (codice di dependabot-core, letto il 16
-    novembre). Il test che lega le due basi resta. La #9 toccava solo l'API perché è del 12
-    novembre, prima della dashboard.
+    pandas e tornado, che la scansione dell'API non vede. Quella di Keycloak resta senza.
 - **Keycloak ha 5 minuti per il primo avvio** (16 novembre, M8a): `start_period: 300s` nel
   compose di sviluppo. Su un portatile carico il primo avvio, con il realm da importare e lo
   schema da creare, è durato 417 s, mentre il controllo di salute si arrendeva dopo circa
