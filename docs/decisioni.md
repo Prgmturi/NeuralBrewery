@@ -404,8 +404,9 @@ agenti.
   Alembic, structlog, SQLAlchemy, uv, import-linter e la CI: le note e il login sono usciti in M10.
 - **Nome**: il progetto si chiama NeuralBrewery. Repo `NeuralBrewery`; package Python, immagine
   Docker e nomi tecnici `neuralbrewery`, una sola forma minuscola
-  senza trattini né underscore, come richiedono package e immagini. La versione è 0.1.0, e non
-  ci sono rilasci né changelog (tolti in M10): il progetto si prova dal repo, con il compose.
+  senza trattini né underscore, come richiedono package e immagini. La versione è 0.1.1, l'ultimo
+  rilascio, del 17 novembre; da M10 non ci sono più rilasci né changelog: il progetto si prova
+  dal repo, con il compose.
 
 ## Come si innesta nel template
 
