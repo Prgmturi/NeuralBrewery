@@ -11,8 +11,11 @@ that has a manual saying something about it, written as the agent would
 write it (in English, with the tag of the component). The pages that
 answer were checked by hand on the PDF; a fact stated on two pages counts
 on either. Left out, and why:
-- pump_blocked (P1, P2), glycol_failed (CHILLER), fermentation_stuck
-  (FERM): their manuals did not download (pump, chiller, fermenter);
+- glycol_failed (CHILLER): its manual says nothing useful, and is not in
+  the repository;
+- fermentation_stuck (FERM): the manual of the Fermenator G4 is about
+  assembly, cleaning and pressure, and has no word on a fermentation
+  that stops;
 - ssr_shorted and heater_open (R1-R4): the datasheet of the Crydom D2425
   has ratings and wiring, and no word on a relay that fails closed or on
   an open heater;
@@ -38,6 +41,7 @@ TM411 = "pt100-itherm-tm411"
 SICK = "level-sick-lfp-cubic-instructions"
 ISPINDEL = "hydrometer-ispindel"
 VALVE = "valve-ussolid-motorized"
+PUMP = "pump-blichmann-riptide"
 
 # fault, question, tag, the pages that answer
 GOLDEN = [
@@ -73,12 +77,8 @@ GOLDEN = [
         "DT1",
         {(ISPINDEL, 1)},
     ),
-    (
-        "valve_stuck",
-        "valve stuck does not open or close",
-        "EV5",
-        {(VALVE, 7), (VALVE, 8)},
-    ),
+    ("valve_stuck", "valve operating time open close seconds", "EV5", {(VALVE, 1)}),
+    ("pump_blocked", "pump no flow prime run dry", "P1", {(PUMP, 4)}),
 ]
 
 HIT_AT_1 = 0.8  # at least, over the golden set
@@ -159,3 +159,16 @@ def test_a_parameter_of_the_v20_gives_its_own_meaning(
     assert parameter in row
     assert meaning in row
     assert other not in row
+
+
+def test_the_valve_gives_its_operating_time(manuals):
+    """[EC] Our document of the valve is one page: the page alone proves nothing.
+
+    The row that answers is the operating time, 3 - 5 seconds: a valve
+    that has not reached its limit switch after that is stuck.
+    """
+    [first, *_] = manuals.search("valve operating time open close seconds", tag="EV5")
+    row = first.text.splitlines()[-1]
+
+    assert first.document == VALVE
+    assert "3 - 5 seconds" in row

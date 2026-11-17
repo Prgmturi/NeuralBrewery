@@ -13,7 +13,7 @@ Un file per documento, data/manuals/text/<id>.md:
   -layout le colonne di una tabella si sfasano: sul V20 F11 diventava
   "DC ripple too high", che è F20.
 
-Un Markdown (l'iSpindel) si copia così com'è, tutto come pagina 1.
+Un Markdown (l'iSpindel, la valvola) si copia così com'è, tutto come pagina 1.
 
 Senza --force un file che esiste non si tocca: dentro ci sono le tabelle
 sistemate a mano (docs/development.md). L'app legge solo questi .md.

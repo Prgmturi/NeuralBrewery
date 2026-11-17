@@ -123,7 +123,7 @@ uv run pytest                 # unit test
 uv run pytest --cov           # come la CI
 uv run pytest -m integration  # serve Postgres, vedi docs/development.md
 uv run pytest -m e2e          # serve lo stack: docker compose up --build --wait
-python scripts/download_manuals.py   # scarica in data/manuals/ i manuali che mancano
+python scripts/extract_manuals.py    # il testo di un manuale nuovo in data/manuals/ (serve poppler)
 ```
 
 ## Come lavorare

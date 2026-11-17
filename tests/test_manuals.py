@@ -1,14 +1,13 @@
-"""Tests for the list of manuals, the script that downloads them, and their text.
+"""Tests for the list of manuals, their documents and their text.
 
-Under test: manuals/manifest.toml, scripts/download_manuals.py,
-scripts/extract_manuals.py and data/manuals/text/
+Under test: manuals/manifest.toml, data/manuals/, scripts/extract_manuals.py
+and data/manuals/text/
 
-WHY these tests exist: the script reads some fields of every entry with no
-default, so an entry that misses one fails only when someone runs the
-download. No check does: it needs the network. The text is what the app
-reads: the image holds no manifest and no PDF, so its header is where the
-product and the tags come from at run time, and must say what the manifest
-says.
+WHY these tests exist: the manifest says what each document is and where it
+comes from (rule 8 of AGENTS.md), and each of its entries must have its
+document in the repository. The text is what the app reads: the image holds
+no manifest and no PDF, so its header is where the product and the tags come
+from at run time, and must say what the manifest says.
 """
 
 import importlib.util
@@ -21,7 +20,6 @@ import pytest
 
 ROOT = Path(__file__).parent.parent
 MANIFEST = ROOT / "manuals" / "manifest.toml"
-SCRIPT = ROOT / "scripts" / "download_manuals.py"
 EXTRACT = ROOT / "scripts" / "extract_manuals.py"
 MANUALS = ROOT / "data" / "manuals"
 TEXT = MANUALS / "text"
@@ -29,8 +27,8 @@ TEXT = MANUALS / "text"
 DOCS = tomllib.loads(MANIFEST.read_text(encoding="utf-8"))["doc"]
 BY_ID = [pytest.param(doc, id=str(doc.get("id"))) for doc in DOCS]
 
-# What download_manuals.py reads from every entry, with no default
-REQUIRED = {"id", "component", "product", "tags", "doc_type", "source", "auto"}
+# What every entry says: the header of the text takes four of them
+REQUIRED = {"id", "component", "product", "tags", "doc_type", "source"}
 # Where a copy comes from, as the head of the manifest explains
 SOURCES = {"ufficiale", "distributore", "terzi"}
 
@@ -45,19 +43,14 @@ def load(path: Path) -> ModuleType:
     return module
 
 
-@pytest.fixture(scope="module")
-def script() -> ModuleType:
-    return load(SCRIPT)
-
-
 class TestManifest:
     def test_lists_some_documents(self):
         """[HP] The manifest is a list of [[doc]] entries."""
         assert DOCS
 
     @pytest.mark.parametrize("doc", BY_ID)
-    def test_every_entry_has_what_the_script_reads(self, doc):
-        """[EC] No field the script reads without a default is missing."""
+    def test_every_entry_says_what_it_is(self, doc):
+        """[EC] No field is missing: the header of the text reads four of them."""
         assert REQUIRED - doc.keys() == set()
 
     def test_ids_are_unique(self):
@@ -68,12 +61,8 @@ class TestManifest:
 
     @pytest.mark.parametrize("doc", BY_ID)
     def test_every_entry_says_where_to_find_it(self, doc):
-        """[EC] A url for the script, or a page for whoever downloads by hand.
-
-        WHY: with auto = true the script reads url, and with auto = false it
-        prints page; neither has a default.
-        """
-        where = doc["url"] if doc["auto"] else doc["page"]
+        """[EC] Rule 8: a url to the file, or a page to take it from by hand."""
+        where = doc.get("url") or doc.get("page") or ""
 
         assert where.startswith("https://")
 
@@ -85,37 +74,12 @@ class TestManifest:
 
     @pytest.mark.parametrize("doc", BY_ID)
     def test_every_source_is_a_known_one(self, doc):
-        """[EC] A misspelt source would pass into the index as it is."""
+        """[EC] A misspelt source says nothing of where the copy comes from."""
         assert doc["source"] in SOURCES
 
 
-class TestScript:
-    def test_reads_this_manifest_and_writes_under_data(self, script):
-        """[HP] The script finds the manifest from its own place in the repo."""
-        assert MANIFEST.resolve() == script.MANIFEST
-        assert (ROOT / "data" / "manuals").resolve() == script.OUT
-
-    @pytest.mark.parametrize(
-        ("data", "kind"),
-        [
-            pytest.param(b"%PDF-1.7\n%\xe2\xe3\xcf\xd3\n", "pdf", id="pdf"),
-            pytest.param("# iSpindel\nDensità".encode(), "md", id="text"),
-            pytest.param(b"<!DOCTYPE html><html></html>", None, id="html page"),
-            pytest.param(b"\n  <HTML lang='en'>", None, id="html after spaces"),
-            pytest.param(b"\xff\xfe\x00\x01", None, id="not text"),
-        ],
-    )
-    def test_detect_kind_looks_at_the_content(self, script, data, kind):
-        """[EC] A PDF, a text, or nothing: never the page of an error.
-
-        WHY: many sites answer a missing document with an HTML page and
-        status 200, which would be saved under the name of the manual.
-        """
-        assert script.detect_kind(data) == kind
-
-
-# The documents in data/manuals/, by id: what the download left there
-DOWNLOADED = sorted(
+# The documents in data/manuals/, by id
+DOCUMENTS = sorted(
     path.stem for path in MANUALS.iterdir() if path.suffix in {".pdf", ".md"}
 )
 TEXTS = sorted(path.stem for path in TEXT.glob("*.md"))
@@ -125,15 +89,16 @@ FIXED_BY_HAND = {
     "vfd-siemens-v20-getting-started": 11,
     "transmitter-itemp-tmt80": 1,  # signal on alarm, p. 2
     "level-sick-lfp-cubic-instructions": 2,  # 11.3 and 11.4, p. 54
-    "valve-ussolid-motorized": 1,  # troubleshooting, p. 8
+    "pump-blichmann-riptide": 1,  # parts list, p. 3
+    "fermenter-blichmann-g4": 1,  # maximum fermentables capacity, p. 8
 }
 
 
 class TestText:
     def test_every_document_has_its_text_and_no_more(self):
-        """[HP] One text per document downloaded, named by its id."""
-        assert TEXTS == DOWNLOADED
-        assert set(TEXTS) <= {doc["id"] for doc in DOCS}
+        """[HP] Each entry of the manifest has its document, and one text, by id."""
+        assert TEXTS == DOCUMENTS
+        assert set(DOCUMENTS) == {doc["id"] for doc in DOCS}
 
     @pytest.mark.parametrize("doc_id", TEXTS)
     def test_the_header_says_what_the_manifest_says(self, doc_id):
