@@ -137,8 +137,8 @@ agenti.
     (V20, pagina 55). S3 passa 2 volte su 4: le due volte sbagliate propone di spegnere
     l'agitatore, l'errore già visto in M7. Con i manuali spenti, stesso codice e stesso giorno,
     S3 passa 3 volte su 4, con lo stesso errore; le ricerche dei giri sbagliati danno gli stessi
-    passaggi di quelli giusti. Non è quindi ciò che l'agente legge nei manuali. Spesa: circa
-    0,35 $ per 17 diagnosi;
+    passaggi di quelli giusti. Non è quindi ciò che l'agente legge nei manuali. Spesa: 0,35 $
+    per le 15 diagnosi degli eval, più una dal vivo (stima: 2–3 centesimi);
   - **Gemini**: S1–S6 passano tutti; S6 cita il V20, pagina 55, e lo cita anche S3. In S2
     l'agente cerca nei manuali la pompa e le valvole, su cui non dicono niente del caso: da 9 a
     11 chiamate delle 12 ammesse, contro 7–8 prima. Una risposta vuota diceva "prova con altre
