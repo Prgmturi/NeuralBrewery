@@ -85,6 +85,9 @@ services:
       AGENT_PROVIDER: ${AGENT_PROVIDER:-claude}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       OPENAI_COMPAT_API_KEY: ${OPENAI_COMPAT_API_KEY:-}
+      # The search over the manuals of the components: off unless the shell
+      # or .env says MANUALS_ENABLED=true. The image holds their text.
+      MANUALS_ENABLED: ${MANUALS_ENABLED:-false}
     # On this machine only: the simulation is open, /mcp and the agent ask
     # for no login, and the approval token is public
     ports:

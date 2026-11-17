@@ -4,7 +4,10 @@ S1-S3 come from M5. S4 (M6) passes only if the agent proposes reset: the
 cause is clear and gone, and only the block of the controller is left. S5
 (M7) is S4 with a memory: the brewer already rejected that reset, and
 said why. It passes only if the agent read its past decisions and does not
-propose to re-arm.
+propose to re-arm. S6 (M9) is S3 with the manuals: it passes only if the
+agent searched them and says what F11 means. Whether it cites manual and
+page is reported, not graded: a grader that strict would fail answers
+that are right (lesson 14).
 
 Each scenario starts from a named start with a fixed seed, injects one
 fault, and lets the simulated time run until the plant shows it. Before the
@@ -15,10 +18,15 @@ is an object in memory, no database: empty, but for S5.
 The verdict is pass or fail, by code, on the diagnosis the agent handed in:
 the component, a fault of measure or of process, and a proposal among the
 buttons the scenario allows. No LLM is the judge. The trajectory is graded
-too: the agent read the plant before it answered, answered once, and read
-its past decisions when the scenario has some.
+too: the agent read the plant before it answered, answered once, read its
+past decisions when the scenario has some, and searched the manuals when
+the scenario is about them.
+
+With MANUALS_ENABLED exported, every scenario runs with the manuals, as
+the app would: S1-S5 must not get worse. S6 has them in any case.
 """
 
+import re
 from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass
 
@@ -50,6 +58,7 @@ HOUR = 3600
 
 # The tool that reads the past decisions, and those that read the plant
 MEMORY_TOOL = "read_decisions"
+MANUALS_TOOL = "search_manuals"
 PLANT_TOOLS = {"read_plant", "read_events", "read_history", "run_watcher"}
 
 
@@ -71,6 +80,7 @@ class Scenario:
     prepare: Callable[[], Awaitable[InProcessPlant]]  # and check what it shows
     grade: Callable[[Diagnosis], list[str]]  # the failures; empty: passed
     decisions: tuple[PastDecision, ...] = ()  # the memory, newest first
+    manuals: bool = False  # True: the manuals on, whatever MANUALS_ENABLED says
 
 
 async def run_until(
@@ -275,6 +285,36 @@ def grade_rejected_reset(diagnosis: Diagnosis) -> list[str]:
     return failures
 
 
+# --- S6: the plant of S3, with the manuals ------------------------------------
+
+# What F11 means, in the words the agent may use: a wide net on purpose
+MEANING = re.compile(
+    r"surriscald|sovratemperatura|temperatura del motore|overtemperature", re.I
+)
+# Manual and page: V20 (or SINAMICS, or "manuale") and page 55
+CITATION = re.compile(
+    r"(V20|SINAMICS|manuale).{0,80}(pagina|pag\.|p\.)\s*55", re.I | re.S
+)
+
+
+def said(diagnosis: Diagnosis) -> str:
+    return " ".join([diagnosis.explanation, *diagnosis.checks])
+
+
+def grade_drive_fault_with_manuals(diagnosis: Diagnosis) -> list[str]:
+    failures = grade_drive_fault(diagnosis)
+    if not MEANING.search(said(diagnosis)):
+        failures.append("spiegazione e verifiche non dicono che F11 è il motore caldo")
+    return failures
+
+
+def citation(diagnosis: Diagnosis | None) -> str:
+    """Reported in the table, not graded: is manual and page in the answer?"""
+    if diagnosis is None:
+        return "-"
+    return "sì" if CITATION.search(said(diagnosis)) else "no"
+
+
 SCENARIOS = [
     Scenario("S1", "sonda starata", offset_probe, grade_offset_probe),
     Scenario("S2", "pompa bloccata", pump_blocked, grade_pump_blocked),
@@ -289,13 +329,21 @@ SCENARIOS = [
         grade_rejected_reset,
         decisions=(REJECTED_RESET,),
     ),
+    Scenario(
+        "S6",
+        "F11 con i manuali",
+        drive_fault,
+        grade_drive_fault_with_manuals,
+        manuals=True,
+    ),
 ]
 
 
 def grade(scenario: Scenario, run: DiagnosisRun) -> list[str]:
     """Every scenario: a diagnosis, after reading the plant, handed in once.
 
-    With a memory, the agent must have read it too.
+    With a memory, the agent must have read it too; with the manuals, it
+    must have searched them.
     """
     if run.outcome is not Outcome.DIAGNOSED or run.diagnosis is None:
         return [f"esito {run.outcome}: {run.detail[:300]}"]
@@ -310,4 +358,6 @@ def grade(scenario: Scenario, run: DiagnosisRun) -> list[str]:
         failures.append("diagnosi consegnata senza leggere l'impianto")
     if scenario.decisions and MEMORY_TOOL not in tools:
         failures.append("decisioni passate del birraio non lette")
+    if scenario.manuals and MANUALS_TOOL not in tools:
+        failures.append("manuali non cercati")
     return failures + scenario.grade(run.diagnosis)

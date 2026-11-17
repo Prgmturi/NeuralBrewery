@@ -258,6 +258,17 @@ class TestPlantInTheApi:
 
         assert api["ANTHROPIC_API_KEY"] == "${ANTHROPIC_API_KEY:-}"
 
+    def test_the_manuals_stay_off_unless_asked(self):
+        """[HP] Off by default; MANUALS_ENABLED=true from .env or the shell.
+
+        WHY: the demo runs as before until the brewer decides, after the
+        evals (M9). The image holds the text either way.
+        """
+        api = services()["api"]["environment"]
+
+        assert api["MANUALS_ENABLED"] == "${MANUALS_ENABLED:-false}"
+        assert env_example("MANUALS_ENABLED") == "false"
+
     def test_production_closes_the_simulation(self):
         """[SEC] On a server nobody moves the time of the plant or breaks it."""
         assert prod_env("api")["PLANT_SIMULATION_CONTROL"] == "false"

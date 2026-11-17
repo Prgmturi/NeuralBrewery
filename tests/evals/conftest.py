@@ -7,7 +7,8 @@ has no key. ``uv run pytest -m eval`` runs only them, by hand.
 The provider is AGENT_PROVIDER, as for the app: claude by default, or
 openai_compat (Gemini on its free tier). Provider and keys come exported or
 from .env, although the autouse fixture of tests/conftest.py switches both
-off for every other test.
+off for every other test. So does MANUALS_ENABLED: exported for the
+command, every scenario runs with the manuals, as the app would.
 
 The cost is measured on the answers of the API, through a hook of the HTTP
 client: datapizza keeps the tokens read from Claude's prompt cache but not
@@ -37,6 +38,7 @@ from neuralbrewery.adapters.claude import client as claude_adapter
 from neuralbrewery.adapters.openai_compat import client as compat_adapter
 from neuralbrewery.core.config.agent import AgentSettings
 from neuralbrewery.core.config.claude import ClaudeSettings
+from neuralbrewery.core.config.manuals import ManualsSettings
 from neuralbrewery.core.config.openai_compat import OpenAICompatSettings
 from neuralbrewery.features.agents.diagnosis import DiagnosisRun
 
@@ -54,6 +56,8 @@ EXPORTED = {
         "OPENAI_COMPAT_API_KEY",
         "OPENAI_COMPAT_BASE_URL",
         "OPENAI_COMPAT_MODEL",
+        "MANUALS_ENABLED",
+        "MANUALS_FOLDER",
     )
     if os.environ.get(name)
 }
@@ -148,6 +152,13 @@ def provider(monkeypatch: pytest.MonkeyPatch) -> str:
 
 
 @pytest.fixture
+def manuals_settings(monkeypatch: pytest.MonkeyPatch) -> ManualsSettings:
+    """MANUALS_ENABLED and MANUALS_FOLDER, exported or from .env."""
+    settings: ManualsSettings = settings_from_env(ManualsSettings, monkeypatch)
+    return settings
+
+
+@pytest.fixture
 def meter(provider: str) -> Meter:
     return Meter(provider)
 
@@ -204,13 +215,23 @@ RESULTS: list[dict[str, Any]] = []
 def record(provider: str, meter: Meter) -> Any:
     """Keep the result of a scenario for the tables and for .evals/<provider>/."""
 
-    def keep(name: str, title: str, run: DiagnosisRun, failures: list[str]) -> None:
+    def keep(
+        name: str,
+        title: str,
+        run: DiagnosisRun,
+        failures: list[str],
+        *,
+        manuals: bool = False,
+        remarks: tuple[str, ...] = (),
+    ) -> None:
         result = {
             "scenario": name,
             "title": title,
             "provider": provider,
+            "manuals": manuals,
             "passed": not failures,
             "failures": failures,
+            "remarks": list(remarks),
             "run": run.model_dump(mode="json"),
             "usage": {
                 "calls": meter.calls,
@@ -241,7 +262,11 @@ def pytest_terminal_summary(terminalreporter: Any) -> None:
     if not RESULTS:
         return
     write = terminalreporter.write_line
-    terminalreporter.section(f"eval: plant agent on {RESULTS[0]['provider']}")
+    with_manuals = sorted({r["scenario"] for r in RESULTS if r["manuals"]})
+    terminalreporter.section(
+        f"eval: plant agent on {RESULTS[0]['provider']}, manuals on: "
+        + (", ".join(with_manuals) or "none")
+    )
     write(
         f"{'scenario':<28}{'verdict':<9}{'calls':>6}{'in':>8}{'out':>8}"
         f"{'cache w':>9}{'cache r':>9}{'cost $':>9}"
@@ -257,6 +282,8 @@ def pytest_terminal_summary(terminalreporter: Any) -> None:
         )
         for failure in result["failures"]:
             write(f"    - {failure}")
+        for remark in result["remarks"]:
+            write(f"    · {remark}")
     total = sum(result["usage"]["cost_usd"] for result in RESULTS)
     passed = sum(result["passed"] for result in RESULTS)
     write(

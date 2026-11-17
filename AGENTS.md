@@ -36,10 +36,13 @@ src/neuralbrewery/
   core/approvals/            ProposalInbox: la casella in cui agenti e MCP propongono
   core/config/plant.py       impostazioni: partenza, seme, controllo della simulazione
   core/config/approvals.py   APPROVAL_TOKEN, il token di chi approva
+  core/manuals/              ManualSearch e ManualPassage: la ricerca nei manuali, solo testo
+  core/config/manuals.py     MANUALS_ENABLED (spento di default) e la cartella del testo
   adapters/plant_sim/        l'impianto simulato: processo, dispositivi, controllore
                              (interlock, programma, allarmi), guasti, adattatore
                              in-process (test ed eval)
   adapters/plant_rest/       client httpx verso il servizio plant-sim
+  adapters/manuals/          BM25 in Python puro sul testo di data/manuals/text/
   plant_service.py           entry point del servizio plant-sim (FastAPI, un solo worker)
   bootstrap.py               costruisce l'impianto e dà a ognuno la sua porta
   adapters/claude/           il modello degli agenti: client datapizza per Claude

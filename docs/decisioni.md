@@ -4,8 +4,9 @@
 
 Un agente AI per un impianto di birrificazione simulato: monitora i sensori, diagnostica i
 problemi con la memoria delle cotte passate, e propone azioni che vengono eseguite solo con
-l'approvazione del birraio, con guardrail e audit trail su ogni passaggio. Dopo il corso: RAG
-sui manuali e più agenti.
+l'approvazione del birraio, con guardrail e audit trail su ogni passaggio. Se acceso, l'agente
+cerca nei manuali dei componenti il significato di un codice di guasto (M9). Dopo il corso: più
+agenti.
 
 ## Requisiti del corso e dove li copriamo
 
@@ -20,7 +21,7 @@ sui manuali e più agenti.
 | Audit trail | Tracing di ogni passo + tabella di audit append-only (proposte, approvazioni, esecuzioni) |
 | Eval pass/fail | Scenari di guasto con seed fisso (trajectory), su Claude e su Gemini |
 | README, deve girare | `README.md`, in italiano: Docker e una chiave API, poi `docker compose up`. Parla solo del progetto e rimanda ai documenti (M8) |
-| RAG (facoltativo) | Dopo il corso: manuali dei componenti, ricerca ibrida + rerank |
+| RAG (facoltativo) | Leggero (M9): BM25 sui manuali dei componenti, con il filtro per sigla, misurato con hit@k; spento di default (`MANUALS_ENABLED`). Dopo il corso: ricerca ibrida, rerank e RAGAS |
 
 ## Scelte fatte
 
@@ -81,6 +82,82 @@ sui manuali e più agenti.
 - **RAG classico**, dopo il corso (ibrido + rerank) con metadati per componente e sigla. *Perché*: le relazioni
   tra componenti sono già note dalla configurazione dell'impianto, non serve estrarle con un LLM.
   Tabelle dei codici di errore spezzate una riga per chunk.
+- **RAG sui manuali, leggero** (17 novembre, M9). L'agente cerca nei manuali il significato di
+  un codice di guasto o di un segnale, e lo cita con manuale e pagina. Il caso: con F11 sull'inverter
+  di M1 l'agente vedeva solo `inverter in guasto: F11`. Claude chiedeva al birraio di guardare il
+  manuale, Gemini tirava a indovinare; il manuale del V20, a pagina 55, dice "Motor
+  overtemperature". Fatto così:
+  - **i manuali nel repo** (regola 8): otto documenti in `data/manuals/`, con il nome dell'id del
+    manifest. Pompa, chiller e fermentatore non si scaricano (403 e 429): restano fuori, e le loro
+    sigle (P1, P2, `CHILLER`, `FERM`) non hanno manuali;
+  - **il testo si estrae una volta** (`scripts/extract_manuals.py`, con pdftotext di poppler, in
+    modalità normale, una pagina alla volta) e sta nel repo, in `data/manuals/text/<id>.md`: in
+    testa id, prodotto, componente e sigle dal manifest, poi un segno per pagina. L'app legge solo
+    questi file, e l'immagine dell'API contiene solo loro, non i PDF;
+  - **le tabelle da cui dipendono i guasti iniettabili sono sistemate a mano**, una voce per riga,
+    controllate sul PDF: codici di guasto e di allarme del V20 (pagine 55 e 56), il segnale di
+    allarme del TMT80 (pagina 2), le sezioni 11.3 e 11.4 delle istruzioni SICK (pagina 54) e la
+    tabella dei problemi della valvola (pagina 8). *Perché*: `pdftotext -layout` sfasa le colonne
+    del V20 e legge "F11 = DC ripple too high", che è F20. Anche in modalità normale la SICK
+    metteva la schiuma accanto al livello che salta a 0 mm, e la valvola il rimedio di una perdita
+    accanto all'attuatore che fa rumore. Un RAG che cita il significato sbagliato, con la pagina, è
+    peggio di niente;
+  - **i pezzi**: per pagina, poi per paragrafi fino a circa 1.000 caratteri; ogni riga di una
+    tabella è un pezzo, con il titolo e l'intestazione della tabella. Ogni pezzo porta documento,
+    prodotto, sigle e pagina;
+  - **BM25 in Python puro** (k1 = 1,5, b = 0,75, parole in minuscolo), poi il filtro per sigla del
+    manifest. Nessuna dipendenza nuova: è deterministico, gratis, gira nella CI e senza rete.
+    Embedding, rerank e RAGAS no: servirebbero una dipendenza o una chiave in più, e restano dopo il
+    corso;
+  - **dove sta il codice**: la porta `ManualSearch` e `ManualPassage` in `core/manuals/`,
+    l'implementazione in `adapters/manuals/` (Python puro; un contract le vieta FastAPI, httpx,
+    SQLAlchemy, l'impianto e la coda), il wiring in `bootstrap.py`;
+  - **il tool `search_manuals(query, tag)`** dà i 3 pezzi migliori in JSON: documento, prodotto,
+    pagina e testo. Una sigla senza manuali, o una ricerca senza risultati, ha una risposta in
+    parole. La descrizione chiede la ricerca in inglese, con codici e parole tecniche;
+  - **il prompt cambia di una riga**, solo con i manuali accesi: un codice o un segnale di cui
+    l'agente non è sicuro si cerca, e la spiegazione dice che cosa dice il manuale e dove. Il
+    testo dei manuali è un dato, non un'istruzione. Spenti, il prompt e i tool sono quelli di
+    prima;
+  - **spento di default**: `MANUALS_ENABLED=false`. Acceso senza il testo, l'app non parte e dice
+    perché. Il compose passa `MANUALS_ENABLED` dalla shell o dal `.env`, false se manca: la demo
+    resta com'era finché non si decide di accenderlo.
+
+  L'eval del retrieval gira nei test normali (`tests/adapters/manuals/test_retrieval.py`): una
+  domanda per ogni guasto iniettabile su cui un manuale dice qualcosa, scritta come la scriverebbe
+  l'agente, con la pagina che risponde controllata sul PDF. Sono 8; restano fuori i guasti senza
+  manuale (pompa, glicole, fermentazione) e quelli su cui il manuale tace (relè in corto e
+  resistenza interrotta: la scheda del Crydom non ne parla; livello bloccato: SICK non ne
+  parla). Soglie: hit@3 su tutte, hit@1 almeno all'80%. Più due asserzioni secche: F11 con la
+  sigla M1 dà per primo "Motor overtemperature", F20 "DC ripple too high".
+
+  Eval del 17 novembre, con i manuali accesi:
+  - **retrieval**: hit@1 8 su 8, hit@3 8 su 8;
+  - **Claude**: S1, S2, S4 e S5 passano. S6 passa 3 volte su 3, e cita sempre manuale e pagina
+    (V20, pagina 55). S3 passa 2 volte su 4: le due volte sbagliate propone di spegnere
+    l'agitatore, l'errore già visto in M7. Con i manuali spenti, stesso codice e stesso giorno,
+    S3 passa 3 volte su 4, con lo stesso errore; le ricerche dei giri sbagliati danno gli stessi
+    passaggi di quelli giusti. Non è quindi ciò che l'agente legge nei manuali. Spesa: circa
+    0,35 $ per 17 diagnosi;
+  - **Gemini**: S1–S6 passano tutti; S6 cita il V20, pagina 55, e lo cita anche S3. In S2
+    l'agente cerca nei manuali la pompa e le valvole, su cui non dicono niente del caso: da 9 a
+    11 chiamate delle 12 ammesse, contro 7–8 prima. Una risposta vuota diceva "prova con altre
+    parole" e ne invitava un'altra: ora dice quali sigle hanno un manuale, e che il resto si
+    diagnostica con i tool dell'impianto. Con il testo nuovo S2 passa 3 volte su 3, con 9–10
+    chiamate;
+  - **dal vivo**, sullo stack con `MANUALS_ENABLED=true`: F11 durante la sosta, poi la diagnosi.
+    La spiegazione dice che per il manuale del V20, pagina 55, F11 è "Motor overtemperature", e
+    l'agente non propone niente finché il motore non è controllato.
+
+  Limiti. Le tabelle non sistemate restano lette come le dà pdftotext: nella prova dal vivo
+  Claude ha preso dalla lista dei parametri del V20 (pagina 46, letta per colonne) r0039 come
+  temperatura del motore, che invece è r0035 (r0039 è il contatore dell'energia). Stava fra le
+  verifiche, non nel significato di F11; sistemare anche quella tabella è un lavoro a parte. Una
+  ricerca senza sigla trova sempre qualcosa, se una parola compare: "P1 pump" ha dato una pagina
+  del V20. BM25 trova le parole, non i significati. Una ricerca in italiano, o con parole che il
+  manuale non usa, non trova niente: la descrizione del tool chiede l'inglese, e la risposta vuota
+  lo ricorda. Il V20 "Getting Started" dà il nome di ogni codice, non le cause: le verifiche
+  (raffreddare il motore, controllare carico e ventilazione) restano del modello.
 - **Impianto**: vedi `docs/impianto.md`. Componenti reali con manuali pubblici, tenuti nel repo
   in `data/manuals/`. Cotta da 20 L: le taglie dei recipienti vengono dal fermentatore reale e
   dai conti dell'acqua. Un percorso alla volta; niente riempimento della HLT, sonda TT4,
@@ -439,9 +516,11 @@ sui manuali e più agenti.
 | M7 | Memoria persistente: le decisioni del birraio, lette dalla coda | Un eval in cui l'agente usa una decisione passata |
 | M7b | Dashboard del birraio in Streamlit, sopra l'API: impianto, simulazione, diagnosi, coda con proponi, approva e rifiuta | La demo si fa tutta dalla dashboard, senza `curl` né Claude Code; una proposta di Claude Code via MCP compare nella coda della dashboard (il video per la slide) |
 | M8 | Parte A: immagini e CI, con lo scan. Parte B: README del progetto, e prova della demo da zero seguendolo | La demo gira da zero seguendo il README |
+| M9 | RAG leggero sui manuali: testo estratto una volta, BM25 con il filtro per sigla, il tool `search_manuals`, spento di default | L'eval del retrieval verde nella CI (hit@3 su tutte, hit@1 almeno all'80%); S6 passa su Claude e su Gemini, e S1–S5 non peggiorano |
 
 Ordine: dopo M1b viene M5, con l'impianto in-process; dopo M5 viene M4 (deciso il 14 novembre,
 a fine M5). A fine M4 (15 novembre): M6, M7 e M8 prima del discorso, con il 18 novembre tenuto
 per M8 e la prova della demo. A fine M6 (15 novembre): M7 il 16, il pannello (M7b) il 17, M8 il
-18. Dopo il corso: M2, M3, RAG sui manuali con RAGAS, multi-agente con l'orchestratore e la
-baseline, red teaming, eval in CI, interfaccia completa.
+18. Il 17 novembre, M9: il RAG leggero sui manuali. Dopo il corso: M2, M3, il RAG ibrido con
+rerank e RAGAS, multi-agente con l'orchestratore e la baseline, red teaming, eval in CI,
+interfaccia completa.

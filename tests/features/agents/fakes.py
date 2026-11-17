@@ -15,6 +15,7 @@ from datapizza.tools import Tool
 from datapizza.type import FunctionCallBlock, TextBlock
 
 from neuralbrewery.core.approvals.schemas import Actor, PastDecision, Receipt
+from neuralbrewery.core.manuals.schemas import ManualPassage
 
 Reply = Callable[[dict[str, Tool]], ClientResponse]
 
@@ -168,3 +169,28 @@ class FakeDecisions:
         if self._raises is not None:
             raise self._raises
         return self._decisions[:limit]
+
+
+F11 = ManualPassage(
+    document="vfd-siemens-v20-getting-started",
+    product="Siemens SINAMICS V20",
+    tags=("M1",),
+    page=55,
+    text="Fault code list\n| Fault | Description |\n| F11 | Motor overtemperature |",
+)
+
+
+class FakeManuals:
+    """The ManualSearch port: the passages given, whatever is asked."""
+
+    def __init__(self, *passages: ManualPassage, tags: tuple[str, ...] = ("M1",)):
+        self.asked: list[tuple[str, str]] = []  # query and tag of each search
+        self._passages = list(passages)
+        self._tags = frozenset(tags)
+
+    def tags(self) -> frozenset[str]:
+        return self._tags
+
+    def search(self, query: str, tag: str = "", limit: int = 3) -> list[ManualPassage]:
+        self.asked.append((query, tag))
+        return self._passages[:limit]

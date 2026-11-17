@@ -23,6 +23,7 @@ from neuralbrewery.core.config.auth_cookie import AuthCookieSettings
 from neuralbrewery.core.config.claude import ClaudeSettings
 from neuralbrewery.core.config.database import DatabaseSettings
 from neuralbrewery.core.config.keycloak import KeycloakSettings
+from neuralbrewery.core.config.manuals import ManualsSettings
 from neuralbrewery.core.config.openai_compat import OpenAICompatSettings
 from neuralbrewery.core.config.plant import PlantSettings
 from neuralbrewery.core.config.server import ServerSettings
@@ -234,6 +235,54 @@ class TestPlantSettings:
         """[EC] A start with no name in starts.py stops the startup."""
         with pytest.raises(pydantic.ValidationError, match="start"):
             PlantSettings(start="mid_boil")
+
+
+class TestManualsSettings:
+    """ManualsSettings: the search over the manuals, for the plant agent (M9).
+
+    WHY: off, the app must start as before, with no folder of manuals. On,
+    an agent that finds nothing would answer as if the manuals said
+    nothing: better that the app does not start, and says why.
+    """
+
+    def test_off_by_default_on_the_text_of_the_repository(self):
+        """[HP] Off, and the folder that scripts/extract_manuals.py writes."""
+        settings = ManualsSettings()
+
+        assert settings.enabled is False
+        assert settings.folder == Path("data/manuals/text")
+
+    def test_read_from_the_environment(self, monkeypatch, tmp_path):
+        """[HP] MANUALS_* variables."""
+        (tmp_path / "v20.md").write_text("---", encoding="utf-8")
+        monkeypatch.setenv("MANUALS_ENABLED", "true")
+        monkeypatch.setenv("MANUALS_FOLDER", str(tmp_path))
+
+        settings = ManualsSettings()
+
+        assert (settings.enabled, settings.folder) == (True, tmp_path)
+
+    def test_on_the_text_of_the_repository_is_there(self):
+        """[HP] The default folder, from the root of the repository."""
+        assert ManualsSettings(enabled=True).enabled is True
+
+    @pytest.mark.parametrize("folder", ["nowhere", "empty"])
+    def test_on_without_the_text_the_app_does_not_start(self, tmp_path, folder):
+        """[EC] A folder missing or with no .md: an error that says what to do."""
+        (tmp_path / "empty").mkdir()
+        (tmp_path / "empty" / "notes.txt").write_text("", encoding="utf-8")
+
+        with pytest.raises(pydantic.ValidationError) as error:
+            ManualsSettings(enabled=True, folder=tmp_path / folder)
+
+        message = str(error.value)
+        assert "MANUALS_ENABLED is true" in message
+        assert "scripts/extract_manuals.py" in message
+        assert "MANUALS_ENABLED off" in message
+
+    def test_off_no_folder_is_needed(self, tmp_path):
+        """[HP] Off, the folder is not even looked at."""
+        assert ManualsSettings(folder=tmp_path / "nowhere").enabled is False
 
 
 class TestApprovalSettings:

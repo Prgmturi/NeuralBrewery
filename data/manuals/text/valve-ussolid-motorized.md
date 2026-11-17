@@ -187,62 +187,16 @@ damage the materials or seals.
 8. TROUBLESHOOTING
 If you encounter issues with your motorized ball valve, refer to the table below for common problems and solutions.
 
-Problem
+<!-- table fixed by hand, checked on the PDF: do not regenerate with --force -->
 
-Possible Cause
+8. Troubleshooting
 
-Solution
-
-Valve does not
-
-No power, incorrect wiring, power
-
-Check power supply. Verify wiring connections against the
-
-open/close
-
-supply outside 9-24V AC/DC
-
-diagram. Ensure voltage is within range. If issues persist, contact
-
-automatically.
-
-range, motor fault.
-
-support.
-
-Valve is stuck or
-
-Debris in the valve, low power,
-
-Use the manual override to check for mechanical issues. Flush the
-
-operates slowly.
-
-mechanical obstruction.
-
-system if debris is suspected. Verify power supply.
-
-Leakage from
-connections.
-
-Improperly tightened connections,
-damaged threads, insufficient
-thread sealant.
-
-Actuator makes
-noise but valve
-
-Disconnect power, drain system. Re-tighten connections with
-proper thread sealant. Inspect threads for damage.
-
-Attempt manual override. If the valve moves manually, the motor
-Motor gear issue, valve seized.
-
-doesn't move.
-
-may be faulty. If it doesn't move manually, the valve itself may be
-seized. Contact support.
+| Problem | Possible Cause | Solution |
+|---|---|---|
+| Valve does not open/close automatically. | No power, incorrect wiring, power supply outside 9-24V AC/DC range, motor fault. | Check power supply. Verify wiring connections against the diagram. Ensure voltage is within range. If issues persist, contact support. |
+| Valve is stuck or operates slowly. | Debris in the valve, low power, mechanical obstruction. | Use the manual override to check for mechanical issues. Flush the system if debris is suspected. Verify power supply. |
+| Leakage from connections. | Improperly tightened connections, damaged threads, insufficient thread sealant. | Disconnect power, drain system. Re-tighten connections with proper thread sealant. Inspect threads for damage. |
+| Actuator makes noise but valve doesn't move. | Motor gear issue, valve seized. | Attempt manual override. If the valve moves manually, the motor may be faulty. If it doesn't move manually, the valve itself may be seized. Contact support. |
 
 Note: A user review mentioned that the provided wiring schematic might be generic and not specific to the manual function model.
 If you encounter wiring difficulties, search for the specific wiring diagram for the USS-MSV102F6C model with 3-wire positive

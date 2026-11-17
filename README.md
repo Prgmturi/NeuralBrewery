@@ -47,6 +47,9 @@ controllore: i suoi interlock possono ancora dire di no
   rifiutato per la stessa causa. Le decisioni stanno in Postgres, e restano dopo un riavvio.
 - **Due fornitori.** Lo stesso agente gira su Claude, il default e quello della demo, o su
   Gemini Flash-Lite, scelto da un'impostazione. Gli eval li confrontano.
+- **I manuali dei componenti, se accesi.** L'agente cerca nei manuali il significato di un
+  codice di guasto, per esempio F11 sull'inverter dell'agitatore, e cita manuale e pagina.
+  Spenti di default: [come si accendono](#con-i-manuali-dei-componenti).
 - **Un server MCP.** Un altro host, come Claude Code, legge lo stesso impianto e propone nella
   stessa coda. Non approva e non comanda.
 
@@ -128,6 +131,14 @@ In `.env` scrivi `AGENT_PROVIDER=openai_compat`, e la chiave di Google AI Studio
 `gemini-3.5-flash-lite`, sul piano gratuito. La demo dal vivo è provata su Claude; su Gemini
 girano gli eval.
 
+### Con i manuali dei componenti
+
+In `.env` scrivi `MANUALS_ENABLED=true`, poi di nuovo `docker compose up --build --wait`.
+L'agente riceve un tool in più, `search_manuals`, e una riga in più nel prompt: un codice o un
+segnale di cui non è sicuro lo cerca nei manuali, e la spiegazione dice che cosa dice il
+manuale e dove. Il testo dei manuali è già nell'immagine. La ricerca gira nell'API, senza rete
+e senza chiavi in più. Con `false`, il default, l'agente è quello di prima.
+
 ## La demo dalla dashboard
 
 ![La dashboard al passo 4 del giro: il blocco della HLT dopo il guasto di TT1, la diagnosi dell'agente con la proposta reset, e reset in attesa nella coda, con Approva e Rifiuta](docs/images/dashboard.png)
@@ -177,16 +188,16 @@ Sempre in `docs/development.md`:
 
 | Requisito | Come | Dove |
 |---|---|---|
-| Tool calling | L'agente legge con `read_plant`, `read_events`, `read_history`, `run_watcher` e `read_decisions`, e consegna la diagnosi con `submit_diagnosis`, i cui argomenti controlla pydantic | [tools.py](src/neuralbrewery/features/agents/tools.py) |
+| Tool calling | L'agente legge con `read_plant`, `read_events`, `read_history`, `run_watcher` e `read_decisions`, cerca nei manuali con `search_manuals` se sono accesi, e consegna la diagnosi con `submit_diagnosis`, i cui argomenti controlla pydantic | [tools.py](src/neuralbrewery/features/agents/tools.py) |
 | Client multi-provider | Lo stesso agente su Claude (`claude-sonnet-5-5`) o su Gemini (`gemini-3.5-flash-lite`, con un client compatibile OpenAI), scelto da `AGENT_PROVIDER` | [adapters/claude/](src/neuralbrewery/adapters/claude/), [adapters/openai_compat/](src/neuralbrewery/adapters/openai_compat/) |
 | Memoria persistente | Le decisioni del birraio sulle ultime 10 proposte dell'agente, lette dalla coda in Postgres con `read_decisions`. Restano dopo un riavvio | [la porta `DecisionReader`](src/neuralbrewery/core/approvals/protocols.py), [chi la implementa](src/neuralbrewery/features/approvals/api/decisions.py) |
 | Architettura giustificata | Un agente solo, con privilegio minimo: legge e propone. Comanda solo l'esecutore, dopo guardrail, coda e approvazione. Il multi-agente viene dopo il corso | [docs/decisioni.md](docs/decisioni.md#scelte-fatte), la voce "Agenti" |
 | Flusso fisso (DagPipeline) | Non serve: la diagnosi su richiesta è un agente con i tool. Dopo il corso, la diagnosi su allarme diventa un flusso fisso | [docs/decisioni.md](docs/decisioni.md#scelte-fatte) |
 | Guardrail | Ogni proposta, dell'agente, del birraio o di un client MCP, passa da un controllo in codice prima della coda: un pulsante del pannello, i suoi argomenti e nessun altro, setpoint e litri nei limiti. Fuori dai limiti è bloccata, e il blocco resta nell'audit. Il primo livello sono gli interlock del controllore | [guardrail.py](src/neuralbrewery/features/approvals/domain/guardrail.py) |
 | Audit trail | Ogni proposta, decisione ed esecuzione in una tabella a cui si aggiunge e basta: un trigger rifiuta UPDATE, DELETE e TRUNCATE. Ogni passo dell'agente nel tracing di datapizza (`ContextTracing`): la dashboard mostra quello dell'ultima diagnosi, e gli eval lo scrivono su file | [la migrazione](alembic/versions/00b0ef650519_create_approval_events_table.py), [plant_agent.py](src/neuralbrewery/features/agents/plant_agent.py) |
-| Eval pass/fail | Cinque scenari di guasto con seed fisso. Il verdetto è codice, sulla diagnosi e sulla traiettoria: nessun LLM fa da giudice. Girano su Claude e su Gemini, e una tabella li confronta | [tests/evals/](tests/evals/) |
+| Eval pass/fail | Sei scenari di guasto con seed fisso; il sesto è F11 con i manuali. Il verdetto è codice, sulla diagnosi e sulla traiettoria: nessun LLM fa da giudice. Girano su Claude e su Gemini, e una tabella li confronta | [tests/evals/](tests/evals/) |
 | README che gira | Questo file: Docker e una chiave API | [Accenderlo](#accenderlo) |
-| RAG (facoltativo) | Dopo il corso | [Dopo il corso](#dopo-il-corso) |
+| RAG (facoltativo) | Leggero: BM25 in Python puro sui manuali dei componenti, con il filtro per sigla. Il testo è estratto una volta e sta nel repo, con le tabelle dei codici sistemate a mano. Un eval del retrieval (hit@1, hit@3) gira con i test. Spento di default: [come si accende](#con-i-manuali-dei-componenti) | [adapters/manuals/](src/neuralbrewery/adapters/manuals/), [test_retrieval.py](tests/adapters/manuals/test_retrieval.py) |
 | Un server MCP usato da un altro host | `/mcp` nell'API: quattro tool di lettura e `propose_action`, che mette in coda come `mcp`. Claude Code lo usa | [mcp_server.py](src/neuralbrewery/features/agents/mcp_server.py) |
 
 ## Com'è fatto
@@ -201,6 +212,7 @@ Il codice sta in `src/neuralbrewery/`:
 | [features/approvals/](src/neuralbrewery/features/approvals/) | Guardrail, coda, audit ed esecutore |
 | [features/plant/](src/neuralbrewery/features/plant/) | La lettura dell'impianto e, solo in sviluppo, i comandi della simulazione |
 | [adapters/claude/](src/neuralbrewery/adapters/claude/), [adapters/openai_compat/](src/neuralbrewery/adapters/openai_compat/) | I client dei due fornitori |
+| [adapters/manuals/](src/neuralbrewery/adapters/manuals/), [core/manuals/](src/neuralbrewery/core/manuals/) | La ricerca nei manuali dei componenti, e la sua porta. Il testo sta in [data/manuals/text/](data/manuals/text/) |
 | [dashboard/](src/neuralbrewery/dashboard/) | La dashboard: un client HTTP dell'API, che non importa niente dell'app |
 | [bootstrap.py](src/neuralbrewery/bootstrap.py) | Costruisce tutto, e dà a ognuno solo la porta che gli serve |
 
@@ -222,6 +234,9 @@ FastAPI.
   Claude e su Gemini, con S3 su Claude e S2 su Gemini sbagliati una volta in quattro giri. Il 16
   novembre, su Gemini, ne sono passati 3 su 5: in S1 e in S2 l'agente ha indicato il componente
   sbagliato.
+- **I manuali si leggono come li dà pdftotext**, tranne le tabelle da cui dipendono i guasti,
+  sistemate a mano. Una tabella non sistemata può dare a un codice il significato della riga
+  accanto: nella prova del 17 novembre, un parametro del V20 per un altro, fra le verifiche.
 - **`/mcp` e la diagnosi non chiedono login.** Chi raggiunge l'API legge l'impianto, mette
   proposte in coda e spende diagnosi; approvare no, serve il token. Per questo lo stack di
   sviluppo risponde solo su 127.0.0.1.
@@ -236,7 +251,7 @@ Gli altri: [docs/decisioni.md](docs/decisioni.md#ancora-aperte).
 
 ## Dopo il corso
 
-- RAG sui manuali dei componenti, tutti pubblici ed elencati in
+- un RAG più ricco sui manuali dei componenti, tutti pubblici ed elencati in
   [manuals/manifest.toml](manuals/manifest.toml): ricerca ibrida e rerank, valutata con RAGAS;
 - più agenti: un orchestratore che parla con il birraio, l'agente impianto, l'unico che propone
   azioni, e un analista per dati e calcoli. Chi legge testo non fidato non deve poter proporre;
@@ -253,9 +268,10 @@ Python 3.13.
 
 ```bash
 uv sync
-uv run pytest                                        # i test: niente rete, niente database
-uv run pytest -m eval                                # l'agente su Claude, cinque scenari: circa 15 centesimi
-AGENT_PROVIDER=openai_compat uv run pytest -m eval   # lo stesso su Gemini, gratis: circa 7 minuti
+uv run pytest                                        # i test, e l'eval del retrieval: niente rete, niente database
+uv run pytest -m eval                                # l'agente su Claude, sei scenari: circa 18 centesimi
+AGENT_PROVIDER=openai_compat uv run pytest -m eval   # lo stesso su Gemini, gratis: circa 8 minuti
+MANUALS_ENABLED=true uv run pytest -m eval           # tutti gli scenari con i manuali, come l'app accesa
 ```
 
 Gli eval leggono la chiave dal `.env`. In PowerShell, prima dell'ultimo comando:

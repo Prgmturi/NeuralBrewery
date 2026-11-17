@@ -10,6 +10,7 @@ from neuralbrewery.core.config.auth_cookie import AuthCookieSettings
 from neuralbrewery.core.config.claude import ClaudeSettings
 from neuralbrewery.core.config.database import DatabaseSettings
 from neuralbrewery.core.config.keycloak import KeycloakSettings
+from neuralbrewery.core.config.manuals import ManualsSettings
 from neuralbrewery.core.config.openai_compat import OpenAICompatSettings
 from neuralbrewery.core.config.plant import PlantSettings
 from neuralbrewery.core.config.production import production_problems
@@ -35,6 +36,7 @@ class Settings(BaseSettings):
     claude: ClaudeSettings = Field(default_factory=ClaudeSettings)
     database: DatabaseSettings = Field(default_factory=DatabaseSettings)
     keycloak: KeycloakSettings = Field(default_factory=KeycloakSettings)
+    manuals: ManualsSettings = Field(default_factory=ManualsSettings)
     openai_compat: OpenAICompatSettings = Field(default_factory=OpenAICompatSettings)
     plant: PlantSettings = Field(default_factory=PlantSettings)
     server: ServerSettings = Field(default_factory=ServerSettings)
@@ -77,6 +79,7 @@ __all__ = [
     "ClaudeSettings",
     "DatabaseSettings",
     "KeycloakSettings",
+    "ManualsSettings",
     "OpenAICompatSettings",
     "PlantSettings",
     "ServerSettings",
