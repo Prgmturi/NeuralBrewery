@@ -2,7 +2,7 @@
 
 WHY these tests exist: from a clean clone docker compose up answered "no
 configuration file provided". Starting the app took three .env files, two
-compose files and six steps by hand in Keycloak's console. And the two
+compose files and six steps by hand in Keycloak's console. And the
 compose files fixed the names of their containers, networks and volumes,
 so a second project made from this template would have used the first
 one's database volume. tests/e2e/ logs in through the running stack.
@@ -10,7 +10,6 @@ one's database volume. tests/e2e/ logs in through the running stack.
 
 import json
 import re
-import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -22,12 +21,8 @@ from neuralbrewery.core.config import KeycloakSettings, Settings
 
 ROOT = Path(__file__).parent.parent
 COMPOSE = ROOT / "compose.yaml"
-COMPOSE_PROD = ROOT / "compose.prod.yaml"
 DEV_REALM = ROOT / "docker" / "keycloak" / "realm-dev.json"
 REALM_IMPORT_DIR = "/opt/keycloak/data/import/"
-RELEASED_IMAGE = "ghcr.io/prgmturi/neuralbrewery"
-# A variable the server's .env must set: ${NAME:?message}
-REQUIRED = re.compile(r"\$\{\w+:\?[^}]+\}")
 
 
 @dataclass
@@ -55,14 +50,6 @@ ComposeLoader.add_multi_constructor("!", construct_tag)
 
 def services() -> dict:
     return yaml.safe_load(COMPOSE.read_text())["services"]
-
-
-def prod() -> dict:
-    return yaml.load(COMPOSE_PROD.read_text(), Loader=ComposeLoader)
-
-
-def prod_env(service: str) -> dict:
-    return prod()["services"][service].get("environment", {})
 
 
 def realm() -> dict:
@@ -270,10 +257,6 @@ class TestPlantInTheApi:
         assert api["MANUALS_ENABLED"] == "${MANUALS_ENABLED:-true}"
         assert env_example("MANUALS_ENABLED") == "true"
 
-    def test_production_closes_the_simulation(self):
-        """[SEC] On a server nobody moves the time of the plant or breaks it."""
-        assert prod_env("api")["PLANT_SIMULATION_CONTROL"] == "false"
-
     def test_development_answers_on_this_machine_only(self):
         """[SEC] Nobody on the same network reaches the API of the demo.
 
@@ -325,117 +308,3 @@ class TestDashboard:
         assert services()["dashboard"]["depends_on"] == {
             "api": {"condition": "service_healthy"}
         }
-
-    def test_production_starts_it_only_when_asked(self):
-        """[SEC] A tool of the demo: on a server, only with --profile dashboard."""
-        assert prod()["services"]["dashboard"]["profiles"] == ["dashboard"]
-
-
-class TestProduction:
-    """compose.prod.yaml over compose.yaml: the stack on a server.
-
-    WHY: compose.yaml holds development values only: Keycloak in start-dev
-    with a public realm, every port open on the host, passwords written in
-    the file. Measured on 25 October 2026 on the development stack:
-    Keycloak's metrics and health answered on port 9000 without a login.
-    """
-
-    def test_api_and_migrations_run_the_released_image(self):
-        """[HP] No build on the server: the image of the current release."""
-        version = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"][
-            "version"
-        ]
-
-        for name in ("api", "migrate"):
-            service = prod()["services"][name]
-            assert service["build"] == Tag("reset", "null")
-            assert service["image"] == f"${{APP_IMAGE:-{RELEASED_IMAGE}:{version}}}"
-
-    def test_every_password_and_secret_is_required(self):
-        """[SEC] Each password, secret or token of compose.yaml comes from the server.
-
-        WHY: compose.yaml writes development values. A variable missing on
-        the server must stop the deploy, not start it with those.
-        """
-        written = [
-            f"{name}.{key}"
-            for name, service in services().items()
-            for key in service.get("environment", {})
-            if "PASSWORD" in key or "SECRET" in key or "TOKEN" in key
-            if not REQUIRED.fullmatch(prod_env(name).get(key, ""))
-        ]
-
-        assert written == []
-
-    def test_the_api_runs_in_production(self):
-        """[HP] The checks of core/config/production.py apply."""
-        assert prod_env("api")["APP_ENVIRONMENT"] == "production"
-        for key in ("KEYCLOAK_PUBLIC_URL", "KEYCLOAK_ALLOWED_REDIRECT_URIS"):
-            assert REQUIRED.fullmatch(prod_env("api")[key]), key
-        for key in ("SERVER_TRUSTED_HOSTS", "SERVER_CORS_ORIGINS"):
-            assert REQUIRED.fullmatch(prod_env("api")[key]), key
-
-    def test_keycloak_runs_in_production_mode_behind_the_proxy(self):
-        """[SEC] start, no imported realm, plain HTTP only from the TLS proxy."""
-        keycloak = prod()["services"]["keycloak"]
-        env = keycloak["environment"]
-
-        assert keycloak["command"] == Tag("override", ["start"])
-        assert keycloak["volumes"] == Tag("reset", [])
-        assert env["KC_HTTP_ENABLED"] == "true"
-        assert env["KC_PROXY_HEADERS"] == "xforwarded"
-        assert env["KC_HOSTNAME"] == prod_env("api")["KEYCLOAK_PUBLIC_URL"]
-
-    def test_the_console_has_an_address_of_its_own(self):
-        """[SEC] The administration console answers on 127.0.0.1 only.
-
-        WHY: with KC_HOSTNAME_ADMIN the console no longer needs the public
-        name, so the proxy can refuse /admin/ (docs/production.md).
-        """
-        admin_url = prod_env("keycloak")["KC_HOSTNAME_ADMIN"]
-
-        assert admin_url.startswith("${KEYCLOAK_ADMIN_URL:-http://127.0.0.1:")
-
-    def test_ports_only_on_the_loopback_of_the_server(self):
-        """[SEC] Every port compose.yaml publishes is closed or on 127.0.0.1.
-
-        WHY: a published port is open on every interface of the server,
-        beside the proxy and its TLS.
-        """
-        published = [name for name, service in services().items() if "ports" in service]
-        ports = {name: prod()["services"][name]["ports"] for name in published}
-
-        assert published
-        assert [
-            name
-            for name, entries in ports.items()
-            if not isinstance(entries, Tag)
-            or not all(entry.startswith("127.0.0.1:") for entry in entries.value)
-        ] == []
-
-    def test_proxy_headers_trusted_only_from_the_stack(self):
-        """[SEC] uvicorn and Keycloak trust X-Forwarded-* from the stack's network.
-
-        WHY: the proxy on the host reaches the containers from the gateway of
-        that network; anyone else could choose the client address.
-        """
-        subnet = prod()["networks"]["default"]["ipam"]["config"][0]["subnet"]
-
-        assert prod_env("api")["SERVER_FORWARDED_ALLOW_IPS"] == f'["{subnet}"]'
-        assert prod_env("keycloak")["KC_PROXY_TRUSTED_ADDRESSES"] == subnet
-
-    def test_logs_are_rotated(self):
-        """[HP] Every service keeps at most a few files of logs.
-
-        WHY: Docker's json-file driver never rotates by itself, and a server
-        runs for months.
-        """
-        logging = {
-            name: prod()["services"][name].get("logging", {}) for name in services()
-        }
-
-        assert [
-            name
-            for name, log in logging.items()
-            if "max-size" not in log.get("options", {})
-        ] == []

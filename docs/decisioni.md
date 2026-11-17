@@ -341,8 +341,7 @@ agenti.
     sarebbero stati pacchetti in più per la sua scansione. Quel giorno Grype, con la versione
     della CI, non vi trovava nessuna High o Critical con una correzione: il motivo è il peso,
     e le vulnerabilità che verranno. Così l'immagine dell'API resta com'era, e al tester di
-    M8 basta ancora `docker compose`. In produzione la dashboard parte solo con
-    `--profile dashboard`;
+    M8 basta ancora `docker compose`;
   - **il token** lo legge da `DASHBOARD_APPROVAL_TOKEN`, che il compose imposta; il nome di chi
     decide lo scrive il birraio nella pagina. Il token non compare mai nella pagina né nei log;
   - **solo su 127.0.0.1**, anche in sviluppo: la pagina tiene il token, e resta fuori dalla
