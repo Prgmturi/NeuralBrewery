@@ -47,9 +47,9 @@ controllore: i suoi interlock possono ancora dire di no
   rifiutato per la stessa causa. Le decisioni stanno in Postgres, e restano dopo un riavvio.
 - **Due fornitori.** Lo stesso agente gira su Claude, il default e quello della demo, o su
   Gemini Flash-Lite, scelto da un'impostazione. Gli eval li confrontano.
-- **I manuali dei componenti, se accesi.** L'agente cerca nei manuali il significato di un
-  codice di guasto, per esempio F11 sull'inverter dell'agitatore, e cita manuale e pagina.
-  Spenti di default: [come si accendono](#con-i-manuali-dei-componenti).
+- **I manuali dei componenti.** L'agente cerca nei manuali il significato di un codice di
+  guasto, per esempio F11 sull'inverter dell'agitatore, e cita manuale e pagina. Accesi di
+  default nello stack: [come si spengono](#con-i-manuali-dei-componenti).
 - **Un server MCP.** Un altro host, come Claude Code, legge lo stesso impianto e propone nella
   stessa coda. Non approva e non comanda.
 
@@ -233,14 +233,12 @@ FastAPI.
 - **La memoria è un consiglio, non una regola.** Se la causa è "la stessa" lo giudica il
   modello, e il guardrail non ferma un pulsante già rifiutato. Ricorda solo le diagnosi che
   hanno proposto un pulsante.
-- **Il modello non è deterministico.** Il 15 novembre gli eval passavano tutti e cinque, su
-  Claude e su Gemini, con S3 su Claude e S2 su Gemini sbagliati una volta in quattro giri. Il 16
-  novembre, su Gemini, ne sono passati 3 su 5: in S1 e in S2 l'agente ha indicato il componente
-  sbagliato.
+- **Il modello non è deterministico.** Uno scenario che passa può fallire al giro dopo: per
+  esempio l'agente indica il componente sbagliato, o propone un comando prudente che lo scenario
+  non ammette. Gli eval si leggono su più giri.
 - **I manuali si leggono come li dà pdftotext**, tranne le tabelle da cui dipendono i guasti e
   la lista dei parametri del V20, sistemate a mano. Una tabella non sistemata può dare a un
-  codice il significato della riga accanto: nella prova del 17 novembre è successo con un
-  parametro del V20, fra le verifiche; quella lista ora è sistemata.
+  codice il significato della riga accanto.
 - **`/mcp` e la diagnosi non chiedono login.** Chi raggiunge l'API legge l'impianto, mette
   proposte in coda e spende diagnosi; approvare no, serve il token. Per questo lo stack di
   sviluppo risponde solo su 127.0.0.1.

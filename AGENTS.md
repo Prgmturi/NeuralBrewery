@@ -20,8 +20,6 @@ servono stanno in "Convenzioni del codice", sotto, e nelle ADR di `docs/adr/`.
 - `docs/development.md`: strumenti, test, CI.
 - `docs/adr/`: le decisioni del template da cui il progetto è nato. Quelle del progetto, nuove
   comprese, vanno in `docs/decisioni.md`.
-- `_reference/gateway-demo/`: prototipo funzionante del confine AI–impianto. È un riferimento
-  da adattare alle convenzioni di questo repo, non da copiare. Non va modificato.
 
 ## Dove vive l'impianto
 
@@ -41,9 +39,7 @@ src/neuralbrewery/
   adapters/plant_sim/        l'impianto simulato: processo, dispositivi, controllore
                              (interlock, programma, allarmi), guasti, adattatore
                              in-process (test ed eval)
-  adapters/plant_rest/       client httpx verso il servizio plant-sim
   adapters/manuals/          BM25 in Python puro sul testo di data/manuals/text/
-  plant_service.py           entry point del servizio plant-sim (FastAPI, un solo worker)
   bootstrap.py               costruisce l'impianto e dà a ognuno la sua porta
   adapters/claude/           il modello degli agenti: client datapizza per Claude
   features/agents/           l'agente impianto (datapizza), il suo endpoint, il server MCP
@@ -54,7 +50,8 @@ src/neuralbrewery/
                              dell'API, che non importa niente dell'app
 ```
 
-- Un solo package e un'immagine per l'app; nel compose due servizi: `api` e `plant-sim`.
+- Un solo package e un'immagine per l'app; nel compose `api`, con l'impianto nel suo
+  processo, `migrate`, `db` e `dashboard`. Il servizio `plant-sim` (M2) viene dopo il corso.
   La dashboard ha un'immagine sua (`docker/dashboard.Dockerfile`), con il solo gruppo
   `dashboard` di `pyproject.toml`: Streamlit non entra nell'immagine dell'API.
 - Le tre porte sono l'interfaccia del controllore dell'impianto, non dei singoli dispositivi:
@@ -85,8 +82,7 @@ src/neuralbrewery/
 
 ## Convenzioni del codice (dal template)
 
-- **Gli import scendono.** Entry point (`main.py`, `serve.py`, `healthcheck.py`; da M2 anche
-  `plant_service.py`) → `bootstrap.py` | `exception_handlers.py` → `features/` | `adapters/` →
+- **Gli import scendono.** Entry point (`main.py`, `serve.py`, `healthcheck.py`) → `bootstrap.py` | `exception_handlers.py` → `features/` | `adapters/` →
   `core/`. Feature e adapter non si importano mai a vicenda. `uv run lint-imports` lo verifica; un confine nuovo merita
   un contract nuovo in `pyproject.toml`.
 - **Porte** = classi `Protocol`, in `core/.../protocols.py` se condivise o in
