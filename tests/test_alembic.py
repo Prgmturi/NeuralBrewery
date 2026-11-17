@@ -35,7 +35,7 @@ class TestMigrationSettings:
         """[EC] APP_ENVIRONMENT=production and DATABASE_* only -> it runs.
 
         WHY: env.py loaded every setting, so production refused to migrate
-        without the Keycloak secret, the redirect URIs and the trusted
+        without the secrets of the login, the approval token and the trusted
         hosts, which a migration never uses. --sql writes the SQL instead of
         connecting, so no database is needed.
         """

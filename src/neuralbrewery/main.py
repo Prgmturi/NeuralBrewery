@@ -17,7 +17,6 @@ from neuralbrewery.core.problem_details import PROBLEM_RESPONSES
 from neuralbrewery.exception_handlers import register_exception_handlers
 from neuralbrewery.features.agents.router import agents_router
 from neuralbrewery.features.approvals.api.router import approvals_router
-from neuralbrewery.features.auth.router import auth_router
 from neuralbrewery.features.health.router import health_router
 from neuralbrewery.features.plant.router import plant_router, simulation_router
 
@@ -98,7 +97,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     init_plant(app, settings)
 
     app.include_router(health_router)
-    app.include_router(auth_router)
     app.include_router(plant_router)
     app.include_router(approvals_router)
     app.include_router(agents_router)

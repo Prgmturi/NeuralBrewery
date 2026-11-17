@@ -98,7 +98,7 @@ src/neuralbrewery/
   interlock non è un errore: è un `CommandResult` con il motivo.
 - **Wiring solo in `bootstrap.py`**, con uno `StateKey` per porta (`core/state.py`).
 - **Una feature** copia la forma di `features/approvals`: `api/` → `persistence/` → `domain/`, con il
-  dominio in Python puro. Senza regole proprie può restare piatta, come `features/auth`.
+  dominio in Python puro. Senza regole proprie può restare piatta, come `features/health`.
 - **Impostazioni** in `core/config/`, una sezione per argomento. Un valore di sviluppo
   pericoloso va aggiunto a `production_problems()` (ADR 0007).
 - **App factory**: `create_app(settings)`; i test costruiscono le impostazioni, non leggono `.env`.

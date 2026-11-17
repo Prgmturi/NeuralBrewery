@@ -385,11 +385,19 @@ agenti.
 - **Chi approva: chi ha il token di approvazione** (14 novembre). Approvare e rifiutare chiedono
   un token dal `.env` (`APPROVAL_TOKEN`) e il nome di chi approva, che l'audit registra come
   dichiarato, non verificato. Il token non arriva mai ai tool MCP né all'agente, e
-  `production_problems()` rifiuta il valore di sviluppo. Keycloak resta nel compose e il login del
-  template funziona, ma la demo non lo usa. *Perché*: senza un segreto niente distinguerebbe il
-  birraio da un modello che chiama da solo l'endpoint; con Keycloak la demo avrebbe chiesto un
-  login senza frontend e un realm da reimportare. Passare a Keycloak cambia solo la dipendenza
-  dell'endpoint, non la coda né l'audit.
+  `production_problems()` rifiuta il valore di sviluppo. *Perché*: senza un segreto niente
+  distinguerebbe il birraio da un modello che chiama da solo l'endpoint; con il login del
+  template (Keycloak) la demo avrebbe chiesto un login senza frontend. Un'identità verificata
+  cambierebbe solo la dipendenza dell'endpoint, non la coda né l'audit.
+- **Il login del template esce** (17 novembre, M10): `features/auth`, `core/auth`,
+  `adapters/keycloak` e i servizi `keycloak` e `keycloak-db` del compose. *Perché*: la demo non
+  lo usava, e Keycloak era il servizio più lento ad avviarsi, fino a 5 minuti la prima volta
+  (417 s su un portatile carico). Ora lo stack è `db`, `migrate`, `api` e `dashboard`, e la
+  readiness controlla solo il database. Un `.env` di prima, con le righe `KEYCLOAK_*` e
+  `AUTH_COOKIE_*`, parte lo stesso: le impostazioni ignorano le chiavi che non conoscono. Una
+  volta, dopo l'aggiornamento, `docker compose up --build --wait --remove-orphans` toglie i
+  container rimasti di Keycloak. L'e2e della CI non fa più il login: percorre la demo, con lo
+  stack acceso, l'impianto e la coda delle proposte.
 - **Coda delle proposte e audit**: una feature a tre strati, `features/approvals/`, con una tabella
   Postgres a cui si aggiunge e basta: proposta, approvazione o rifiuto, esecuzione con la risposta
   del controllore. L'esecutore è l'unico codice che riceve `PlantCommander`: esegue solo proposte
@@ -406,17 +414,15 @@ agenti.
   due approvazioni nello stesso istante. Ogni evento si salva nella sua transazione, prima del
   passo dopo.
 - **In sviluppo lo stack risponde solo su 127.0.0.1** (15 novembre, M7b, per l'API; 16 novembre,
-  M8a, per Postgres e Keycloak). Prima il compose pubblicava l'API su tutte le interfacce: chi
+  M8a, per Postgres). Prima il compose pubblicava l'API su tutte le interfacce: chi
   era sulla stessa rete, per esempio il Wi-Fi della sala del discorso, leggeva l'impianto,
   muoveva la simulazione, chiedeva diagnosi e, con il token di sviluppo, che è pubblico,
-  approvava. Lo stesso valeva per Postgres (5433) e Keycloak (8080), con le password scritte in
-  `compose.yaml`: si apriva la coda con `psql`, o si chiedeva a Keycloak un token da
-  amministratore con `admin`/`admin`. Dentro lo stack non cambia niente, e il browser chiama
+  approvava. Lo stesso valeva per Postgres (5433), con la password scritta in `compose.yaml`: si
+  apriva la coda con `psql`. Dentro lo stack non cambia niente, e il browser chiama
   `localhost` come prima. *Perché*: la demo ha bisogno di quelle porte aperte, ma solo sulla
   macchina di chi la fa. In produzione era già così. Su Windows `localhost` è prima `::1`, e
   una porta solo su 127.0.0.1 risponde dopo circa 2 s di tentativi, a ogni connessione nuova
-  (misurato il 16 novembre): `.env.example` chiama il database a `127.0.0.1`. Keycloak resta
-  `localhost`, perché l'API confronta l'issuer dei token con `KEYCLOAK_PUBLIC_URL`.
+  (misurato il 16 novembre): `.env.example` chiama il database a `127.0.0.1`.
 - **Immagini e CI** (16 novembre, M8a). "Build container image" era rosso anche su `master`:
   - **la base**: nessun `python:3.13-slim` pubblicato aveva lo `zlib1g` che corregge
     CVE-2026-76844 e CVE-2026-85091, due High che fermavano la scansione. Né `09a17ca` né
@@ -434,14 +440,7 @@ agenti.
     pubblico; il repo diventa pubblico dopo la pulizia, e allora il rapporto arriva da solo;
   - **l'immagine della dashboard** si scansiona in un job suo, "Build dashboard image", con
     le stesse soglie. La CI non la pubblica, ma il compose la esegue, con Streamlit, pyarrow,
-    pandas e tornado, che la scansione dell'API non vede. Quella di Keycloak resta senza.
-- **Keycloak ha 5 minuti per il primo avvio** (16 novembre, M8a): `start_period: 300s` nel
-  compose di sviluppo. Su un portatile carico il primo avvio, con il realm da importare e lo
-  schema da creare, è durato 417 s, mentre il controllo di salute si arrendeva dopo circa
-  160 s: `docker compose up --wait` si fermava con "keycloak is unhealthy", e l'API non
-  partiva. In CI lo stack parte in 2 minuti. *Perché*: il valutatore avvia lo stack da zero,
-  su una macchina che non conosciamo. Nella `start_period` i controlli falliti non contano, e
-  il primo che passa rende Keycloak sano: una macchina veloce non aspetta di più.
+    pandas e tornado, che la scansione dell'API non vede.
 - **Il controllo della simulazione è spento se non lo si chiede** (15 novembre):
   `PLANT_SIMULATION_CONTROL` vale false per default, il compose di sviluppo e `.env.example` lo
   accendono, staging e produzione lo rifiutano. *Perché*: chiunque raggiunga quelle rotte
@@ -452,9 +451,10 @@ agenti.
   non fa altro. *Perché*: è il flusso completo della demo: allarme, diagnosi, proposta,
   approvazione, esecuzione.
 - **Base del codice**: template `fastapi_starter` (FastAPI, PostgreSQL, Alembic, structlog,
-  SQLAlchemy async, Keycloak, uv, import-linter, CI).
+  SQLAlchemy async, Keycloak, uv, import-linter, CI). Di questo restano FastAPI, PostgreSQL,
+  Alembic, structlog, SQLAlchemy, uv, import-linter e la CI: le note e il login sono usciti in M10.
 - **Nome**: il progetto si chiama NeuralBrewery. Repo `NeuralBrewery`; package Python, immagine
-  Docker e nomi tecnici (realm e client Keycloak) `neuralbrewery`, una sola forma minuscola
+  Docker e nomi tecnici `neuralbrewery`, una sola forma minuscola
   senza trattini né underscore, come richiedono package e immagini. La versione è 0.1.0, e non
   ci sono rilasci né changelog (tolti in M10): il progetto si prova dal repo, con il compose.
 
@@ -467,7 +467,7 @@ agenti.
 - **Il simulatore vive in `adapters/plant_sim/`.** Per il backend l'impianto è un servizio
   esterno, e il template vieta già alle feature di importare gli adapter: per toccare
   l'impianto devono passare dalle porte, e la CI lo controlla.
-- **Porte e vocabolario in `core/plant/`**, come `core/auth/` per il login.
+- **Porte e vocabolario in `core/plant/`**.
 - **Errori**: l'adapter REST traduce gli errori di httpx nelle eccezioni del template (ADR 0006).
   Al posto del `PlantUnavailableError` del prototipo si usa `ServiceUnavailableError`.
 - **Impostazioni** in `core/config/plant.py`. `production_problems()` rifiuta i token di
@@ -483,7 +483,8 @@ agenti.
 ## Ancora aperte
 
 - Un'interfaccia per leggere i trace (Langfuse o Phoenix): solo se serve alla demo.
-- Approvazione con identità verificata (Keycloak, un ruolo `brewer`): solo se avanza tempo.
+- Approvazione con identità verificata (un provider di identità, un ruolo `brewer`): dopo il
+  corso. Il login del template è uscito in M10.
 - Claude Desktop come client MCP: i suoi connettori partono dal cloud di Anthropic e non
   raggiungono `localhost`; la configurazione locale lancia programmi, quindi servirebbe un ponte
   (`npx mcp-remote http://localhost:8000/mcp`). La demo di M4 usava Claude Code, che parla HTTP;

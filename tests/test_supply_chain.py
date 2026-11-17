@@ -19,7 +19,6 @@ ROOT = Path(__file__).parent.parent
 WORKFLOWS = sorted((ROOT / ".github" / "workflows").glob("*.yml"))
 CI_WORKFLOW = ROOT / ".github" / "workflows" / "ci.yml"
 PRE_COMMIT = ROOT / ".pre-commit-config.yaml"
-COMPOSE = ROOT / "compose.yaml"
 # owner/repo[/path]@<commit SHA> # v<version>
 PINNED = re.compile(r"[\w.-]+/[\w./-]+@[0-9a-f]{40} # v\d+(\.\d+)*")
 SCAN = "anchore/scan-action@"
@@ -244,19 +243,3 @@ class TestSecretsHook:
         assert re.fullmatch(r"[0-9a-f]{40}", repo["rev"])
         assert re.search(r"rev: [0-9a-f]{40}  # frozen: v\d+", PRE_COMMIT.read_text())
         assert [hook["id"] for hook in repo["hooks"]] == ["gitleaks"]
-
-    def test_the_keycloak_database_url_is_not_taken_for_a_key(self):
-        """[EC] A commit that moves or copies KC_DB_URL is not stopped.
-
-        WHY: gitleaks' generic-api-key rule reads "keycloak-db" as the name
-        of a key and "5432/keycloak" as its value, with an entropy of 3.55
-        against a threshold of 3.5 (checked on 26 October 2026). The line
-        says gitleaks:allow, which is safe while the URL holds no user name
-        and no password: those stay in KC_DB_USERNAME and KC_DB_PASSWORD.
-        """
-        line = next(
-            line for line in COMPOSE.read_text().splitlines() if "KC_DB_URL:" in line
-        )
-
-        assert line.endswith("  # gitleaks:allow")
-        assert "@" not in line

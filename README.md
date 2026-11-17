@@ -95,8 +95,8 @@ immagini. Poi:
 docker compose up --build --wait
 ```
 
-La prima volta costruisce due immagini e scarica Postgres e Keycloak, che poi prepara la sua
-configurazione: qualche minuto. Il comando torna quando ogni servizio è pronto. Apri
+La prima volta costruisce due immagini e scarica Postgres: qualche minuto. Il comando torna
+quando ogni servizio è pronto. Apri
 http://localhost:8501: è la dashboard del birraio.
 
 | Servizio | Dove | Che cos'è |
@@ -105,16 +105,18 @@ http://localhost:8501: è la dashboard del birraio.
 | `api` | http://localhost:8000, la documentazione su `/docs` | L'impianto simulato, l'agente, la coda e il server MCP su `/mcp` |
 | `migrate` | | Porta il database all'ultima migrazione, poi esce |
 | `db` | `127.0.0.1:5433` | Postgres: la coda delle proposte e l'audit |
-| `keycloak`, `keycloak-db` | http://localhost:8080 | Il login del template da cui il progetto è nato: c'è, ma la demo non lo usa |
 
 È lo stack di sviluppo:
 - il token di approvazione è `brewer-dev-token`, ed è pubblico. La dashboard lo ha già;
 - i comandi della simulazione sono accesi: muovere il tempo, iniettare e togliere guasti;
 - ogni porta risponde solo su 127.0.0.1, non sulla rete: password e token sono pubblici.
 
-Con una porta già occupata, cambiala in `.env`: `SERVER_PORT` per l'API, `DATABASE_PORT`,
-`KEYCLOAK_PORT`, e per la dashboard una riga in più, `DASHBOARD_PORT=`. Gli indirizzi sopra
-cambiano con loro.
+Con una porta già occupata, cambiala in `.env`: `SERVER_PORT` per l'API, `DATABASE_PORT`, e per
+la dashboard una riga in più, `DASHBOARD_PORT=`. Gli indirizzi sopra cambiano con loro.
+
+Se hai già acceso una versione di prima del 17 novembre, che aveva anche Keycloak, la prima
+volta usa `docker compose up --build --wait --remove-orphans`: toglie i container di Keycloak
+rimasti. Il tuo `.env` va bene com'è: le righe `KEYCLOAK_*` vengono ignorate.
 
 Spegnere e ripartire:
 

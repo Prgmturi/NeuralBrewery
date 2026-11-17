@@ -57,15 +57,6 @@ class TestCreateApp:
         assert app.url_path_for("liveness") == "/health/live"
         assert app.url_path_for("readiness") == "/health/ready"
 
-    def test_includes_auth_routes(self, settings):
-        app = create_app(settings)
-
-        assert app.url_path_for("get_login_url") == "/auth/login"
-        assert app.url_path_for("exchange_token") == "/auth/token"
-        assert app.url_path_for("refresh_token") == "/auth/refresh"
-        assert app.url_path_for("logout") == "/auth/logout"
-        assert app.url_path_for("get_me") == "/auth/me"
-
     def test_includes_plant_and_approval_routes(self, settings):
         app = create_app(settings)
 
@@ -155,11 +146,7 @@ class TestImport:
         pytest could not even load conftest.py. This configuration is
         invalid on purpose: the import must succeed anyway.
         """
-        env = {
-            **os.environ,
-            "AUTH_COOKIE_NAME": "__Host-rt",
-            "AUTH_COOKIE_SECURE": "false",
-        }
+        env = {**os.environ, "SERVER_WORKERS": "2"}
 
         result = subprocess.run(
             [sys.executable, "-c", "import neuralbrewery.main"],
@@ -202,9 +189,7 @@ async def list_tools(app: FastAPI, host: str = "testserver"):
         return await client.post("/mcp", json=TOOLS_LIST, headers=MCP_HEADERS)
 
 
-# start_services() in bootstrap.py calls them: patched where it looks them up
-@patch("neuralbrewery.bootstrap.init_oauth_provider")
-@patch("neuralbrewery.bootstrap.init_auth_service")
+# start_services() in bootstrap.py calls it: patched where it looks it up
 @patch("neuralbrewery.bootstrap.init_database")
 class TestLifespan:
     """lifespan() — service startup and shutdown.
@@ -213,55 +198,41 @@ class TestLifespan:
     and when a later service fails to start.
     """
 
-    async def test_keycloak_adapters_share_one_http_client(
-        self, init_database, init_auth_service, init_oauth_provider, settings
-    ):
-        """[HP] JWKS keys and token calls go through the same client."""
-        app = create_app(settings)
-
-        async with lifespan(app):
-            auth_client = init_auth_service.call_args.args[2]
-            oauth_client = init_oauth_provider.call_args.args[2]
-
-            assert auth_client is oauth_client
-            assert not auth_client.is_closed
-
-    async def test_shutdown_closes_http_client_and_database(
-        self, init_database, init_auth_service, init_oauth_provider, settings
-    ):
+    async def test_shutdown_closes_the_database(self, init_database, settings):
         """[HP] Leaving the lifespan closes everything it opened."""
         app = create_app(settings)
 
         async with lifespan(app):
-            http_client = init_auth_service.call_args.args[2]
+            init_database.return_value.disconnect.assert_not_awaited()
 
-        assert http_client.is_closed
         init_database.return_value.disconnect.assert_awaited_once()
 
     async def test_startup_failure_closes_what_was_opened(
-        self, init_database, init_auth_service, init_oauth_provider, settings
+        self, init_database, settings
     ):
-        """[EC] Auth init fails -> HTTP client and database closed, error raised.
+        """[EC] The MCP server fails to start -> database closed, error raised.
 
         WHY: a failed start must not leave connections open. uvicorn
         exits, but a test runner or a retry loop would keep them.
         """
-        init_auth_service.side_effect = RuntimeError("JWKS unreachable")
         app = create_app(settings)
 
-        with pytest.raises(RuntimeError, match="JWKS unreachable"):
+        with (
+            patch(
+                "neuralbrewery.bootstrap.start_mcp_server",
+                side_effect=RuntimeError("MCP down"),
+            ),
+            pytest.raises(RuntimeError, match="MCP down"),
+        ):
             async with lifespan(app):
                 pass
 
-        http_client = init_auth_service.call_args.args[2]
-        assert http_client.is_closed
         init_database.return_value.disconnect.assert_awaited_once()
-        init_oauth_provider.assert_not_called()
 
     async def test_cancelled_while_serving_closes_everything(
-        self, init_database, init_auth_service, init_oauth_provider, settings
+        self, init_database, settings
     ):
-        """[EC] Cancelled at yield -> HTTP client and database closed.
+        """[EC] Cancelled at yield -> database closed.
 
         WHY: uvicorn does this when Ctrl+C arrives during a slow startup:
         it lets the startup finish, skips the shutdown and cancels the
@@ -281,43 +252,39 @@ class TestLifespan:
         with pytest.raises(asyncio.CancelledError):
             await task
 
-        assert init_auth_service.call_args.args[2].is_closed
         init_database.return_value.disconnect.assert_awaited_once()
 
     async def test_cancelled_during_startup_closes_what_was_opened(
-        self, init_database, init_auth_service, init_oauth_provider, settings
+        self, init_database, settings
     ):
-        """[EC] Cancelled while auth starts -> HTTP client and database closed.
+        """[EC] Cancelled while the MCP server starts -> database closed.
 
         WHY: CancelledError is not an Exception, so "except Exception"
         let it through: a runner that gives up on a slow startup, with a
-        timeout for example, left the database and the HTTP client open.
+        timeout for example, left the database open.
         """
-        waiting_for_keycloak = asyncio.Event()
+        waiting = asyncio.Event()
 
-        async def keycloak_never_answers(*args) -> None:
-            waiting_for_keycloak.set()
+        async def never_starts(*args) -> None:
+            waiting.set()
             await asyncio.Event().wait()
 
-        init_auth_service.side_effect = keycloak_never_answers
         app = create_app(settings)
 
         async def start() -> None:
             async with lifespan(app):
                 pass
 
-        task = asyncio.create_task(start())
-        await waiting_for_keycloak.wait()
-        task.cancel()
-        with pytest.raises(asyncio.CancelledError):
-            await task
+        with patch("neuralbrewery.bootstrap.start_mcp_server", never_starts):
+            task = asyncio.create_task(start())
+            await waiting.wait()
+            task.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await task
 
-        assert init_auth_service.call_args.args[2].is_closed
         init_database.return_value.disconnect.assert_awaited_once()
 
-    async def test_mcp_answers_while_the_app_runs(
-        self, init_database, init_auth_service, init_oauth_provider, settings
-    ):
+    async def test_mcp_answers_while_the_app_runs(self, init_database, settings):
         """[HP] /mcp lists the tools through create_app, behind its middleware.
 
         WHY: the MCP server is a route of the app, not a second process.
@@ -334,7 +301,7 @@ class TestLifespan:
         assert response.headers["X-Request-ID"]
 
     async def test_mcp_takes_the_trusted_hosts_with_a_port(
-        self, init_database, init_auth_service, init_oauth_provider, settings
+        self, init_database, settings
     ):
         """[HP] localhost:8000, as Claude Code sends it: no 421 from MCP."""
         app = create_app(settings)
@@ -344,9 +311,7 @@ class TestLifespan:
 
         assert response.status_code == 200
 
-    async def test_mcp_stops_with_the_app(
-        self, init_database, init_auth_service, init_oauth_provider, settings
-    ):
+    async def test_mcp_stops_with_the_app(self, init_database, settings):
         """[EC] After the lifespan nothing serves MCP: the request fails."""
         app = create_app(settings)
         async with lifespan(app):
@@ -359,8 +324,6 @@ class TestLifespan:
     async def test_started_is_logged_once_the_services_run(
         self,
         init_database,
-        init_auth_service,
-        init_oauth_provider,
         settings,
         main_logger,
     ):
@@ -379,17 +342,15 @@ class TestLifespan:
     async def test_failed_startup_never_logs_started(
         self,
         init_database,
-        init_auth_service,
-        init_oauth_provider,
         settings,
         main_logger,
     ):
-        """[EC] Auth init fails -> no application_started in the logs.
+        """[EC] The database fails -> no application_started in the logs.
 
         WHY: "started" followed by an error made a failed start look like
         a crash of a running app.
         """
-        init_auth_service.side_effect = RuntimeError("JWKS unreachable")
+        init_database.side_effect = RuntimeError("database unreachable")
         app = create_app(settings)
 
         with pytest.raises(RuntimeError):
@@ -399,15 +360,16 @@ class TestLifespan:
         assert "application_started" not in logged_events(main_logger)
 
 
-def test_main_names_no_identity_provider():
-    """[HP] main.py knows no Keycloak: start_services() in bootstrap.py does.
+def test_main_names_no_service():
+    """[HP] main.py opens no service itself: start_services() in bootstrap.py does.
 
-    WHY: docs/architecture.md and ADR 0001 say that another identity
-    provider takes a new adapter and its wiring in bootstrap.py. The
-    lifespan created the Keycloak client and started its adapters itself,
-    so main.py had to change too.
+    WHY: ADR 0001 says that a new service takes an adapter and its wiring
+    in bootstrap.py. The lifespan of the template created a client and
+    started its adapters itself, so main.py had to change too.
     """
-    assert "keycloak" not in inspect.getsource(main).lower()
+    source = inspect.getsource(main)
+    assert "DatabaseManager" not in source
+    assert "start_services" in source
 
 
 class TestRootEndpoint:

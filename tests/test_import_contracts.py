@@ -4,7 +4,7 @@ WHY these tests exist: import-linter stops with an error when a layer or a
 source module does not exist, but not when a forbidden module does not, nor
 when a source pattern with * matches no module. A contract that names a
 module after it moved stays kept and checks nothing (tried on 27 October
-2026, before the Keycloak adapters moved to adapters/keycloak/).
+2026, before the adapters of the login of the template moved to adapters/).
 """
 
 import pkgutil
@@ -107,7 +107,7 @@ def test_patterns_are_read_as_import_linter_does():
     Memberships, not whole lists: adding a feature must not break the test.
     """
     one_part = matching_modules("neuralbrewery.features.*.router")
-    assert "neuralbrewery.features.auth.router" in one_part
+    assert "neuralbrewery.features.plant.router" in one_part
     assert "neuralbrewery.features.approvals.api.router" not in one_part
 
     any_depth = matching_modules("neuralbrewery.**.router")
@@ -115,7 +115,6 @@ def test_patterns_are_read_as_import_linter_does():
 
     # The ports that "Ports import no adapter" covers, the feature's included
     assert {
-        "neuralbrewery.core.auth.protocols",
         "neuralbrewery.core.database.protocols",
         "neuralbrewery.core.protocols",
         "neuralbrewery.features.approvals.domain.protocols",

@@ -13,6 +13,6 @@ command: rule 1 of AGENTS.md. A proposal goes into the queue through the
 ProposalInbox port (core/approvals), and only the brewer's approval sends
 it to the executor (features/approvals).
 
-A flat feature, like features/auth: no tables of its own. The rules that
+A flat feature, like features/health: no tables of its own. The rules that
 need no LLM, the watcher's, live in core/plant/watcher.py.
 """

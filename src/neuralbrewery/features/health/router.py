@@ -6,7 +6,6 @@ from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from neuralbrewery.core.auth import TokenValidator, get_auth_service
 from neuralbrewery.core.config import AppSettings
 from neuralbrewery.core.database.dependencies import get_db_manager
 from neuralbrewery.core.logging import get_logger
@@ -106,16 +105,14 @@ async def liveness(
 )
 async def readiness(
     db_manager: Annotated[HealthCheckable, Depends(get_db_manager)],
-    auth_service: Annotated[TokenValidator, Depends(get_auth_service)],
 ) -> JSONResponse:
     """Readiness probe - can this instance serve requests now?
 
-    A failed check answers 503. The auth check does not call the identity
-    provider: while its signing keys are cached, tokens can be verified.
+    A failed check answers 503. The plant lives in this process, so the
+    database, which holds the queue and its audit, is the only check.
     """
     checks = {
         "database": await run_check("database", db_manager.health_check),
-        "auth": await run_check("auth", auth_service.health_check),
     }
 
     all_healthy = all(check.status == "healthy" for check in checks.values())

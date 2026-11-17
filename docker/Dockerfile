@@ -95,7 +95,7 @@ EXPOSE 8000
 # slim image has no curl or wget). It sends the first SERVER_TRUSTED_HOSTS
 # entry as Host, which TrustedHostMiddleware accepts, to SERVER_PORT, the
 # port neuralbrewery.serve listens on. The start period covers the startup:
-# connecting to the database and fetching Keycloak's signing keys.
+# connecting to the database and reading the text of the manuals.
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
     CMD ["python", "-m", "neuralbrewery.healthcheck"]
 

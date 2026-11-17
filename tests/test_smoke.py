@@ -1,7 +1,7 @@
 """Tests for the smoke test of the image, in the docker job of ci.yml.
 
 WHY these tests exist: the step builds the app inside the image CI has
-just built, with no database or Keycloak, and it counted the routes with
+just built, with no database, and it counted the routes with
 len(app.routes). Since FastAPI 0.137 app.routes keeps each included
 router as one entry: the log said "12 routes registered" before FastAPI
 0.161 and "7" after, for the same app (PR #54, 26 October 2026). Its
@@ -38,7 +38,7 @@ class TestSmokeTest:
         exec(smoke_test(), {})
 
         assert capsys.readouterr().out == (
-            "routes found: / /health/live /auth/me /plant /approvals\n"
+            "routes found: / /health/live /plant /approvals\n"
         )
 
     def test_fails_without_the_routes_of_the_app(self, monkeypatch):

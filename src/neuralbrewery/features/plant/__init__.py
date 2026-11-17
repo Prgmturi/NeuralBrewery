@@ -5,5 +5,5 @@
   on, which staging and production refuse
 - schemas.py: what they take and return
 
-A flat feature, like features/auth: no rules and no tables of its own.
+A flat feature, like features/health: no rules and no tables of its own.
 """
