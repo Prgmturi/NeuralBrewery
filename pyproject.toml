@@ -245,6 +245,24 @@ adapter that calls that service. tests/test_package.py checks the same
 list in a running process."""
 
 [[tool.importlinter.contracts]]
+name = "The search over the manuals is plain Python, and reaches neither the plant nor the queue"
+type = "forbidden"
+source_modules = ["neuralbrewery.adapters.manuals"]
+forbidden_modules = [
+    "fastapi",
+    "httpx",
+    "sqlalchemy",
+    "neuralbrewery.core.plant",
+    "neuralbrewery.core.approvals",
+]
+broken_contract_guidance = """
+adapters/manuals/ reads the text of the manuals and ranks it: plain Python,
+so that tests and the eval of the retrieval run it in process, with no
+network, and the same query gives the same passages. The plant agent gets
+it as a reader of text: through it the agent must reach neither the plant
+nor the queue of proposals. What the search needs goes in core/manuals."""
+
+[[tool.importlinter.contracts]]
 name = "The controller of the plant sees signals, never true values"
 type = "forbidden"
 source_modules = ["neuralbrewery.adapters.plant_sim.controller"]

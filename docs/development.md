@@ -221,6 +221,7 @@ uv run pytest -m eval                      # the plant agent on a real model (AG
 - **Unit tests** are async, and outside `tests/integration/` they use stubs (`AsyncMock`): no database and no Keycloak. The root `conftest.py` provides the app, an HTTP client, mock services, and users with different roles.
 - **They ignore the machine.** Tests never read the local `.env`, nor the exported `APP_*`, `KEYCLOAK_*` and other variables: an autouse fixture in `tests/conftest.py` switches both off. A test that needs some settings builds them and passes them to `create_app(settings)`.
 - **CI runs the suite twice**, the second time with a `.env` and variables of a production server, and fails when coverage drops below `fail_under` in `pyproject.toml`.
+- **The eval of the retrieval** over the manuals runs with them, and prints its table at the end: [The manuals](#the-manuals-their-text-and-the-eval-of-the-retrieval).
 
 ### Integration tests
 
@@ -240,12 +241,15 @@ The stack takes its ports from `SERVER_PORT`, `KEYCLOAK_PORT` and `DATABASE_PORT
 
 ### Eval of the agents
 
-`uv run pytest -m eval` runs the plant agent on a real model, on five fault scenarios with a fixed seed (`tests/evals/scenarios.py`):
+`uv run pytest -m eval` runs the plant agent on a real model, on six fault scenarios with a fixed seed (`tests/evals/scenarios.py`):
 - S1, an offset probe in the fermenter;
 - S2, a blocked pump at the mash-in;
 - S3, the drive of the agitator in fault;
 - S4, a probe repaired while the block of the controller is still on, where only `reset` passes;
-- S5, the plant of S4 with a memory: the brewer already rejected that `reset`, and said why. It passes only if the agent read its past decisions and proposes nothing that re-arms.
+- S5, the plant of S4 with a memory: the brewer already rejected that `reset`, and said why. It passes only if the agent read its past decisions and proposes nothing that re-arms;
+- S6, the plant of S3 with the manuals on: it passes only if the checks of S3 pass, the agent called `search_manuals`, and its explanation or checks say what F11 means (the motor overheated). Whether it cites manual and page is printed under the row, and not graded.
+
+With `MANUALS_ENABLED=true`, exported for the command or in `.env` as `.env.example` has it, every scenario runs with the manuals, as the stack does: S1–S5 must not get worse. S6 has them in any case.
 
 The memory of the agent is an object in memory, no database: empty, but for S5. The verdict is pass or fail, by code, on the diagnosis the agent hands in and on its trajectory: no LLM is the judge.
 
@@ -258,13 +262,30 @@ AGENT_PROVIDER=openai_compat uv run pytest -m eval   # Gemini Flash-Lite, free t
 
 On PowerShell, `$env:AGENT_PROVIDER = 'openai_compat'` before the command.
 
-- **On Claude** it costs about 15 cents for the five, and needs `ANTHROPIC_API_KEY`.
-- **On Gemini** it costs nothing, and needs `OPENAI_COMPAT_API_KEY`, from Google AI Studio. The free tier allows 15 requests a minute and a scenario makes up to 12, so the scenarios start a minute apart: about 7 minutes for the five (6 min 35 s on 16 November).
+- **On Claude** it costs about 18 cents for the six, and needs `ANTHROPIC_API_KEY`.
+- **On Gemini** it costs nothing, and needs `OPENAI_COMPAT_API_KEY`, from Google AI Studio. The free tier allows 15 requests a minute and a scenario makes up to 12, so the scenarios start a minute apart: about 8 minutes for the six.
 - A plain `uv run pytest` leaves the evals out, and CI does not run them.
 - Before the agent is called, each scenario checks that the plant shows its fault: a scenario that went wrong costs nothing.
 - At the end a table gives the verdict, the tokens and the cost of each scenario. A second table compares the last run of each provider, once both have run.
 - `.evals/<provider>/`, ignored by git, keeps one JSON per scenario, with the diagnosis and every step of the trace.
 - The model is not deterministic: a scenario that passed may fail on the next run. Read its JSON before changing the prompt.
+
+### The manuals: their text, and the eval of the retrieval
+
+The plant agent searches the manuals of the components when `MANUALS_ENABLED` is on ([decisioni.md](decisioni.md), "RAG sui manuali, leggero"). The app reads only the text in `data/manuals/text/<id>.md`, which is in the repository: no PDF library at run time.
+
+**Regenerate the text** only when a manual changes, or a new one arrives in `data/manuals/`:
+
+```bash
+python scripts/download_manuals.py   # the documents of manuals/manifest.toml that are missing
+python scripts/extract_manuals.py    # the text of each document that has none yet
+```
+
+- It needs `pdfinfo` and `pdftotext` of poppler (`poppler-utils`), first in `PATH`. Git for Windows ships the `pdftotext` of xpdf, which reads tables another way: the script refuses it. On Windows, `PATH="/c/poppler/Library/bin:$PATH"` in Git Bash, or wherever poppler is.
+- A file that exists is left alone. `--force` writes every file again, and **loses the tables fixed by hand**: each is marked `<!-- table fixed by hand, checked on the PDF -->`. To regenerate one document, delete its file and run the script.
+- After a regeneration, fix those tables again on the PDF, one entry per row as a Markdown table under its title. `tests/test_manuals.py` checks that the marks are still there, that each header says what the manifest says, and that the pages are marked in order.
+
+**The eval of the retrieval** runs with the other tests, in CI too: `tests/adapters/manuals/test_retrieval.py`. The golden set is one question for each injectable fault of [impianto.md](impianto.md) that a manual speaks of, written as the agent would write it, with the pages that answer, checked on the PDF. The docstring lists the faults left out, and why. At the end of `uv run pytest` a table gives, for each question, the place of the first passage that answers (`-`: not in the first three), then hit@1 and hit@3. The test fails below hit@3 = 100% or hit@1 = 80%. Two more tests check the trap of the V20: F11 must give "Motor overtemperature" first, F20 "DC ripple too high".
 
 ## What CI runs
 

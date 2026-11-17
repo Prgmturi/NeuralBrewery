@@ -89,6 +89,16 @@ class TestRuntimeStage:
         assert "--no-install-recommends" in apt
         assert apt.endswith("&& rm -rf /var/lib/apt/lists/*")
 
+    def test_the_text_of_the_manuals_and_nothing_else_of_data(self):
+        """[HP] MANUALS_ENABLED finds its folder in the image, and no PDF.
+
+        WHY: the search reads data/manuals/text from /app. The PDFs weigh
+        about 18 MB and the app never reads them.
+        """
+        copied = [step for step in self.runtime() if "data" in step]
+
+        assert copied == ["COPY data/manuals/text ./data/manuals/text"]
+
     def test_runs_as_production_by_default(self):
         """[SEC] Without APP_ENVIRONMENT the image runs as production.
 

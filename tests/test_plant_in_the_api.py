@@ -23,11 +23,13 @@ from neuralbrewery.core.approvals.protocols import DecisionReader, ProposalInbox
 from neuralbrewery.core.config import (
     AgentSettings,
     ClaudeSettings,
+    ManualsSettings,
     OpenAICompatSettings,
     PlantSettings,
     ServerSettings,
     Settings,
 )
+from neuralbrewery.core.manuals.protocols import ManualSearch
 from neuralbrewery.core.plant.dependencies import PLANT_READER
 from neuralbrewery.core.plant.protocols import (
     PlantCommander,
@@ -114,12 +116,19 @@ class TestSimulationOnlyWhenAsked:
         assert not isinstance(control, PlantCommander)
 
 
-def with_keys(provider: str, *, claude_key: str = "", compat_key: str = "") -> Settings:
+def with_keys(
+    provider: str,
+    *,
+    claude_key: str = "",
+    compat_key: str = "",
+    manuals: ManualsSettings | None = None,
+) -> Settings:
     return Settings(
         server=ServerSettings(trusted_hosts=["testserver"]),
         agent=AgentSettings(provider=provider),
         claude=ClaudeSettings(api_key=claude_key),
         openai_compat=OpenAICompatSettings(api_key=compat_key),
+        manuals=manuals or ManualsSettings(),
     )
 
 
@@ -168,3 +177,43 @@ class TestThePlantAgent:
         """[EC] The key of the other provider does not make an agent: 503."""
         with pytest.raises(AttributeError):
             PLANT_AGENT.get(create_app(with_keys(provider, **keys)).state)
+
+
+class TestTheManuals:
+    """MANUALS_ENABLED: the search over the manuals, for the plant agent (M9)."""
+
+    @pytest.mark.parametrize("provider", ["claude", "openai_compat"])
+    def test_on_the_agent_reads_the_manuals_and_nothing_more(self, provider):
+        """[SEC] Either provider: text to search, no new way to the plant or queue."""
+        settings = with_keys(
+            provider,
+            claude_key="sk-ant-test",
+            compat_key="gm-test",
+            manuals=ManualsSettings(enabled=True),
+        )
+
+        app = create_app(settings)
+        agent = PLANT_AGENT.get(app.state)
+
+        assert isinstance(agent.manuals, ManualSearch)
+        assert "M1" in agent.manuals.tags()
+        for port in (
+            PlantReader,
+            PlantCommander,
+            SimulationControl,
+            ProposalInbox,
+            DecisionReader,
+        ):
+            assert not isinstance(agent.manuals, port)
+
+    def test_off_by_default_and_no_folder_is_needed(self, tmp_path):
+        """[HP] The app starts as before, even with no text of the manuals."""
+        missing = ManualsSettings(folder=tmp_path / "nowhere")
+
+        agent = PLANT_AGENT.get(
+            create_app(
+                with_keys("claude", claude_key="sk-ant-test", manuals=missing)
+            ).state
+        )
+
+        assert agent.manuals is None

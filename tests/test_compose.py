@@ -258,6 +258,18 @@ class TestPlantInTheApi:
 
         assert api["ANTHROPIC_API_KEY"] == "${ANTHROPIC_API_KEY:-}"
 
+    def test_the_manuals_are_on_unless_switched_off(self):
+        """[HP] On by default; MANUALS_ENABLED=false from .env or the shell.
+
+        WHY: after the evals of M9, and with the parameter list of the V20
+        fixed by hand, the demo runs with the manuals. A .env written
+        before M9 has no such line: compose turns them on all the same.
+        """
+        api = services()["api"]["environment"]
+
+        assert api["MANUALS_ENABLED"] == "${MANUALS_ENABLED:-true}"
+        assert env_example("MANUALS_ENABLED") == "true"
+
     def test_production_closes_the_simulation(self):
         """[SEC] On a server nobody moves the time of the plant or breaks it."""
         assert prod_env("api")["PLANT_SIMULATION_CONTROL"] == "false"

@@ -81,6 +81,10 @@ RUN useradd --no-create-home --shell /usr/sbin/nologin appuser
 COPY --from=builder /app/.venv /app/.venv
 COPY alembic ./alembic
 COPY alembic.ini ./
+# The text of the manuals, for the search of the plant agent when
+# MANUALS_ENABLED is on: MANUALS_FOLDER is data/manuals/text, from /app.
+# The text alone: the PDFs it was extracted from stay out of the image.
+COPY data/manuals/text ./data/manuals/text
 
 USER appuser
 

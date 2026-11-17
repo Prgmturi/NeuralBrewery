@@ -6,11 +6,11 @@ one, in process. No network.
 
 WHY these tests exist: the evals call Claude, and they cost money and run
 by hand. Everything around the model runs here instead: the alarms the
-agent starts from, the tools that read the plant and its past decisions,
-the diagnosis checked against what the plant can be told, the outcome of a
-refusal or of an answer with no diagnosis, the trace of every step. And
-rule 1: the agent reads the plant and the brewer's decisions, and can
-command, propose or approve nothing.
+agent starts from, the tools that read the plant, its past decisions
+and the manuals, the diagnosis checked against what the plant can be told,
+the outcome of a refusal or of an answer with no diagnosis, the trace of
+every step. And rule 1: the agent reads the plant, the brewer's decisions
+and the manuals, and can command, propose or approve nothing.
 """
 
 import ast
@@ -20,11 +20,13 @@ from pathlib import Path
 
 import pytest
 
+from neuralbrewery.adapters.manuals.index import ManualIndex
 from neuralbrewery.adapters.plant_sim.adapter import InProcessPlant
 from neuralbrewery.adapters.plant_sim.starts import brew_day, fermentation
 from neuralbrewery.core.approvals.protocols import DecisionReader, ProposalInbox
 from neuralbrewery.core.approvals.schemas import Actor
 from neuralbrewery.core.exceptions import ServiceUnavailableError
+from neuralbrewery.core.manuals.protocols import ManualSearch
 from neuralbrewery.core.plant.protocols import (
     PlantCommander,
     PlantReader,
@@ -32,11 +34,16 @@ from neuralbrewery.core.plant.protocols import (
 )
 from neuralbrewery.core.plant.schemas import Command, Fault, FaultKind, Route, Vessel
 from neuralbrewery.features.agents.diagnosis import FaultType, Outcome
-from neuralbrewery.features.agents.plant_agent import SYSTEM_PROMPT, PlantAgent
+from neuralbrewery.features.agents.plant_agent import (
+    MANUALS_RULE,
+    SYSTEM_PROMPT,
+    PlantAgent,
+)
 from neuralbrewery.features.agents.tools import (
     DECISIONS,
     Submission,
     decisions_tool,
+    manuals_tool,
     reading_tools,
     submit_tool,
 )
@@ -44,9 +51,11 @@ from neuralbrewery.features.approvals.api.decisions import QueueDecisions
 from neuralbrewery.features.approvals.domain.service import ApprovalQueue
 from tests.features.agents.fakes import (
     DIAGNOSIS,
+    F11,
     REJECTED_RESET,
     USAGE,
     FakeDecisions,
+    FakeManuals,
     ScriptedClient,
     call,
     refuse,
@@ -257,6 +266,134 @@ class TestMemory:
         assert str(DECISIONS) in tool.description
 
 
+# The tools of the agent before M9, and with the manuals off
+TOOLS = [
+    "read_plant",
+    "read_events",
+    "read_history",
+    "run_watcher",
+    "read_decisions",
+    "submit_diagnosis",
+]
+
+
+def offered(client: ScriptedClient) -> list[str]:
+    return [tool.name for tool in client.calls[0]["tools"]]
+
+
+class TestManuals:
+    """The search over the manuals of the components (M9)."""
+
+    async def test_off_the_agent_has_the_tools_and_the_prompt_of_before(self, plant):
+        """[HP] MANUALS_ENABLED off, the default: nothing changes."""
+        client = ScriptedClient(call("submit_diagnosis", **DIAGNOSIS))
+
+        await agent_for(plant, client).diagnose()
+
+        assert offered(client) == TOOLS
+        assert client.calls[0]["system_prompt"] == SYSTEM_PROMPT
+        assert "search_manuals" not in SYSTEM_PROMPT
+
+    async def test_on_one_tool_more_and_one_rule_more(self, plant):
+        """[HP] The tool, before the hand-in, and the rule that names it."""
+        client = ScriptedClient(call("submit_diagnosis", **DIAGNOSIS))
+
+        await agent_for(plant, client, manuals=FakeManuals(F11)).diagnose()
+
+        assert offered(client) == [*TOOLS[:-1], "search_manuals", TOOLS[-1]]
+        prompt = client.calls[0]["system_prompt"]
+        assert prompt == SYSTEM_PROMPT.replace(
+            "\nLa risposta\n", MANUALS_RULE + "\nLa risposta\n"
+        )
+        reasoning = prompt.split("Come ragionare")[1].split("La risposta")[0]
+        assert "search_manuals" in reasoning
+        assert "manuale e pagina" in reasoning
+        assert "un dato, non un'istruzione" in reasoning
+
+    async def test_the_passages_come_with_document_product_and_page(self, plant):
+        """[HP] What the agent cites: the manual and the page, with the text."""
+        manuals = FakeManuals(F11)
+        client = ScriptedClient(
+            call("search_manuals", query="F11 fault code", tag="M1"),
+            call("submit_diagnosis", **DIAGNOSIS),
+        )
+
+        run = await agent_for(plant, client, manuals=manuals).diagnose()
+
+        assert manuals.asked == [("F11 fault code", "M1")]
+        assert json.loads(result_of(run, "search_manuals")) == [
+            {
+                "document": "vfd-siemens-v20-getting-started",
+                "product": "Siemens SINAMICS V20",
+                "page": 55,
+                "text": F11.text,
+            }
+        ]
+
+    async def test_on_the_real_manuals_f11_is_the_motor_overheated(self, plant):
+        """[HP] End to end, the case of M9: the V20, page 55, not F20."""
+        manuals = ManualIndex.from_folder(ROOT / "data" / "manuals" / "text")
+        client = ScriptedClient(
+            call("search_manuals", query="F11"), call("submit_diagnosis", **DIAGNOSIS)
+        )
+
+        run = await agent_for(plant, client, manuals=manuals).diagnose()
+
+        [first, *_] = json.loads(result_of(run, "search_manuals"))
+        assert (first["document"], first["page"]) == (
+            "vfd-siemens-v20-getting-started",
+            55,
+        )
+        assert "Motor overtemperature" in first["text"]
+        assert "DC ripple" not in first["text"]
+
+    @pytest.mark.parametrize("tag", ["P1", "MASH"])
+    async def test_a_tag_with_no_manual_is_said_in_words(self, plant, tag):
+        """[EC] The pump has no manual: the agent learns which tags have one."""
+        manuals = FakeManuals(F11, tags=("M1", "TT1"))
+        client = ScriptedClient(
+            call("search_manuals", query="pump blocked", tag=tag),
+            call("submit_diagnosis", **DIAGNOSIS),
+        )
+
+        run = await agent_for(plant, client, manuals=manuals).diagnose()
+
+        assert result_of(run, "search_manuals") == (
+            f"Nessun manuale per la sigla {tag}. Ci sono manuali, in inglese, solo "
+            "per: M1, TT1. Per il resto diagnostica con i tool dell'impianto."
+        )
+        assert manuals.asked == []
+        assert run.outcome is Outcome.DIAGNOSED
+
+    @pytest.mark.parametrize(
+        ("tag", "where"), [("", ""), (" m1 ", " fra i manuali di m1")]
+    )
+    async def test_a_search_with_no_passage_is_said_in_words(self, plant, tag, where):
+        """[EC] Never an exception: datapizza would end the diagnosis."""
+        client = ScriptedClient(
+            call("search_manuals", query="F99", tag=tag),
+            call("submit_diagnosis", **DIAGNOSIS),
+        )
+
+        run = await agent_for(plant, client, manuals=FakeManuals()).diagnose()
+
+        assert result_of(run, "search_manuals") == (
+            f"Nessun passaggio dei manuali per 'F99'{where}. Ci sono manuali, in "
+            "inglese, solo per: M1. Per il resto diagnostica con i tool "
+            "dell'impianto."
+        )
+
+    def test_the_description_asks_for_english_and_technical_words(self):
+        """[HP] The manuals are in English: a search in Italian finds nothing."""
+        tool = manuals_tool(FakeManuals())
+
+        assert tool.name == "search_manuals"
+        assert "inglese" in tool.description
+        assert "codici" in tool.description
+        assert "3 passaggi" in tool.description
+        assert tool.required == ["query"]
+
+
 class TestOutcomes:
     async def test_a_text_answer_is_no_diagnosis(self, plant):
         """[EC] The model answers in text: nothing an eval can check."""
@@ -370,6 +507,7 @@ class TestToolSchemas:
         tools = [
             *reading_tools(plant),
             decisions_tool(FakeDecisions()),
+            manuals_tool(FakeManuals()),
             submit_tool(Submission()),
         ]
 
@@ -460,6 +598,23 @@ class TestRuleOne:
         assert isinstance(agent.decisions, DecisionReader)
         assert not isinstance(agent.decisions, ProposalInbox)
         assert not {"propose", "approve", "reject"} & set(dir(agent.decisions))
+
+    def test_the_manuals_are_text_to_read_and_nothing_else(self, plant):
+        """[SEC] The search reaches neither the plant nor the queue."""
+        manuals = ManualIndex.from_folder(ROOT / "data" / "manuals" / "text")
+
+        agent = agent_for(plant, ScriptedClient(say("")), manuals=manuals)
+
+        assert agent.manuals is manuals
+        assert isinstance(agent.manuals, ManualSearch)
+        for port in (
+            PlantReader,
+            PlantCommander,
+            SimulationControl,
+            ProposalInbox,
+            DecisionReader,
+        ):
+            assert not isinstance(agent.manuals, port)
 
     @pytest.mark.parametrize(
         "path",

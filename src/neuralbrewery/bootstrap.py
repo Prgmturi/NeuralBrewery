@@ -24,6 +24,7 @@ from neuralbrewery.adapters.keycloak.client import KeycloakClient
 from neuralbrewery.adapters.keycloak.extractors import KeycloakClaimExtractor
 from neuralbrewery.adapters.keycloak.jwks import JWKSTokenDecoder
 from neuralbrewery.adapters.keycloak.jwks_manager import JWKSManager
+from neuralbrewery.adapters.manuals.index import ManualIndex
 from neuralbrewery.adapters.openai_compat import client as compat_adapter
 from neuralbrewery.adapters.plant_sim.adapter import InProcessPlant
 from neuralbrewery.adapters.plant_sim.simulator import PlantSimulator
@@ -35,6 +36,7 @@ from neuralbrewery.core.body_limit import BodySizeLimitMiddleware
 from neuralbrewery.core.config import (
     DatabaseSettings,
     KeycloakSettings,
+    ManualsSettings,
     ServerSettings,
     Settings,
 )
@@ -46,6 +48,7 @@ from neuralbrewery.core.logging import (
     LoggingMiddleware,
     get_logger,
 )
+from neuralbrewery.core.manuals.protocols import ManualSearch
 from neuralbrewery.core.plant.dependencies import PLANT_READER
 from neuralbrewery.core.plant.protocols import PlantReader
 from neuralbrewery.core.plant.readonly import ReadOnlyPlant, SimulationOnly
@@ -127,6 +130,16 @@ def agent_key(settings: Settings) -> str:
     return settings.claude.api_key.get_secret_value()
 
 
+def manual_search(settings: ManualsSettings) -> ManualSearch | None:
+    """The search over the manuals, read once now; None when it is off.
+
+    On, ManualsSettings has already checked that the folder holds the text.
+    """
+    if not settings.enabled:
+        return None
+    return ManualIndex.from_folder(settings.folder)
+
+
 def init_plant_agent(
     app: FastAPI, settings: Settings, reader: PlantReader, decisions: DecisionReader
 ) -> None:
@@ -134,6 +147,8 @@ def init_plant_agent(
 
     Of the plant it gets the reader alone, of the queue the brewer's
     decisions on its past proposals: nothing that proposes or approves.
+    With MANUALS_ENABLED it gets the search over the manuals too: text, and
+    nothing more.
 
     The agent takes a datapizza client and the arguments of every call, and
     knows no more of its provider. Without the key of that provider there
@@ -147,6 +162,7 @@ def init_plant_agent(
                 decisions,
                 compat_adapter.create_client(settings.openai_compat),
                 compat_adapter.generation_args(),
+                manuals=manual_search(settings.manuals),
             )
             PLANT_AGENT.set(app.state, agent)
         return
@@ -157,6 +173,7 @@ def init_plant_agent(
             decisions,
             claude_adapter.create_client(settings.claude),
             claude_adapter.generation_args(settings.claude),
+            manuals=manual_search(settings.manuals),
         )
         PLANT_AGENT.set(app.state, agent)
 
@@ -207,6 +224,7 @@ async def start_services(
         # Without the key of its provider the agent endpoint answers 503
         agent_provider=settings.agent.provider,
         agent=bool(agent_key(settings)),
+        manuals=settings.manuals.enabled,
     )
     db_manager = await init_database(app_state, settings.database)
     services.append(("database", db_manager.disconnect))

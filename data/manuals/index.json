@@ -1,0 +1,146 @@
+[
+  {
+    "id": "pt100-itherm-tm411",
+    "file": "pt100-itherm-tm411.pdf",
+    "sha256": "c17c7455ae2c9f2540af6f8fe24a25766e72686c356356cf83b0a76de29ef73f",
+    "size_bytes": 4930071,
+    "indexed_at": "2026-11-17T01:44:50+00:00",
+    "component": "Sonda di temperatura PT100 igienica",
+    "product": "Endress+Hauser iTHERM TM411",
+    "tags": [
+      "TT1",
+      "TT2",
+      "TT3",
+      "TT5a",
+      "TT5b"
+    ],
+    "doc_type": "technical_information",
+    "source": "ufficiale",
+    "origin": "https://bdih-download.endress.com/file/7e91c565ef521b3ea3b77de520205908/TI01038TEN_1025-00.pdf"
+  },
+  {
+    "id": "transmitter-itemp-tmt80",
+    "file": "transmitter-itemp-tmt80.pdf",
+    "sha256": "2035122576d577150af9e29cdb699946291e63ffd88252615339db11e6617f41",
+    "size_bytes": 793804,
+    "indexed_at": "2026-11-17T01:44:50+00:00",
+    "component": "Trasmettitore in testa 4-20 mA per PT100",
+    "product": "Endress+Hauser iTEMP TMT80",
+    "tags": [
+      "TT1",
+      "TT2",
+      "TT3",
+      "TT5a",
+      "TT5b"
+    ],
+    "doc_type": "technical_information",
+    "source": "distributore",
+    "origin": "https://www.mouser.lt/datasheet/2/1507/TI00153REN_0621_00-3359081.pdf"
+  },
+  {
+    "id": "level-sick-lfp-cubic-datasheet",
+    "file": "level-sick-lfp-cubic-datasheet.pdf",
+    "sha256": "d456695b006d400e19125bd66ce8cf5410e5f6e8bf713598d0b7d50ec6f990c1",
+    "size_bytes": 655197,
+    "indexed_at": "2026-11-17T01:44:50+00:00",
+    "component": "Sensore di livello igienico a radar guidato",
+    "product": "SICK LFP Cubic",
+    "tags": [
+      "LT1",
+      "LT2",
+      "LT3",
+      "LT4"
+    ],
+    "doc_type": "datasheet",
+    "source": "ufficiale",
+    "origin": "https://www.sick.com/media/pdf/3/53/153/dataSheet_LFP3000-F4CMB_1072026_en.pdf"
+  },
+  {
+    "id": "level-sick-lfp-cubic-instructions",
+    "file": "level-sick-lfp-cubic-instructions.pdf",
+    "sha256": "1202f14d57123ef53385137b4eac550c62260dac36750fb78d95bf14899460b7",
+    "size_bytes": 2700190,
+    "indexed_at": "2026-11-17T01:44:50+00:00",
+    "component": "Sensore di livello igienico a radar guidato",
+    "product": "SICK LFP Cubic",
+    "tags": [
+      "LT1",
+      "LT2",
+      "LT3",
+      "LT4"
+    ],
+    "doc_type": "operating_instructions",
+    "source": "terzi",
+    "origin": "https://manualmachine.com/sick/lfpcubic/20309393-operating-instructions-manual"
+  },
+  {
+    "id": "hydrometer-ispindel",
+    "file": "hydrometer-ispindel.md",
+    "sha256": "9b3ceb5e62b7e8f731550a73c1d92670655257653c4c79556977ae8f1e2f0aa6",
+    "size_bytes": 9770,
+    "indexed_at": "2026-11-17T01:44:50+00:00",
+    "component": "Mostimetro wireless",
+    "product": "iSpindel",
+    "tags": [
+      "DT1"
+    ],
+    "doc_type": "readme",
+    "source": "ufficiale",
+    "origin": "https://raw.githubusercontent.com/universam1/iSpindel/master/docs/README_en.md"
+  },
+  {
+    "id": "valve-ussolid-motorized",
+    "file": "valve-ussolid-motorized.pdf",
+    "sha256": "58ecb4d8dbf61ee4504d688f5597a268d5c9acc42ef40e50a8f80b3abd5906fd",
+    "size_bytes": 859339,
+    "indexed_at": "2026-11-17T01:44:50+00:00",
+    "component": "Valvola a sfera motorizzata inox",
+    "product": "U.S. Solid motorized ball valve",
+    "tags": [
+      "EV2a",
+      "EV2b",
+      "EV3",
+      "EV4",
+      "EV5",
+      "EV6",
+      "EV7",
+      "EV9"
+    ],
+    "doc_type": "user_manual",
+    "source": "terzi",
+    "origin": "https://manuals.plus/asin/B0BQBV93S5.pdf"
+  },
+  {
+    "id": "ssr-crydom-d2425",
+    "file": "ssr-crydom-d2425.pdf",
+    "sha256": "57d21afded95687eaebbb6a9fcea3518bc99a118df7a7e8373fdab5750b5acfe",
+    "size_bytes": 1029614,
+    "indexed_at": "2026-11-17T01:44:50+00:00",
+    "component": "Relè statico per le resistenze",
+    "product": "Sensata Crydom D2425",
+    "tags": [
+      "R1",
+      "R2",
+      "R3",
+      "R4"
+    ],
+    "doc_type": "datasheet",
+    "source": "terzi",
+    "origin": "https://www.datasheets.com/crydom/d2425"
+  },
+  {
+    "id": "vfd-siemens-v20-getting-started",
+    "file": "vfd-siemens-v20-getting-started.pdf",
+    "sha256": "7bdf9a579a7fb59c14c2e1b6f1b0e6dde5e4d599706c769dd708e970376af631",
+    "size_bytes": 7753196,
+    "indexed_at": "2026-11-17T01:44:50+00:00",
+    "component": "Inverter dell'agitatore",
+    "product": "Siemens SINAMICS V20",
+    "tags": [
+      "M1"
+    ],
+    "doc_type": "getting_started",
+    "source": "ufficiale",
+    "origin": "https://cache.industry.siemens.com/dl/files/829/67274829/att_106714/v1/v20_getting_started_400v__230v_en-US_en-US.pdf"
+  }
+]
