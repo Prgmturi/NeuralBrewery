@@ -11,7 +11,8 @@ that has a manual saying something about it, written as the agent would
 write it (in English, with the tag of the component). The pages that
 answer were checked by hand on the PDF; a fact stated on two pages counts
 on either. Left out, and why:
-- glycol_failed (CHILLER): its manual did not download;
+- glycol_failed (CHILLER): its manual says nothing useful, and is not in
+  the repository;
 - fermentation_stuck (FERM): the manual of the Fermenator G4 is about
   assembly, cleaning and pressure, and has no word on a fermentation
   that stops;

@@ -274,16 +274,15 @@ On PowerShell, `$env:AGENT_PROVIDER = 'openai_compat'` before the command.
 
 The plant agent searches the manuals of the components when `MANUALS_ENABLED` is on ([decisioni.md](decisioni.md), "RAG sui manuali, leggero"). The app reads only the text in `data/manuals/text/<id>.md`, which is in the repository: no PDF library at run time.
 
-**Regenerate the text** only when a manual changes, or a new one arrives in `data/manuals/`:
+**Regenerate the text** only when a manual changes, or a new one arrives in `data/manuals/`. Every manual is in the repository, with its source in `manuals/manifest.toml`: there is nothing to download.
 
 ```bash
-python scripts/download_manuals.py   # the documents of manuals/manifest.toml that are missing
 python scripts/extract_manuals.py    # the text of each document that has none yet
 ```
 
 - It needs `pdfinfo` and `pdftotext` of poppler (`poppler-utils`), first in `PATH`. Git for Windows ships the `pdftotext` of xpdf, which reads tables another way: the script refuses it. On Windows, `PATH="/c/poppler/Library/bin:$PATH"` in Git Bash, or wherever poppler is.
 - A file that exists is left alone. `--force` writes every file again, and **loses the tables fixed by hand**: each is marked `<!-- table fixed by hand, checked on the PDF -->`. To regenerate one document, delete its file and run the script.
-- To replace a manual: put the new file at `data/manuals/<id>.pdf`, with the id of the manifest, and update its entry (`source`, `url` or `page`, `note`). Delete only `data/manuals/text/<id>.md`, then run both scripts: the first writes the new hash in `index.json`, the second extracts that document alone.
+- To replace a manual: put the new file at `data/manuals/<id>.pdf`, with the id of the manifest, and update its entry (`source`, `url` or `page`, `note`). Delete only `data/manuals/text/<id>.md`, then run the script: it extracts that document alone.
 - A copy from manualslib carries the header of the site on its first and last page, and a "Downloaded from" line on each page: remove them from the text, as for the pump and the fermenter.
 - After a regeneration, fix those tables again on the PDF, one entry per row as a Markdown table under its title. Where its cells fit on one line, `pdftotext -layout` keeps the rows of a table together; `pdftotext -bbox-layout` gives the place of each word, to prove that each row is right (the parameter list of the V20, 218 rows). `tests/test_manuals.py` checks that the marks are still there, that each header says what the manifest says, and that the pages are marked in order.
 

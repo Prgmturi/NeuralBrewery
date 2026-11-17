@@ -88,7 +88,8 @@ agenti.
   manuale, Gemini tirava a indovinare; il manuale del V20, a pagina 55, dice "Motor
   overtemperature". Fatto così:
   - **i manuali nel repo** (regola 8): dieci documenti in `data/manuals/`, con il nome dell'id del
-    manifest. Il chiller non si scarica (429): resta fuori, e `CHILLER` non ha manuali. Pompa e
+    manifest, e ognuno ha la sua fonte nel manifest: non c'è niente da scaricare. Il manuale del
+    chiller non dice niente di utile ai guasti: è uscito dal manifest, e `CHILLER` non ha manuali. Pompa e
     fermentatore vengono dalle copie di manualslib (il distributore risponde 403, il sito Blichmann
     429), e il loro testo è senza l'intestazione del sito. Il sistema di raffreddamento del G4 non
     ha un manuale: è uscito dal manifest;
