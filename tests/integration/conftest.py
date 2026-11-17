@@ -80,7 +80,7 @@ async def db_manager(database_settings) -> AsyncIterator[DatabaseManager]:
 def app(app, db_manager):
     """The app of tests/conftest.py, with the real database.
 
-    Only the database changes: the lifespan stays off and auth stays
+    Only the database changes: the lifespan stays off and the rest stays
     mocked. The manager goes into app.state, where get_db_manager reads it.
     """
     del app.dependency_overrides[get_db_manager]

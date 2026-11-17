@@ -20,7 +20,6 @@ from fastapi import HTTPException
 from pydantic import BaseModel, Field
 from structlog.testing import capture_logs
 
-from neuralbrewery.core.auth.dependencies import AdminUser, CurrentUser
 from neuralbrewery.core.exceptions import (
     AppExceptionError,
     ConflictError,
@@ -61,21 +60,14 @@ class TestSameShapeForEveryError:
     """
 
     @pytest.fixture(autouse=True)
-    def routes(self, app, mock_auth_service, sample_user):
-        async def validate(token: str):
-            if token == "user-token":
-                return sample_user
-            raise UnauthorizedError("Invalid token")
-
-        mock_auth_service.validate_token.side_effect = validate
-
+    def routes(self, app):
         @app.get("/shape/me")
-        async def me(user: CurrentUser) -> dict[str, str]:
-            return {"id": user.id}
+        async def me() -> None:
+            raise UnauthorizedError()
 
         @app.get("/shape/admin")
-        async def admin(user: AdminUser) -> dict[str, str]:
-            return {"id": user.id}
+        async def admin() -> None:
+            raise ForbiddenError("Missing role")
 
         @app.get("/shape/items")
         async def items(limit: int) -> dict[str, int]:
@@ -89,20 +81,7 @@ class TestSameShapeForEveryError:
         ("method", "path", "headers", "status"),
         [
             pytest.param("GET", "/shape/me", {}, 401, id="401-no-token"),
-            pytest.param(
-                "GET",
-                "/shape/me",
-                {"Authorization": "Bearer bad"},
-                401,
-                id="401-invalid-token",
-            ),
-            pytest.param(
-                "GET",
-                "/shape/admin",
-                {"Authorization": "Bearer user-token"},
-                403,
-                id="403-missing-role",
-            ),
+            pytest.param("GET", "/shape/admin", {}, 403, id="403-missing-role"),
             pytest.param("GET", "/shape/nowhere", {}, 404, id="404-unknown-path"),
             pytest.param("POST", "/shape/me", {}, 405, id="405-wrong-method"),
             pytest.param("GET", "/shape/items?limit=many", {}, 422, id="422-bad-query"),
@@ -122,7 +101,7 @@ class TestSameShapeForEveryError:
         response = await client.get("/shape/me")
 
         body = assert_problem(response, 401)
-        assert body["detail"] == "Not authenticated"
+        assert body["detail"] == "Authentication required"
         assert response.headers["WWW-Authenticate"] == "Bearer"
 
     async def test_405_lists_the_allowed_methods(self, client):
@@ -216,13 +195,13 @@ class TestAppExceptionHandler:
 
         @app.get("/exc/external")
         async def _():
-            raise ExternalServiceError("Keycloak")
+            raise ExternalServiceError("Anthropic")
 
         response = await client.get("/exc/external")
 
         body = assert_problem(response, 502)
-        assert body["detail"] == "Error communicating with Keycloak"
-        assert body["service"] == "Keycloak"
+        assert body["detail"] == "Error communicating with Anthropic"
+        assert body["service"] == "Anthropic"
 
     async def test_details_cannot_replace_standard_members(self, app, client):
         """[EC] A details key named like an RFC member is dropped.

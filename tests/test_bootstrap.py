@@ -9,36 +9,24 @@ the wiring and error handling — particularly that partial initialization
 failures properly clean up already-initialized resources.
 """
 
-import json
 from collections.abc import AsyncGenerator
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
-from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from jwt.algorithms import RSAAlgorithm
 from starlette.datastructures import State
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
-from neuralbrewery.adapters.keycloak.client import KeycloakClient
 from neuralbrewery.bootstrap import (
-    create_keycloak_http_client,
-    init_auth_service,
     init_database,
-    init_oauth_provider,
     mcp_transport_security,
     register_middleware,
     shutdown_services,
 )
 from neuralbrewery.core.body_limit import BodySizeLimitMiddleware
-from neuralbrewery.core.config import (
-    DatabaseSettings,
-    KeycloakSettings,
-    ServerSettings,
-)
+from neuralbrewery.core.config import DatabaseSettings, ServerSettings
 from neuralbrewery.core.database import DatabaseManager
 from neuralbrewery.core.error_middleware import UnhandledExceptionMiddleware
 from neuralbrewery.core.exceptions import ServiceUnavailableError
@@ -148,189 +136,6 @@ class TestInitDatabase:
         )
 
 
-class TestCreateKeycloakHttpClient:
-    """create_keycloak_http_client() — the client shared by Keycloak adapters."""
-
-    async def test_uses_request_timeout_from_settings(self):
-        """[HP] Timeout comes from KEYCLOAK_REQUEST_TIMEOUT."""
-        settings = KeycloakSettings(request_timeout=7)
-
-        async with create_keycloak_http_client(settings) as client:
-            assert client.timeout == httpx.Timeout(7)
-
-
-class TestInitAuthService:
-    """init_auth_service() — auth service initialization.
-
-    WHY: Wires JWKSManager -> JWKSTokenDecoder -> AuthService.
-    Pre-fetches JWKS keys. If JWKS fetch fails, app must not start.
-    """
-
-    @patch("neuralbrewery.bootstrap.AuthService")
-    @patch("neuralbrewery.bootstrap.KeycloakClaimExtractor")
-    @patch("neuralbrewery.bootstrap.JWKSTokenDecoder")
-    @patch("neuralbrewery.bootstrap.JWKSManager")
-    async def test_creates_service_and_stores_in_state(
-        self,
-        mock_jwks_manager,
-        mock_decoder,
-        mock_extractor,
-        mock_auth_service,
-        http_client,
-    ):
-        """[HP] Keys fetched through the given client, service stored in state.
-
-        With default settings the decoder accepts only client_id and does
-        not check aud.
-        """
-        mock_jwks = AsyncMock()
-        mock_jwks.refresh_keys = AsyncMock()
-        mock_jwks_manager.return_value = mock_jwks
-
-        state = State()
-        settings = KeycloakSettings()
-        await init_auth_service(state, settings, http_client)
-
-        mock_jwks_manager.assert_called_once_with(settings, http_client)
-        mock_decoder.assert_called_once_with(
-            key_provider=mock_jwks,
-            issuer="http://localhost:8080/realms/neuralbrewery",
-            allowed_clients=["neuralbrewery"],
-            audience=None,
-        )
-        mock_jwks.refresh_keys.assert_called_once()
-        assert state.auth_service is mock_auth_service.return_value
-
-    @patch("neuralbrewery.bootstrap.AuthService")
-    @patch("neuralbrewery.bootstrap.KeycloakClaimExtractor")
-    @patch("neuralbrewery.bootstrap.JWKSTokenDecoder")
-    @patch("neuralbrewery.bootstrap.JWKSManager")
-    async def test_token_policy_from_settings_reaches_decoder(
-        self,
-        mock_jwks_manager,
-        mock_decoder,
-        mock_extractor,
-        mock_auth_service,
-        http_client,
-    ):
-        """[HP] KEYCLOAK_ALLOWED_CLIENTS and KEYCLOAK_AUDIENCE reach the decoder."""
-        mock_jwks_manager.return_value = AsyncMock()
-
-        settings = KeycloakSettings(
-            allowed_clients=["neuralbrewery", "web-frontend"],
-            audience="neuralbrewery",
-        )
-        await init_auth_service(State(), settings, http_client)
-
-        _, kwargs = mock_decoder.call_args
-        assert kwargs["allowed_clients"] == ["neuralbrewery", "web-frontend"]
-        assert kwargs["audience"] == "neuralbrewery"
-
-    @patch("neuralbrewery.bootstrap.AuthService")
-    @patch("neuralbrewery.bootstrap.KeycloakClaimExtractor")
-    @patch("neuralbrewery.bootstrap.JWKSTokenDecoder")
-    @patch("neuralbrewery.bootstrap.JWKSManager")
-    async def test_issuer_is_the_public_url(
-        self,
-        mock_jwks_manager,
-        mock_decoder,
-        mock_extractor,
-        mock_auth_service,
-        http_client,
-    ):
-        """[HP] The decoder expects the iss Keycloak writes: its public address.
-
-        WHY: with the internal address, every token signed by a Keycloak
-        published as https://auth.example.com would be refused with 401.
-        """
-        mock_jwks_manager.return_value = AsyncMock()
-
-        settings = KeycloakSettings(
-            host="keycloak", public_url="https://auth.example.com"
-        )
-        await init_auth_service(State(), settings, http_client)
-
-        _, kwargs = mock_decoder.call_args
-        assert kwargs["issuer"] == "https://auth.example.com/realms/neuralbrewery"
-
-    @patch("neuralbrewery.bootstrap.AuthService")
-    @patch("neuralbrewery.bootstrap.KeycloakClaimExtractor")
-    @patch("neuralbrewery.bootstrap.JWKSTokenDecoder")
-    @patch("neuralbrewery.bootstrap.JWKSManager")
-    async def test_jwks_refresh_failure_raises_and_leaves_client_open(
-        self,
-        mock_jwks_manager,
-        mock_decoder,
-        mock_extractor,
-        mock_auth_service,
-        http_client,
-    ):
-        """[EC] refresh_keys fails -> raises, no service in state, client open.
-
-        WHY: the client belongs to the lifespan, which closes it. An adapter
-        that closed it would break the other adapters sharing it.
-        """
-        mock_jwks = AsyncMock()
-        mock_jwks.refresh_keys = AsyncMock(side_effect=RuntimeError("JWKS unreachable"))
-        mock_jwks_manager.return_value = mock_jwks
-
-        state = State()
-        settings = KeycloakSettings()
-        with pytest.raises(RuntimeError, match="JWKS unreachable"):
-            await init_auth_service(state, settings, http_client)
-
-        assert not hasattr(state, "auth_service")
-        assert not http_client.is_closed
-
-    @patch("neuralbrewery.bootstrap.AuthService")
-    @patch("neuralbrewery.bootstrap.KeycloakClaimExtractor")
-    @patch("neuralbrewery.bootstrap.JWKSTokenDecoder")
-    @patch("neuralbrewery.bootstrap.JWKSManager")
-    async def test_jwks_refresh_failure_logs_one_line(
-        self,
-        mock_jwks_manager,
-        mock_decoder,
-        mock_extractor,
-        mock_auth_service,
-        http_client,
-        monkeypatch,
-    ):
-        """[EC] One error line, without traceback: uvicorn prints it.
-
-        WHY: the traceback came twice, from here and from uvicorn. The
-        jwks_refresh_failed line before this one names the cause.
-        """
-        logger = MagicMock()
-        monkeypatch.setattr("neuralbrewery.bootstrap.logger", logger)
-        mock_jwks = AsyncMock()
-        mock_jwks.refresh_keys = AsyncMock(
-            side_effect=ServiceUnavailableError("auth", retry_after=30)
-        )
-        mock_jwks_manager.return_value = mock_jwks
-
-        with pytest.raises(ServiceUnavailableError):
-            await init_auth_service(State(), KeycloakSettings(), http_client)
-
-        logger.error.assert_called_once_with(
-            "auth_service_init_failed",
-            error_type="ServiceUnavailableError",
-            error="Service temporarily unavailable",
-        )
-        logger.exception.assert_not_called()
-
-
-class TestInitOAuthProvider:
-    """init_oauth_provider() — OAuth provider for the token endpoints."""
-
-    async def test_stores_keycloak_client_in_state(self, http_client):
-        """[HP] app_state.oauth_provider is a KeycloakClient."""
-        state = State()
-
-        await init_oauth_provider(state, KeycloakSettings(), http_client)
-
-        assert isinstance(state.oauth_provider, KeycloakClient)
-
-
 class OfflineDatabaseManager(DatabaseManager):
     """The real manager, minus the one query that needs a server.
 
@@ -342,51 +147,24 @@ class OfflineDatabaseManager(DatabaseManager):
         return True
 
 
-@pytest.fixture(scope="module")
-def realm_jwks() -> dict[str, Any]:
-    """Key set as Keycloak's certs endpoint publishes it, with one key.
-
-    One for the whole module: generating RSA keys is slow.
-    """
-    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    jwk = json.loads(RSAAlgorithm.to_jwk(private_key.public_key()))
-    return {"keys": [{**jwk, "kid": "key-1", "use": "sig", "alg": "RS256"}]}
-
-
 class TestServicesReachTheRoutes:
     """What bootstrap.py stores in app.state is what the routes receive.
 
     WHY: bootstrap.py stores each service in app.state under a name, and a
-    getter (get_db_manager, get_auth_service, get_oauth_provider) reads it
-    back by the same name. app.state has no types, and the other tests
-    replace the getters: with a misspelled name mypy and every test passed,
-    while in production each route that needs the service answered 500.
-    Here the real lifespan runs with only the network replaced, and the
-    routes get their real dependencies.
+    getter (get_db_manager) reads it back by the same name. app.state has
+    no types, and the other tests replace the getters: with a misspelled
+    name mypy and every test passed, while in production each route that
+    needs the service answered 500. Here the real lifespan runs with only
+    the database replaced, and the routes get their real dependencies.
     """
 
     @pytest.fixture
     async def started_client(
-        self, settings, realm_jwks, monkeypatch
+        self, settings, monkeypatch
     ) -> AsyncGenerator[httpx.AsyncClient]:
-        """Client for the app after its real startup.
-
-        No database (OfflineDatabaseManager), and Keycloak is a fake
-        endpoint that serves realm_jwks.
-        """
-
-        def keycloak_http_client(_settings: KeycloakSettings) -> httpx.AsyncClient:
-            transport = httpx.MockTransport(
-                lambda request: httpx.Response(200, json=realm_jwks)
-            )
-            return httpx.AsyncClient(transport=transport)
-
+        """Client for the app after its real startup, with no database."""
         monkeypatch.setattr(
             "neuralbrewery.bootstrap.DatabaseManager", OfflineDatabaseManager
-        )
-        monkeypatch.setattr(
-            "neuralbrewery.bootstrap.create_keycloak_http_client",
-            keycloak_http_client,
         )
         app = create_app(settings)
 
@@ -398,46 +176,12 @@ class TestServicesReachTheRoutes:
         ):
             yield client
 
-    async def test_readiness_gets_the_database_and_the_auth_service(
-        self, started_client
-    ):
-        """[HP] get_db_manager and get_auth_service find what bootstrap.py stored."""
+    async def test_readiness_gets_the_database(self, started_client):
+        """[HP] get_db_manager finds what bootstrap.py stored."""
         response = await started_client.get("/health/ready")
 
         assert response.status_code == 200
-        assert response.json()["checks"] == {
-            "database": {"status": "healthy"},
-            "auth": {"status": "healthy"},
-        }
-
-    async def test_login_gets_the_oauth_provider(self, started_client, settings):
-        """[HP] get_oauth_provider and get_keycloak_settings find theirs.
-
-        The URL comes from the real KeycloakClient, built from the settings.
-        """
-        response = await started_client.get(
-            "/auth/login",
-            params={
-                "redirect_uri": "http://localhost:3000/callback",
-                "code_challenge": "challenge",
-            },
-        )
-
-        assert response.status_code == 200
-        assert response.json()["authorization_url"].startswith(
-            f"{settings.keycloak.auth_url}?"
-        )
-
-    async def test_refresh_gets_the_cookie_settings(self, started_client):
-        """[HP] get_cookie_settings finds the cookie settings in app.state.
-
-        Without a cookie /auth/refresh answers 401, after reading the
-        cookie's name from those settings. A wrong name in the getter gives
-        500 instead.
-        """
-        response = await started_client.post("/auth/refresh")
-
-        assert response.status_code == 401
+        assert response.json()["checks"] == {"database": {"status": "healthy"}}
 
 
 class TestShutdownServices:

@@ -66,7 +66,8 @@ ENV PYTHONUNBUFFERED=1 \
 # CVE-2026-85091, two High that fail the scan of CI: the fix was in
 # trixie-security only. --only-upgrade moves a package the base already
 # has, to the newest version Debian serves, and installs nothing new. Drop
-# this step once Dependabot brings a base with the fix. The dashboard's
+# this step once a new digest of the base has the fix, moved by hand in
+# both Dockerfiles. The dashboard's
 # image runs the same step (tests/test_dashboard_image.py).
 RUN apt-get update \
     && apt-get install -y --no-install-recommends --only-upgrade zlib1g \
@@ -94,7 +95,7 @@ EXPOSE 8000
 # slim image has no curl or wget). It sends the first SERVER_TRUSTED_HOSTS
 # entry as Host, which TrustedHostMiddleware accepts, to SERVER_PORT, the
 # port neuralbrewery.serve listens on. The start period covers the startup:
-# connecting to the database and fetching Keycloak's signing keys.
+# connecting to the database and reading the text of the manuals.
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
     CMD ["python", "-m", "neuralbrewery.healthcheck"]
 

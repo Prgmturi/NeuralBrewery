@@ -11,11 +11,9 @@ dependencies = [
     "datapizza-ai-clients-openai-like>=0.0.11",
     "datapizza-ai-core>=0.1.3",
     "fastapi>=0.162.0",
-    "httpx>=0.28.1",
     "mcp>=2.3.0,<3",
     "pydantic-settings>=2.16.2",
     "pydantic>=2.12.5",
-    "pyjwt[crypto]>=2.15.1",
     "sqlalchemy[asyncio]>=2.1.6",
     "structlog>=26.1.0",
     "uvicorn[standard]>=0.40.0",
@@ -107,7 +105,7 @@ follow_untyped_imports = true
 # =============================================================================
 [tool.importlinter]
 root_package = "neuralbrewery"
-# Lets the contracts below name third-party packages (jwt, httpx, sqlalchemy)
+# Lets the contracts below name third-party packages (httpx, sqlalchemy, streamlit)
 include_external_packages = true
 
 [[tool.importlinter.contracts]]
@@ -136,8 +134,7 @@ source_modules = ["neuralbrewery.**.protocols"]
 forbidden_modules = [
     # Every adapter, those to come included
     "neuralbrewery.adapters",
-    # The implementations that stay in core
-    "neuralbrewery.core.auth.service",
+    # The implementation that stays in core
     "neuralbrewery.core.database.manager",
 ]
 broken_contract_guidance = """
@@ -147,33 +144,15 @@ schemas module. Every module of adapters/ is forbidden here; an
 implementation that stays in core goes in forbidden_modules above."""
 
 [[tool.importlinter.contracts]]
-name = "AuthService knows no JWT or HTTP library"
-type = "forbidden"
-source_modules = ["neuralbrewery.core.auth.service"]
-forbidden_modules = ["jwt", "httpx"]
-broken_contract_guidance = """
-AuthService works only through its ports, TokenDecoder and ClaimExtractor.
-PyJWT and httpx belong in the Keycloak adapters, in adapters/keycloak/."""
-
-[[tool.importlinter.contracts]]
-name = "Auth knows no database"
-type = "forbidden"
-source_modules = ["neuralbrewery.core.auth", "neuralbrewery.adapters.keycloak"]
-forbidden_modules = ["neuralbrewery.core.database", "sqlalchemy"]
-broken_contract_guidance = """
-Validating a token needs no database. If auth ever needs stored data,
-define a port in core/auth/protocols.py and wire its adapter in bootstrap.py."""
-
-[[tool.importlinter.contracts]]
 name = "Routers reach external services only through ports"
 type = "forbidden"
-# Any depth: features/auth/router.py, features/notes/api/router.py
+# Any depth: features/plant/router.py, features/approvals/api/router.py
 source_modules = ["neuralbrewery.features.**.router"]
 forbidden_modules = ["httpx"]
 broken_contract_guidance = """
-A router imports the HTTP client. OAuthProvider promises that its
-adapters raise only UnauthorizedError and ExternalServiceError: catch
-those. An httpx exception reaching a router is a bug in the adapter."""
+A router imports the HTTP client. A service outside the app belongs
+behind a port, in its adapter, which turns the errors of httpx into
+those of core/exceptions.py (ADR 0006)."""
 
 [[tool.importlinter.contracts]]
 name = "The health probe loads only what it needs"
@@ -222,7 +201,7 @@ tests/test_package.py checks the same list in a running process."""
 name = "Inside a feature: api -> persistence -> domain"
 type = "layers"
 # Every feature, those to come included. A layer in brackets may be missing:
-# features/auth has none of the three, so there is nothing to check in it.
+# features/health has none of the three, so there is nothing to check in it.
 # tests/test_import_contracts.py checks that each layer exists in a feature.
 containers = ["neuralbrewery.features.*"]
 layers = ["(api)", "(persistence)", "(domain)"]

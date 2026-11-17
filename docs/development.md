@@ -1,6 +1,6 @@
 # Development
 
-The tools, the tests, the checks of CI, the releases, and the care taken with what the project takes from others.
+The tools, the tests, the checks of CI, the commits, and the care taken with what the project takes from others.
 
 ## Tools
 
@@ -24,11 +24,11 @@ The stack publishes every port on `127.0.0.1` only, so `.env.example` calls the 
 
 ## Run the app on the machine
 
-With Postgres and Keycloak from the stack:
+With Postgres from the stack:
 
 ```bash
 docker compose stop api           # if the whole stack is up: its container holds port 8000
-docker compose up --wait db keycloak
+docker compose up --wait db
 uv run alembic upgrade head
 uv run uvicorn neuralbrewery.main:create_app --factory --reload
 ```
@@ -72,7 +72,7 @@ In the page, from the top:
 
 What to know about it:
 - **It is a client of the API**, as `curl` is. It reads `DASHBOARD_API_URL` and `DASHBOARD_APPROVAL_TOKEN`, which compose sets. It imports nothing of the app, and approving stays code of the API: with a wrong token, approve and reject show the API's 401.
-- **The page answers on 127.0.0.1 only**, since it holds the token, and so does every port of the development stack: the API's simulation is open, `/mcp` and the agent ask for no login, and the token and the passwords of `compose.yaml` are public. Nobody on the Wi-Fi of the room reaches the page, the API, Postgres or Keycloak.
+- **The page answers on 127.0.0.1 only**, since it holds the token, and so does every port of the development stack: the API's simulation is open, `/mcp` and the agent ask for no login, and the token and the passwords of `compose.yaml` are public. Nobody on the Wi-Fi of the room reaches the page, the API or Postgres.
 - **Nothing runs in the background.** The page runs again when you press or type something. To see a proposal that came from elsewhere, from MCP for one, press `R` in the page, or any button.
 - **Its image is its own** (`docker/dashboard.Dockerfile`), with Streamlit and nothing of the API. The image of the API stays without Streamlit, about 300 MB less.
 - **The tokens it shows are those the API reports**: outside the prompt cache, and read from it. What is written into the cache is not counted, so the cost of a diagnosis comes from the evals: on Claude, 1 to 3 cents for S4 and S5.
@@ -113,7 +113,7 @@ docker compose exec db createdb -U appbase appbase_test   # the integration test
 
 The volume takes its name from the folder of the clone: `docker volume ls` lists it.
 
-`down` removes the container of Keycloak, and a new one prepares its configuration before it starts: the `up` takes a few minutes (215 seconds on an idle machine, on 16 November). Clean the queue well before the speech, not in the last minutes.
+A stack started before 17 November also ran Keycloak: the first time, `docker compose up --build --wait --remove-orphans` removes its containers. A `.env` copied from that `.env.example` still works: the settings ignore the `KEYCLOAK_*` and `AUTH_COOKIE_*` lines.
 
 ### The MCP server, for the video
 
@@ -210,16 +210,16 @@ When a fault goes and leaves no block, as when a drive is repaired, `resume_prog
 
 ```bash
 uv run pytest                              # every test but the integration and end-to-end ones
-uv run pytest tests/core/auth/             # one folder
-uv run pytest tests/core/auth/test_service.py::TestValidateToken  # one class
+uv run pytest tests/core/plant/            # one folder
+uv run pytest tests/core/plant/test_watcher.py::TestProbesDisagree  # one class
 uv run pytest --cov                        # with coverage, as CI runs it
 uv run pytest -m integration               # only the integration tests, on a real Postgres
-uv run pytest -m e2e                       # a login through the running stack
+uv run pytest -m e2e                       # the demo through the running stack
 uv run pytest -m eval                      # the plant agent on a real model (AGENT_PROVIDER), by hand
 ```
 
-- **Unit tests** are async, and outside `tests/integration/` they use stubs (`AsyncMock`): no database and no Keycloak. The root `conftest.py` provides the app, an HTTP client, mock services, and users with different roles.
-- **They ignore the machine.** Tests never read the local `.env`, nor the exported `APP_*`, `KEYCLOAK_*` and other variables: an autouse fixture in `tests/conftest.py` switches both off. A test that needs some settings builds them and passes them to `create_app(settings)`.
+- **Unit tests** are async, and outside `tests/integration/` they use stubs (`AsyncMock`): no database. The root `conftest.py` provides the app, an HTTP client and a mock database.
+- **They ignore the machine.** Tests never read the local `.env`, nor the exported `APP_*`, `DATABASE_*` and other variables: an autouse fixture in `tests/conftest.py` switches both off. A test that needs some settings builds them and passes them to `create_app(settings)`.
 - **CI runs the suite twice**, the second time with a `.env` and variables of a production server, and fails when coverage drops below `fail_under` in `pyproject.toml`.
 - **The eval of the retrieval** over the manuals runs with them, and prints its table at the end: [The manuals](#the-manuals-their-text-and-the-eval-of-the-retrieval).
 
@@ -235,9 +235,11 @@ The tests in `tests/integration/` run on a real Postgres, for what a mock cannot
 
 ### End-to-end test
 
-`uv run pytest -m e2e` logs the test user in through Keycloak, then calls the API with the token, as a frontend would. CI does it on every push, on the stack it starts.
+`uv run pytest -m e2e` runs the demo through the running stack: the readiness, the plant, the dashboard, a `reset` proposed and approved with the development token, which the executor presses. CI does it on every push, on the stack it starts, and there also checks that the diagnosis answers 503 without a key (`E2E_NO_AGENT_KEY=true`): with a key that test would call the model, so it is skipped unless asked for.
 
-The stack takes its ports from `SERVER_PORT`, `KEYCLOAK_PORT` and `DATABASE_PORT`, exported or in `.env`. The test calls the API at `E2E_API_URL`, `http://localhost:8000` by default: with the stack on another port, export it too (`E2E_API_URL=http://localhost:18000`), or the test calls whatever answers on 8000.
+Run it on a stack you can throw away: the audit keeps every proposal, and the test adds one, by `e2e`.
+
+The stack takes its ports from `SERVER_PORT`, `DASHBOARD_PORT` and `DATABASE_PORT`, exported or in `.env`. The test calls the API at `E2E_API_URL`, `http://localhost:8000` by default, and the dashboard at `E2E_DASHBOARD_URL`, `http://localhost:8501`: with the stack on other ports, export them too, or the test calls whatever answers there.
 
 ### Eval of the agents
 
@@ -292,34 +294,23 @@ python scripts/extract_manuals.py    # the text of each document that has none y
 
 | Job | What it does |
 |---|---|
-| `ci` | ruff, the format, mypy, the import contracts ([What checks each rule](architecture.md#what-checks-each-rule)), the unit tests with coverage, then the tests again in a production-like environment |
+| `ci` | ruff, the format, mypy, the import contracts (`[tool.importlinter]` in `pyproject.toml`), the unit tests with coverage, then the tests again in a production-like environment |
 | Integration tests | The migrations up, checked against the models, down and up again; then the integration tests, on a Postgres of their own |
 | Build container image | The image of `docker/Dockerfile`, a smoke test of the app inside it, the check that the app cannot change its own code, and the Grype scan, with what it found in the summary of the run |
 | Build dashboard image | The image of `docker/dashboard.Dockerfile` and its Grype scan, with the same thresholds |
-| Log in through the whole stack | `docker compose up` of the stack, then the end-to-end test |
+| The demo through the whole stack | `docker compose up` of the stack, then the end-to-end test |
 | Lint commit messages | Every commit of a pull request, and its title, through commitlint |
 
-## Releases
+## Commits
 
-Commits follow [Conventional Commits](https://www.conventionalcommits.org/). commitlint checks every commit of a pull request, and its title, which becomes the commit on `master` when the pull request is squashed.
-
-[release-please](https://github.com/googleapis/release-please) keeps a release pull request open, with the next version and the changelog. Merging it:
-
-- tags `vX.Y.Z` and publishes the GitHub release;
-- publishes the image `ghcr.io/prgmturi/neuralbrewery:X.Y.Z`, and `:latest`;
-- has already raised the version in `pyproject.toml`, `uv.lock` and the `image:` lines of `compose.prod.yaml`.
-
-Under 1.0, `feat` and `fix` raise the patch number, and a breaking change (`!`) the minor one.
-
-Only a change to what runs makes a release: `feat`, `fix`, `perf`, `deps` and `revert`, and a breaking change of any type. `docs`, `refactor`, `test`, `build`, `ci` and `chore` wait for the next release, with no line in the changelog (`changelog-sections` in `release-please-config.json`).
+Commits follow [Conventional Commits](https://www.conventionalcommits.org/). commitlint checks every commit of a pull request, and its title, which becomes the commit on `master` when the pull request is squashed. There are no releases: the project runs from the repository, with `compose.yaml`.
 
 ## Supply chain
 
 What the project takes from others, and how it is checked:
 
 - **Actions pinned to a commit.** Every GitHub Action is pinned to a commit, with its version in a comment. A tag can be moved to other code: it happened to `aquasecurity/trivy-action` in March 2026.
-- **Dependabot** proposes updates once a week (`.github/dependabot.yml`): the actions, the base image of the two Dockerfiles, Postgres and Keycloak in the compose files, and `uv.lock`. It reads every file of `docker/` whose name holds "dockerfile", so the base of the API's image and of the dashboard's moves in one pull request. What the image runs comes as `fix(deps)`, so it leads to a release; the tools of development come as `build(deps-dev)` or `ci`. New majors of Python, Postgres and Keycloak, and new versions of uv, are upgrades done by hand.
-- **Grype** scans both images in CI, the API's and the dashboard's ([Grype](https://github.com/anchore/grype)). It fails on a High or Critical vulnerability that has a fix, and ignores none: no `.grype.yaml` in the repository, no `config` or `vex` input. Its log says only that it failed, so what it found goes to the summary of the run. The report goes to the Security tab once the repository is public: a private repository of a personal account has no Code scanning. The image of Keycloak is not scanned.
-- **Debian's security fixes, before the base has them.** On 16 November 2026 no `python:3.13-slim` had the `zlib1g` that fixes two High the scan failed on: the fix was in `trixie-security` only. The runtime stage of both images upgrades that package (`apt-get install --only-upgrade`, which adds none). Drop the step once Dependabot brings a base with the fix.
+- **Grype** scans both images in CI, the API's and the dashboard's ([Grype](https://github.com/anchore/grype)). It fails on a High or Critical vulnerability that has a fix, and ignores none: no `.grype.yaml` in the repository, no `config` or `vex` input. Its log says only that it failed, so what it found goes to the summary of the run. The report goes to the Security tab once the repository is public: a private repository of a personal account has no Code scanning.
+- **Debian's security fixes, before the base has them.** On 16 November 2026 no `python:3.13-slim` had the `zlib1g` that fixes two High the scan failed on: the fix was in `trixie-security` only. The runtime stage of both images upgrades that package (`apt-get install --only-upgrade`, which adds none). Drop the step once a new digest of the base has the fix, moved by hand in both Dockerfiles.
 - **gitleaks** runs in the pre-commit hook ([gitleaks](https://github.com/gitleaks/gitleaks)) on the staged changes, and stops a commit that holds a secret. When it takes for a secret a value that is not one, end that line with `# gitleaks:allow`, as `KC_DB_URL` does in `compose.yaml`.
 - **On GitHub**, turn on secret scanning and push protection (*Settings*, *Advanced Security*): they check every push.

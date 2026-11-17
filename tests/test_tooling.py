@@ -95,7 +95,7 @@ class TestCommitMessages:
 
         WHY: with more than one commit the squash merge takes the PR title
         as the commit on master (COMMIT_OR_PR_TITLE in the repository
-        settings), and release-please reads that commit.
+        settings): it is the message master keeps.
         """
         workflow = COMMITS_WORKFLOW.read_text()
 

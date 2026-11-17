@@ -9,19 +9,17 @@ simulato. Monitora l'impianto, diagnostica i problemi usando i manuali tecnici d
 (RAG) e la memoria delle cotte passate, e propone azioni che vengono eseguite solo dopo
 l'approvazione del birraio.
 
-Il repo nasce dal template `fastapi_starter`: le sue regole valgono anche qui.
+Il repo nasce dal template `fastapi_starter`: le sue regole valgono anche qui. Quelle che
+servono stanno in "Convenzioni del codice", sotto, e nelle ADR di `docs/adr/`.
 
 ## Leggi prima di iniziare
 
 - `docs/decisioni.md`: cosa è deciso, come si innesta nel template, cosa è aperto, roadmap.
 - `docs/impianto.md`: il controllore e cosa espone, componenti, sigle, percorsi, interlock,
   programma della cotta, guasti, controlli di plausibilità.
-- `docs/architecture.md`, almeno il livello 1: dove va il codice e perché.
 - `docs/development.md`: strumenti, test, CI.
-- `docs/adr/`: le decisioni del template. Una decisione architetturale nuova diventa un ADR
-  con il numero successivo, nello stesso formato.
-- `_reference/gateway-demo/`: prototipo funzionante del confine AI–impianto. È un riferimento
-  da adattare alle convenzioni di questo repo, non da copiare. Non va modificato.
+- `docs/adr/`: le decisioni del template da cui il progetto è nato. Quelle del progetto, nuove
+  comprese, vanno in `docs/decisioni.md`.
 
 ## Dove vive l'impianto
 
@@ -41,9 +39,7 @@ src/neuralbrewery/
   adapters/plant_sim/        l'impianto simulato: processo, dispositivi, controllore
                              (interlock, programma, allarmi), guasti, adattatore
                              in-process (test ed eval)
-  adapters/plant_rest/       client httpx verso il servizio plant-sim
   adapters/manuals/          BM25 in Python puro sul testo di data/manuals/text/
-  plant_service.py           entry point del servizio plant-sim (FastAPI, un solo worker)
   bootstrap.py               costruisce l'impianto e dà a ognuno la sua porta
   adapters/claude/           il modello degli agenti: client datapizza per Claude
   features/agents/           l'agente impianto (datapizza), il suo endpoint, il server MCP
@@ -54,7 +50,8 @@ src/neuralbrewery/
                              dell'API, che non importa niente dell'app
 ```
 
-- Un solo package e un'immagine per l'app; nel compose due servizi: `api` e `plant-sim`.
+- Un solo package e un'immagine per l'app; nel compose `api`, con l'impianto nel suo
+  processo, `migrate`, `db` e `dashboard`. Il servizio `plant-sim` (M2) viene dopo il corso.
   La dashboard ha un'immagine sua (`docker/dashboard.Dockerfile`), con il solo gruppo
   `dashboard` di `pyproject.toml`: Streamlit non entra nell'immagine dell'API.
 - Le tre porte sono l'interfaccia del controllore dell'impianto, non dei singoli dispositivi:
@@ -85,8 +82,7 @@ src/neuralbrewery/
 
 ## Convenzioni del codice (dal template)
 
-- **Gli import scendono.** Entry point (`main.py`, `serve.py`, `healthcheck.py`; da M2 anche
-  `plant_service.py`) → `bootstrap.py` | `exception_handlers.py` → `features/` | `adapters/` →
+- **Gli import scendono.** Entry point (`main.py`, `serve.py`, `healthcheck.py`) → `bootstrap.py` | `exception_handlers.py` → `features/` | `adapters/` →
   `core/`. Feature e adapter non si importano mai a vicenda. `uv run lint-imports` lo verifica; un confine nuovo merita
   un contract nuovo in `pyproject.toml`.
 - **Porte** = classi `Protocol`, in `core/.../protocols.py` se condivise o in
@@ -97,8 +93,8 @@ src/neuralbrewery/
   (503), risposta inutilizzabile → `ExternalServiceError` (502). Un comando rifiutato da un
   interlock non è un errore: è un `CommandResult` con il motivo.
 - **Wiring solo in `bootstrap.py`**, con uno `StateKey` per porta (`core/state.py`).
-- **Una feature** copia la forma di `features/notes`: `api/` → `persistence/` → `domain/`, con il
-  dominio in Python puro. Senza regole proprie può restare piatta, come `features/auth`.
+- **Una feature** copia la forma di `features/approvals`: `api/` → `persistence/` → `domain/`, con il
+  dominio in Python puro. Senza regole proprie può restare piatta, come `features/health`.
 - **Impostazioni** in `core/config/`, una sezione per argomento. Un valore di sviluppo
   pericoloso va aggiunto a `production_problems()` (ADR 0007).
 - **App factory**: `create_app(settings)`; i test costruiscono le impostazioni, non leggono `.env`.
@@ -139,5 +135,5 @@ python scripts/extract_manuals.py    # il testo di un manuale nuovo in data/manu
   e segnalalo.
 - Fine sessione: tutti i controlli della CI verdi, commit, elenco breve di cosa è cambiato.
 - Fine fase: di' a chi sviluppa cosa deve controllare e quali dubbi restano, guardando lo stato
-  vero (PR e CI su GitHub, non solo i controlli locali). Il prompt della fase successiva, in
-  `docs/prompts/`, si scrive solo quando quei punti sono risolti.
+  vero (PR e CI su GitHub, non solo i controlli locali). Il prompt della fase successiva si
+  scrive solo quando quei punti sono risolti.

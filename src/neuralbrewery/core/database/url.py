@@ -1,7 +1,7 @@
 """The database URL, built from the settings.
 
 It lives here and not in DatabaseSettings: core.config is imported by
-core.auth, and a SQLAlchemy import there would load SQLAlchemy with it.
+healthcheck.py, and a SQLAlchemy import there would load SQLAlchemy with it.
 """
 
 from sqlalchemy.engine import URL

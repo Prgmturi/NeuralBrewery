@@ -5,7 +5,7 @@ Layer: Package structure
 
 WHY these tests exist: Python runs a package's __init__.py before any of
 its modules. When it imported the routers, every tool that needed a
-single module of core loaded the auth and health features too: Alembic
+single module of core loaded the features too: Alembic
 at each migration, a script that reads the settings, a test.
 """
 
@@ -79,7 +79,7 @@ IMPORT_ALL_DOMAINS = textwrap.dedent(
         # __init__.py, and features/health/__init__.py imports its router
         folder = os.path.join(feature.module_finder.path, feature.name.split(".")[-1])
         if not os.path.isdir(os.path.join(folder, "domain")):
-            continue  # a feature with no domain layer, such as auth
+            continue  # a feature with no domain layer, such as health
         name = feature.name + ".domain"
         domain = importlib.import_module(name)
         for module in pkgutil.walk_packages(domain.__path__, name + "."):
@@ -120,7 +120,7 @@ class TestImportDomain:
 
         assert result.returncode == 0, result.stderr
         report = json.loads(result.stdout)
-        assert "neuralbrewery.features.notes.domain" in report["domains"]
+        assert "neuralbrewery.features.approvals.domain" in report["domains"]
         assert [
             name
             for name in report["loaded"]

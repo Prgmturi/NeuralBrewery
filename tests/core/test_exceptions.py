@@ -153,34 +153,34 @@ class TestForbiddenError:
 class TestExternalServiceError:
     """ExternalServiceError — 502 with service identification.
 
-    WHY: When Keycloak or DB is unreachable, the error response
+    WHY: When the model provider answers garbage, the error response
     must include which service failed (for debugging).
     """
 
     def test_status_code_is_502(self):
         """[HP] status_code == 502."""
-        exc = ExternalServiceError("Keycloak")
+        exc = ExternalServiceError("Anthropic")
 
         assert exc.status_code == 502
 
     def test_default_message_includes_service_name(self):
         """[HP] message = 'Error communicating with {service}'."""
-        exc = ExternalServiceError("Keycloak")
+        exc = ExternalServiceError("Anthropic")
 
-        assert exc.message == "Error communicating with Keycloak"
+        assert exc.message == "Error communicating with Anthropic"
 
     def test_details_include_service(self):
         """[HP] details['service'] == service name."""
-        exc = ExternalServiceError("Keycloak")
+        exc = ExternalServiceError("Anthropic")
 
-        assert exc.details == {"service": "Keycloak"}
+        assert exc.details == {"service": "Anthropic"}
 
 
 class TestServiceUnavailableError:
     """ServiceUnavailableError — 503, the request can be retried.
 
-    WHY: with Keycloak down a valid token cannot always be checked. A 401
-    would send the user back to the login; 503 says "retry later".
+    WHY: with the database or the model provider down, the request is
+    fine and the service is not: 503 says "retry later".
     """
 
     def test_status_code_is_503(self):

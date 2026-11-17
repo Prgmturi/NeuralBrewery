@@ -428,8 +428,8 @@ niente test strato per strato.
 
 ## Da verificare
 
-- **Valvole**: in `data/manuals/` c'è il manuale del modello a 3 fili, senza fine corsa:
-  serve quello della versione a 5 fili.
+- **Valvole**: il documento in `data/manuals/` traduce la pagina del modello a 3 fili; l'impianto
+  usa la variante a 5 fili con i fine corsa, di cui non c'è un manuale pubblico.
 - **Valori scelti da noi**, non dai manuali: batteria dell'iSpindel (4,1 V da carica, spento
   sotto 3,3 V, 0,1 V l'ora con il guasto); schiuma sul livello (una misura su venti, da 1 a
   5 L); inverter in marcia (50 Hz, 1,2 A); "nessun ritorno" di pompa e chiller.

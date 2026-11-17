@@ -93,11 +93,11 @@ class TestReadiness:
 
     WHY: Kubernetes uses this to decide if the pod should receive traffic.
     200 = healthy (send traffic), 503 = unhealthy (stop sending traffic).
-    The response must accurately reflect database AND auth status.
+    The response must accurately reflect the status of the database.
     """
 
     async def test_all_healthy_returns_200(self, client):
-        """[HP] DB healthy + auth healthy -> 200."""
+        """[HP] DB healthy -> 200."""
         response = await client.get("/health/ready")
 
         assert response.status_code == 200
@@ -118,48 +118,12 @@ class TestReadiness:
         body = response.json()
         assert body["checks"]["database"]["status"] == "unhealthy"
 
-    async def test_auth_unhealthy_returns_503(
-        self,
-        client,
-        mock_auth_service,
-    ):
-        """[EC] Auth raises exception -> 503 with auth check unhealthy."""
-        mock_auth_service.health_check.side_effect = RuntimeError("Auth down")
-
-        response = await client.get("/health/ready")
-
-        assert response.status_code == 503
-        body = response.json()
-        assert body["checks"]["auth"]["status"] == "unhealthy"
-
-    async def test_both_unhealthy_returns_503(
-        self,
-        client,
-        mock_db_provider,
-        mock_auth_service,
-    ):
-        """[EC] Both fail -> 503, both checks show unhealthy.
-
-        WHY: Verify that a failure in one check does not prevent
-        the other check from running (no short-circuit).
-        """
-        mock_db_provider.health_check.side_effect = RuntimeError("DB down")
-        mock_auth_service.health_check.side_effect = RuntimeError("Auth down")
-
-        response = await client.get("/health/ready")
-
-        assert response.status_code == 503
-        body = response.json()
-        assert body["checks"]["database"]["status"] == "unhealthy"
-        assert body["checks"]["auth"]["status"] == "unhealthy"
-
     async def test_response_includes_individual_check_details(self, client):
-        """[HP] Response body includes checks.database and checks.auth."""
+        """[HP] Response body names the one check: the database."""
         response = await client.get("/health/ready")
         body = response.json()
 
-        assert "database" in body["checks"]
-        assert "auth" in body["checks"]
+        assert body["checks"] == {"database": {"status": "healthy"}}
 
     async def test_check_reporting_false_returns_503(self, client, mock_db_provider):
         """[EC] health_check() returns False -> unhealthy, like an exception.
@@ -224,7 +188,6 @@ class TestReadinessHidesDetails:
             "status": "unhealthy",
             "checks": {
                 "database": {"status": "unhealthy"},
-                "auth": {"status": "healthy"},
             },
         }
         assert "10.0.3.4" not in response.text

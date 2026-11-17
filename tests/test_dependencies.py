@@ -21,7 +21,6 @@ USED_WITHOUT_IMPORT = {
 
 # Extras: what each one adds, and why the app needs it
 EXTRAS_WITH_A_REASON = {
-    "pyjwt[crypto]": "cryptography, for the RS256 signatures of Keycloak tokens",
     "sqlalchemy[asyncio]": "greenlet, which the async engine needs since 2.1",
     "uvicorn[standard]": "uvloop and httptools, which uvicorn picks up by itself",
 }

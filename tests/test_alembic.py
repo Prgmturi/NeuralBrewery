@@ -35,7 +35,7 @@ class TestMigrationSettings:
         """[EC] APP_ENVIRONMENT=production and DATABASE_* only -> it runs.
 
         WHY: env.py loaded every setting, so production refused to migrate
-        without the Keycloak secret, the redirect URIs and the trusted
+        without the secrets of the login, the approval token and the trusted
         hosts, which a migration never uses. --sql writes the SQL instead of
         connecting, so no database is needed.
         """
@@ -59,7 +59,7 @@ class TestAutogenerateSeesTheModels:
 
         WHY: env.py imports every module called models under features. Had it
         found none, the guard would stop autogenerate ("Base.metadata has no
-        table"). With the notes model found, autogenerate goes on and fails
+        table"). With the model of the approvals found, autogenerate goes on and fails
         only when it connects to port 1, which refuses connections. No
         migration is written either way. The guard itself:
         tests/core/database/test_migrations.py.

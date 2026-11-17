@@ -50,8 +50,8 @@ jobs:
           exit "$failed"
 
       # With more than one commit, the squash merge takes the PR title as the
-      # commit on master (COMMIT_OR_PR_TITLE in the repository settings), and
-      # release-please reads that commit. The title reaches the script only as
+      # commit on master (COMMIT_OR_PR_TITLE in the repository settings). The
+      # title reaches the script only as
       # an environment variable: whoever opens the PR writes it, and inside
       # run: GitHub would paste it into the script as shell code.
       - name: Check the PR title

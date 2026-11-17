@@ -57,15 +57,15 @@ jobs:
 
       # The tests must not depend on the machine that runs them: with a .env
       # and production variables the result must stay the same. Both hold
-      # settings the app refuses to start with: a __Host- cookie without
-      # Secure, and a variable name from before 0.8.0.
+      # settings the app refuses to start with: the simulation open in
+      # production, and more than one worker for the plant of the process.
       - name: Tests in a production-like environment
         env:
           APP_ENVIRONMENT: production
           SERVER_TRUSTED_HOSTS: '["api.example.com"]'
-          KEYCLOAK_COOKIE_NAME: rt
+          PLANT_SIMULATION_CONTROL: "true"
         run: |
-          printf 'AUTH_COOKIE_NAME=__Host-rt\nAUTH_COOKIE_SECURE=false\n' > .env
+          printf 'SERVER_WORKERS=2\nAPPROVAL_TOKEN=brewer-dev-token\n' > .env
           uv run pytest -q --tb=short -p no:cacheprovider
 
   integration:
@@ -134,7 +134,7 @@ jobs:
         run: uv run pytest -m integration --tb=short
 
   e2e:
-    name: Log in through the whole stack
+    name: The demo through the whole stack
     runs-on: ubuntu-24.04
 
     permissions:
@@ -156,9 +156,11 @@ jobs:
       - name: Start the stack
         run: docker compose up --build --wait --wait-timeout 300
 
-      # tests/e2e: a browser's login through Keycloak, then the API with the
-      # token, the refresh cookie and the logout
-      - name: Log in through Keycloak
+      # tests/e2e: readiness, the plant, the dashboard, a proposal approved
+      # and executed, and the diagnosis answering 503 without a key
+      - name: The demo through the stack
+        env:
+          E2E_NO_AGENT_KEY: "true"
         run: uv run pytest -m e2e --tb=short
 
       - name: Logs of the stack
@@ -184,7 +186,7 @@ jobs:
 
       # Smoke test without external services: create_app() builds settings,
       # logging, middleware and routes, as uvicorn does when the process
-      # starts. Database and Keycloak are touched only by the lifespan.
+      # starts. The database is touched only by the lifespan.
       # One route of each router, asked for by name: url_path_for fails when
       # it is missing. len(app.routes) is not the number of routes: since
       # FastAPI 0.137 an included router is one entry (tests/test_smoke.py).
@@ -192,7 +194,7 @@ jobs:
       - name: Smoke test
         run: |
           docker run --rm -e APP_ENVIRONMENT=development neuralbrewery:ci python -c \
-            "from neuralbrewery.main import create_app; app = create_app(); print('routes found:', *(app.url_path_for(name) for name in ('root', 'liveness', 'get_me', 'list_notes', 'read_plant', 'list_proposals')))"
+            "from neuralbrewery.main import create_app; app = create_app(); print('routes found:', *(app.url_path_for(name) for name in ('root', 'liveness', 'read_plant', 'list_proposals')))"
 
       # The image runs as production unless told otherwise: started without
       # settings, the app must refuse and name what to set, not run as

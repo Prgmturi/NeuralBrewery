@@ -1,10 +1,10 @@
 """Composition root helpers — service initialization and shutdown.
 
 start_services() is the one place that knows which services the app has:
-another identity provider changes this module, not main.py.
+another service changes this module, not main.py.
 
 Every adapter goes into app.state through the StateKey of its port, next
-to the getter that reads it (``OAUTH_PROVIDER.set(state, KeycloakClient(...))``):
+to the getter that reads it (``PLANT_READER.set(state, ReadOnlyPlant(...))``):
 mypy checks there that the adapter still matches the port.
 """
 
@@ -12,7 +12,6 @@ from collections.abc import Awaitable, Callable
 from contextlib import AsyncExitStack
 from typing import Any
 
-import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from mcp.server.transport_security import TransportSecuritySettings
@@ -20,22 +19,15 @@ from starlette.datastructures import State
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from neuralbrewery.adapters.claude import client as claude_adapter
-from neuralbrewery.adapters.keycloak.client import KeycloakClient
-from neuralbrewery.adapters.keycloak.extractors import KeycloakClaimExtractor
-from neuralbrewery.adapters.keycloak.jwks import JWKSTokenDecoder
-from neuralbrewery.adapters.keycloak.jwks_manager import JWKSManager
 from neuralbrewery.adapters.manuals.index import ManualIndex
 from neuralbrewery.adapters.openai_compat import client as compat_adapter
 from neuralbrewery.adapters.plant_sim.adapter import InProcessPlant
 from neuralbrewery.adapters.plant_sim.simulator import PlantSimulator
 from neuralbrewery.adapters.plant_sim.starts import brew_day, fermentation
 from neuralbrewery.core.approvals.protocols import DecisionReader
-from neuralbrewery.core.auth.dependencies import AUTH_SERVICE
-from neuralbrewery.core.auth.service import AuthService
 from neuralbrewery.core.body_limit import BodySizeLimitMiddleware
 from neuralbrewery.core.config import (
     DatabaseSettings,
-    KeycloakSettings,
     ManualsSettings,
     ServerSettings,
     Settings,
@@ -63,7 +55,6 @@ from neuralbrewery.features.agents.router import (
 from neuralbrewery.features.approvals.api.decisions import QueueDecisions
 from neuralbrewery.features.approvals.api.executor import EXECUTOR, Executor
 from neuralbrewery.features.approvals.api.inbox import QueueInbox, database_log
-from neuralbrewery.features.auth.router import OAUTH_PROVIDER
 from neuralbrewery.features.health.router import health_router
 from neuralbrewery.features.plant.router import SIMULATION_CONTROL
 
@@ -229,15 +220,6 @@ async def start_services(
     db_manager = await init_database(app_state, settings.database)
     services.append(("database", db_manager.disconnect))
 
-    # One client for every call to Keycloak: signing keys and tokens.
-    # It is registered before the adapters that use it, so a failure
-    # while they start still closes it.
-    keycloak_http = create_keycloak_http_client(settings.keycloak)
-    services.append(("keycloak_http_client", keycloak_http.aclose))
-
-    await init_auth_service(app_state, settings.keycloak, keycloak_http)
-    await init_oauth_provider(app_state, settings.keycloak, keycloak_http)
-
     # Last: the MCP server answers once what it reaches is open
     await start_mcp_server(app_state, services)
 
@@ -273,57 +255,6 @@ async def init_database(
     # manager itself, because disconnect() is not part of the port.
     DB_MANAGER.set(app_state, db_manager)
     return db_manager
-
-
-def create_keycloak_http_client(settings: KeycloakSettings) -> httpx.AsyncClient:
-    """HTTP client shared by every Keycloak adapter: one connection pool.
-
-    The adapters only use it. start_services() creates it, and the
-    lifespan closes it.
-    """
-    return httpx.AsyncClient(timeout=settings.request_timeout)
-
-
-async def init_auth_service(
-    app_state: State, settings: KeycloakSettings, http_client: httpx.AsyncClient
-) -> None:
-    """Wire auth adapters to ports, pre-fetch JWKS keys, register in app state."""
-    jwks_manager = JWKSManager(settings, http_client)
-    issuer = settings.issuer
-
-    decoder = JWKSTokenDecoder(
-        key_provider=jwks_manager,
-        issuer=issuer,
-        allowed_clients=settings.allowed_clients,
-        audience=settings.audience or None,
-    )
-    extractor = KeycloakClaimExtractor(settings.client_id)
-    # JWKSTokenDecoder implements both TokenDecoder and HealthCheckable
-    # (health_check delegates to the underlying JWKSManager)
-    auth_service = AuthService(
-        decoder=decoder, extractor=extractor, health_checker=decoder
-    )
-
-    try:
-        await jwks_manager.refresh_keys()
-    except Exception as e:
-        _log_start_failure("auth_service_init_failed", e)
-        raise
-
-    logger.info(
-        "auth_service_ready",
-        issuer=issuer,
-        allowed_clients=settings.allowed_clients,
-        audience=settings.audience or None,
-    )
-    AUTH_SERVICE.set(app_state, auth_service)
-
-
-async def init_oauth_provider(
-    app_state: State, settings: KeycloakSettings, http_client: httpx.AsyncClient
-) -> None:
-    """Initialize OAuth provider for token operations."""
-    OAUTH_PROVIDER.set(app_state, KeycloakClient(settings, http_client))
 
 
 async def shutdown_services(

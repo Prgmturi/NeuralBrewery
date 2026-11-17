@@ -60,21 +60,12 @@ agenti.
     non ripropone un pulsante rifiutato per la stessa causa;
   - il server MCP non ha il tool.
 
-  Un difetto che la memoria ha fatto emergere, nel testo degli allarmi (15 novembre). Con il
-  tool nuovo Gemini Flash-Lite sbagliava S4: al posto di `reset` proponeva `resume_program`,
-  che il controllore rifiuta finché il blocco c'è. 0 volte su 4, contro 3 su 3 con il codice
-  di M6. Non dipendeva da che cosa dice il tool: con la regola nella sua descrizione 0 su 3,
-  con una descrizione di una riga, mai chiamata, 1 su 3. La causa stava nell'impianto: con TT1
+  Un difetto che la memoria ha fatto emergere, nel testo degli allarmi (15 novembre): con TT1
   riparata il blocco diceva ancora "sonda TT1 non valida: regolazione sospesa", senza una parola
-  sul riarmo. Claude lo deduceva dal prompt; Gemini ci arrivava per poco, e un tool in più
-  bastava a farlo cadere. Ora il testo di un blocco che si riarma con `reset` finisce con
-  "(bloccato: serve reset)", come sul pannello di un impianto vero (`docs/impianto.md`). Con
-  questo S4 su Gemini passa 3 volte su 3, e `resume_program` non compare più.
-
-  Eval sul codice finale: Claude passa tutti e cinque, S5 3 volte su 3; S3 una volta su 4 ha
-  proposto di spegnere l'agitatore, un comando prudente che lo scenario non ammette. Gemini
-  passa tutti e cinque; S2 una volta su 4 ha indicato la valvola EV2a invece della pompa, senza
-  proporre niente. Nessuno dei due errori si ripete su tre giri: si tengono così.
+  sul riarmo. Claude deduceva il `reset` dal prompt; Gemini proponeva `resume_program`, che il
+  controllore rifiuta finché il blocco c'è. Ora il testo di un blocco che si riarma con `reset`
+  finisce con "(bloccato: serve reset)", come sul pannello di un impianto vero
+  (`docs/impianto.md`).
 
   Limite: se la causa è "la stessa" lo giudica il modello. Il guardrail non ferma una proposta
   già rifiutata: la memoria è un consiglio all'agente, non una regola in codice. L'eval S5 lo
@@ -143,32 +134,13 @@ agenti.
   asserzioni secche: F11 con la sigla M1 dà per primo "Motor overtemperature", F20 "DC ripple too
   high"; la valvola, che ha una pagina sola, dà per prima la riga del tempo di apertura.
 
-  Eval del 17 novembre, con i manuali accesi:
-  - **retrieval**: hit@1 8 su 8, hit@3 8 su 8;
-  - **Claude**: S1, S2, S4 e S5 passano. S6 passa 3 volte su 3, e cita sempre manuale e pagina
-    (V20, pagina 55). S3 passa 2 volte su 4: le due volte sbagliate propone di spegnere
-    l'agitatore, l'errore già visto in M7. Con i manuali spenti, stesso codice e stesso giorno,
-    S3 passa 3 volte su 4, con lo stesso errore; le ricerche dei giri sbagliati danno gli stessi
-    passaggi di quelli giusti. Non è quindi ciò che l'agente legge nei manuali. Spesa: 0,35 $
-    per le 15 diagnosi degli eval, più una dal vivo (stima: 2–3 centesimi);
-  - **Gemini**: S1–S6 passano tutti; S6 cita il V20, pagina 55, e lo cita anche S3. In S2
-    l'agente cerca nei manuali la pompa e le valvole, su cui non dicono niente del caso: da 9 a
-    11 chiamate delle 12 ammesse, contro 7–8 prima. Una risposta vuota diceva "prova con altre
-    parole" e ne invitava un'altra: ora dice quali sigle hanno un manuale, e che il resto si
-    diagnostica con i tool dell'impianto. Con il testo nuovo S2 passa 3 volte su 3, con 9–10
-    chiamate;
-  - **dal vivo**, sullo stack con `MANUALS_ENABLED=true`: F11 durante la sosta, poi la diagnosi.
-    La spiegazione dice che per il manuale del V20, pagina 55, F11 è "Motor overtemperature", e
-    l'agente non propone niente finché il motore non è controllato.
+  Gli eval del 17 novembre: S6 passa su Claude e su Gemini, e cita il V20, pagina 55; S1–S5
+  non peggiorano. I numeri di ogni giro restano nella storia di git.
 
   Limiti. Le tabelle non sistemate restano lette come le dà pdftotext: nella prova dal vivo
-  Claude ha preso dalla lista dei parametri del V20 (pagina 46, letta per colonne) r0039 come
-  temperatura del motore, che invece è r0035 (r0039 è il contatore dell'energia). Stava fra le
-  verifiche, non nel significato di F11. Prima di accendere i manuali di default anche quella
-  lista (pagine 45–53, 218 parametri) è stata sistemata a mano, un parametro per riga con le sue
-  opzioni: le righe vengono da `pdftotext -layout`, e ognuna è controllata sulle coordinate delle
-  parole del PDF (`pdftotext -bbox-layout`). Un test cerca r0035 e r0039 e vuole ognuno nella
-  sua riga. Una
+  Claude ha letto r0039 come temperatura del motore, che invece è r0035. Per questo anche la
+  lista dei parametri del V20 (pagine 45–53, 218 parametri) è sistemata a mano, un parametro per
+  riga, controllato sulle coordinate delle parole del PDF (`pdftotext -bbox-layout`). Una
   ricerca senza sigla trova sempre qualcosa, se una parola compare: "P1 pump" ha dato una pagina
   del V20. BM25 trova le parole, non i significati. Una ricerca in italiano, o con parole che il
   manuale non usa, non trova niente: la descrizione del tool chiede l'inglese, e la risposta vuota
@@ -248,27 +220,19 @@ agenti.
   dal vivo resta su Claude. Gli eval girano su tutti e due e li confrontano. Il client è
   `OpenAILikeClient` di datapizza: indirizzo, modello e chiave sono impostazioni, quindi lo
   stesso codice raggiunge anche Groq o un modello locale. *Perché*: non abbiamo altre chiavi a
-  pagamento, e Mistral non dà più chiavi API senza il piano a pagamento. Per Gemini basta un
-  account Google: secondo fonti di ottobre 2026, Flash-Lite dà circa 15 richieste al minuto e
-  500 al giorno, mentre Flash ne dà 20 al giorno. Un giro di eval ne chiede 30–40. Groq, il
-  ripiego, limita i token al minuto (8 mila) e renderebbe lenta ogni diagnosi; un modello locale
-  su questo portatile, senza scheda grafica, lo sarebbe ancora di più. I limiti veri si leggono
-  in Google AI Studio. Sul piano gratuito Google può usare le richieste per migliorare i suoi
-  prodotti: qui è innocuo, perché i dati dell'impianto sono finti.
+  pagamento, e per Gemini basta un account Google. Groq limita i token al minuto e renderebbe
+  lenta ogni diagnosi; un modello locale, senza scheda grafica, ancora di più. Sul piano
+  gratuito Google può usare le richieste per migliorare i suoi prodotti: qui è innocuo, perché
+  i dati dell'impianto sono finti.
 - **Gemini, provato con chiamate vere** (15 novembre, cancello di M6: client openai-like
   0.0.11, `openai` 2.54):
   - il modello è `gemini-3.5-flash-lite`, fissato. `gemini-flash-lite-latest` è un altro nome
     che punta già a un 3.x, e cambierebbe modello sotto gli eval; `gemini-2.5-flash-lite`
     risponde 404, "non più disponibile per i nuovi utenti";
-  - tool e schema di `submit_diagnosis` reggono. Una chiamata dura da 0,6 a 2,2 s, una diagnosi
-    da 4 a 7 s. Gemini legge un tool per chiamata, Claude ne chiede più insieme: in entrata
-    Gemini usa da 1,3 a 2,3 volte i token di Claude, in uscita da 4 a 6 volte meno;
-  - il piano gratuito dà, per progetto e per modello, 15 richieste al minuto, 250 mila token
-    al minuto e 500 richieste al giorno (Google AI Studio, 15 novembre). Le richieste al giorno
-    si azzerano a mezzanotte del Pacifico, le 9 in Italia (pagina dei limiti di Google). Oltre
-    il limite risponde 429 `RESOURCE_EXHAUSTED`, "riprova tra 14 s". Un giro di eval chiede
-    circa 21 richieste. Uno scenario fa fino a 12 chiamate, e le due riprove dell'SDK non
-    aspettano 14 s: sul piano gratuito gli eval partono a un minuto l'uno dall'altro;
+  - tool e schema di `submit_diagnosis` reggono; una diagnosi dura da 4 a 7 s;
+  - il piano gratuito dà 15 richieste al minuto e 500 al giorno; oltre risponde 429. Uno
+    scenario fa fino a 12 chiamate, e le riprove dell'SDK non aspettano abbastanza: sul piano
+    gratuito gli eval partono a un minuto l'uno dall'altro;
   - due cose che datapizza sbaglia con Gemini 3, sistemate nell'adapter
     (`adapters/openai_compat/`), che ridefinisce due metodi del client di datapizza:
     - la firma del ragionamento (`thought_signature`) che Gemini mette sulla prima chiamata a
@@ -279,12 +243,9 @@ agenti.
       messaggio solo, come vuole anche OpenAI. `parallel_tool_calls=False` viene accettato ma
       ignorato.
 
-  *Perché*: è la strada più corta per avere il secondo fornitore con lo stesso agente; Groq,
-  il ripiego, non regge diagnosi da 13–30 mila token in entrata con 8 mila token al minuto.
+  *Perché*: è la strada più corta per avere il secondo fornitore con lo stesso agente.
   Limite: se datapizza cambia quei due metodi interni, l'adapter si rompe. I test della CI
-  rifanno la conversazione con le risposte di Gemini, senza rete, e se ne accorgono. Gli altri
-  modelli gratuiti non convengono: Gemini 2.5 Flash dà 20 richieste al giorno, un giro di
-  eval appena.
+  rifanno la conversazione con le risposte di Gemini, senza rete, e se ne accorgono.
 - **Cache dei prompt su ogni chiamata**: datapizza non la attiva, e l'adapter passa
   `cache_control` come argomento della chiamata. Provata nell'eval di M5: in S2, 6,6 mila token
   scritti nella cache e 15,6 mila letti. *Perché*: in un ciclo con i tool ogni chiamata rimanda
@@ -336,13 +297,8 @@ agenti.
   - **un'immagine sua** (`docker/dashboard.Dockerfile`), servizio `dashboard` del compose, su
     http://localhost:8501. Installa solo il gruppo `dashboard` di `pyproject.toml` (Streamlit,
     httpx, pydantic-settings); `dev` lo include, per mypy e i test. *Perché*: Streamlit porta
-    13 pacchetti che l'API non usa, misurati il 15 novembre: pyarrow 165 MB, pandas 45, numpy
-    30, pydeck 23 e altri. Nell'immagine dell'API sarebbero passati da 276 a circa 590 MB, e
-    sarebbero stati pacchetti in più per la sua scansione. Quel giorno Grype, con la versione
-    della CI, non vi trovava nessuna High o Critical con una correzione: il motivo è il peso,
-    e le vulnerabilità che verranno. Così l'immagine dell'API resta com'era, e al tester di
-    M8 basta ancora `docker compose`. In produzione la dashboard parte solo con
-    `--profile dashboard`;
+    13 pacchetti che l'API non usa (pyarrow, pandas, numpy...): l'immagine dell'API sarebbe
+    passata da 276 a circa 590 MB, con più pacchetti da scansionare;
   - **il token** lo legge da `DASHBOARD_APPROVAL_TOKEN`, che il compose imposta; il nome di chi
     decide lo scrive il birraio nella pagina. Il token non compare mai nella pagina né nei log;
   - **solo su 127.0.0.1**, anche in sviluppo: la pagina tiene il token, e resta fuori dalla
@@ -386,11 +342,19 @@ agenti.
 - **Chi approva: chi ha il token di approvazione** (14 novembre). Approvare e rifiutare chiedono
   un token dal `.env` (`APPROVAL_TOKEN`) e il nome di chi approva, che l'audit registra come
   dichiarato, non verificato. Il token non arriva mai ai tool MCP né all'agente, e
-  `production_problems()` rifiuta il valore di sviluppo. Keycloak resta nel compose e il login del
-  template funziona, ma la demo non lo usa. *Perché*: senza un segreto niente distinguerebbe il
-  birraio da un modello che chiama da solo l'endpoint; con Keycloak la demo avrebbe chiesto un
-  login senza frontend e un realm da reimportare. Passare a Keycloak cambia solo la dipendenza
-  dell'endpoint, non la coda né l'audit.
+  `production_problems()` rifiuta il valore di sviluppo. *Perché*: senza un segreto niente
+  distinguerebbe il birraio da un modello che chiama da solo l'endpoint; con il login del
+  template (Keycloak) la demo avrebbe chiesto un login senza frontend. Un'identità verificata
+  cambierebbe solo la dipendenza dell'endpoint, non la coda né l'audit.
+- **Il login del template esce** (17 novembre, M10): `features/auth`, `core/auth`,
+  `adapters/keycloak` e i servizi `keycloak` e `keycloak-db` del compose. *Perché*: la demo non
+  lo usava, e Keycloak era il servizio più lento ad avviarsi, fino a 5 minuti la prima volta
+  (417 s su un portatile carico). Ora lo stack è `db`, `migrate`, `api` e `dashboard`, e la
+  readiness controlla solo il database. Un `.env` di prima, con le righe `KEYCLOAK_*` e
+  `AUTH_COOKIE_*`, parte lo stesso: le impostazioni ignorano le chiavi che non conoscono. Una
+  volta, dopo l'aggiornamento, `docker compose up --build --wait --remove-orphans` toglie i
+  container rimasti di Keycloak. L'e2e della CI non fa più il login: percorre la demo, con lo
+  stack acceso, l'impianto e la coda delle proposte.
 - **Coda delle proposte e audit**: una feature a tre strati, `features/approvals/`, con una tabella
   Postgres a cui si aggiunge e basta: proposta, approvazione o rifiuto, esecuzione con la risposta
   del controllore. L'esecutore è l'unico codice che riceve `PlantCommander`: esegue solo proposte
@@ -407,46 +371,25 @@ agenti.
   due approvazioni nello stesso istante. Ogni evento si salva nella sua transazione, prima del
   passo dopo.
 - **In sviluppo lo stack risponde solo su 127.0.0.1** (15 novembre, M7b, per l'API; 16 novembre,
-  M8a, per Postgres e Keycloak). Prima il compose pubblicava l'API su tutte le interfacce: chi
+  M8a, per Postgres). Prima il compose pubblicava l'API su tutte le interfacce: chi
   era sulla stessa rete, per esempio il Wi-Fi della sala del discorso, leggeva l'impianto,
   muoveva la simulazione, chiedeva diagnosi e, con il token di sviluppo, che è pubblico,
-  approvava. Lo stesso valeva per Postgres (5433) e Keycloak (8080), con le password scritte in
-  `compose.yaml`: si apriva la coda con `psql`, o si chiedeva a Keycloak un token da
-  amministratore con `admin`/`admin`. Dentro lo stack non cambia niente, e il browser chiama
+  approvava. Lo stesso valeva per Postgres (5433), con la password scritta in `compose.yaml`: si
+  apriva la coda con `psql`. Dentro lo stack non cambia niente, e il browser chiama
   `localhost` come prima. *Perché*: la demo ha bisogno di quelle porte aperte, ma solo sulla
   macchina di chi la fa. In produzione era già così. Su Windows `localhost` è prima `::1`, e
   una porta solo su 127.0.0.1 risponde dopo circa 2 s di tentativi, a ogni connessione nuova
-  (misurato il 16 novembre): `.env.example` chiama il database a `127.0.0.1`. Keycloak resta
-  `localhost`, perché l'API confronta l'issuer dei token con `KEYCLOAK_PUBLIC_URL`.
-- **Immagini e CI** (16 novembre, M8a). "Build container image" era rosso anche su `master`:
-  - **la base**: nessun `python:3.13-slim` pubblicato aveva lo `zlib1g` che corregge
-    CVE-2026-76844 e CVE-2026-85091, due High che fermavano la scansione. Né `09a17ca` né
-    `e48f59c` (5 novembre), né `debian:trixie-slim` (4 novembre): la correzione era solo in
-    `trixie-security`. Le due immagini passano a `e48f59c`, come chiedeva la PR #9 di
-    Dependabot, e il loro stadio runtime aggiorna `zlib1g` da `trixie-security`
-    (`apt-get install --only-upgrade`, che non aggiunge pacchetti). *Perché*: aspettare la base
-    nuova lasciava la CI rossa fino a una data che nessuno conosceva, e la soglia non si
-    abbassa né si ignora una CVE. Limite: lo stesso commit, costruito più avanti, può prendere
-    uno `zlib1g` più nuovo. Il passo si toglie quando Dependabot porta una base corretta;
-  - **il rapporto della scansione** va nella scheda Security solo da repo pubblico: su un repo
-    privato di un account personale Code scanning non c'è, e il caricamento faceva fallire il
-    job anche con la scansione verde. Quello che la scansione trova va nel riepilogo del job,
-    perché il suo log dice solo che è fallita. *Perché*: la CI è giusta da privato e da
-    pubblico; il repo diventa pubblico dopo la pulizia, e allora il rapporto arriva da solo;
-  - **l'immagine della dashboard** si scansiona in un job suo, "Build dashboard image", con
-    le stesse soglie. La CI non la pubblica, ma il compose la esegue, con Streamlit, pyarrow,
-    pandas e tornado, che la scansione dell'API non vede. Quella di Keycloak resta senza;
-  - **Dependabot** legge ogni file di `docker/` il cui nome contiene "dockerfile", e sposta
-    la base delle due immagini nella stessa PR (codice di dependabot-core, letto il 16
-    novembre). Il test che lega le due basi resta. La #9 toccava solo l'API perché è del 12
-    novembre, prima della dashboard.
-- **Keycloak ha 5 minuti per il primo avvio** (16 novembre, M8a): `start_period: 300s` nel
-  compose di sviluppo. Su un portatile carico il primo avvio, con il realm da importare e lo
-  schema da creare, è durato 417 s, mentre il controllo di salute si arrendeva dopo circa
-  160 s: `docker compose up --wait` si fermava con "keycloak is unhealthy", e l'API non
-  partiva. In CI lo stack parte in 2 minuti. *Perché*: il valutatore avvia lo stack da zero,
-  su una macchina che non conosciamo. Nella `start_period` i controlli falliti non contano, e
-  il primo che passa rende Keycloak sano: una macchina veloce non aspetta di più.
+  (misurato il 16 novembre): `.env.example` chiama il database a `127.0.0.1`.
+- **Immagini e CI** (16 novembre, M8a):
+  - **la base**: nessun `python:3.13-slim` aveva lo `zlib1g` che corregge due High
+    (CVE-2026-76844 e CVE-2026-85091). Lo stadio runtime delle due immagini lo aggiorna da
+    `trixie-security` (`apt-get install --only-upgrade`, che non aggiunge pacchetti). *Perché*:
+    la soglia della scansione non si abbassa e non si ignora una CVE. Il passo si toglie
+    quando una base nuova, spostata a mano nei due Dockerfile, ha la correzione;
+  - **il rapporto della scansione** va nella scheda Security solo da repo pubblico; quello che
+    la scansione trova va comunque nel riepilogo del job;
+  - **l'immagine della dashboard** si scansiona in un job suo, con le stesse soglie: il
+    compose la esegue, con pacchetti che la scansione dell'API non vede.
 - **Il controllo della simulazione è spento se non lo si chiede** (15 novembre):
   `PLANT_SIMULATION_CONTROL` vale false per default, il compose di sviluppo e `.env.example` lo
   accendono, staging e produzione lo rifiutano. *Perché*: chiunque raggiunga quelle rotte
@@ -457,38 +400,47 @@ agenti.
   non fa altro. *Perché*: è il flusso completo della demo: allarme, diagnosi, proposta,
   approvazione, esecuzione.
 - **Base del codice**: template `fastapi_starter` (FastAPI, PostgreSQL, Alembic, structlog,
-  SQLAlchemy async, Keycloak, uv, import-linter, CI, release-please).
+  SQLAlchemy async, Keycloak, uv, import-linter, CI). Di questo restano FastAPI, PostgreSQL,
+  Alembic, structlog, SQLAlchemy, uv, import-linter e la CI: le note e il login sono usciti in M10.
 - **Nome**: il progetto si chiama NeuralBrewery. Repo `NeuralBrewery`; package Python, immagine
-  Docker e nomi tecnici (realm e client Keycloak) `neuralbrewery`, una sola forma minuscola
-  senza trattini né underscore, come richiedono package e immagini. La versione riparte da 0.1.0
-  con un CHANGELOG vuoto: la storia del template non è la storia di questo progetto.
+  Docker e nomi tecnici `neuralbrewery`, una sola forma minuscola
+  senza trattini né underscore, come richiedono package e immagini. La versione è 0.1.1, l'ultimo
+  rilascio, del 17 novembre; da M10 non ci sono più rilasci né changelog: il progetto si prova
+  dal repo, con il compose.
 
 ## Come si innesta nel template
 
-- **Un solo package, un'immagine per l'app, due servizi nel compose**: `api` (il backend del
-  template) e `plant-sim` (stessa immagine, comando diverso, un solo worker). Fino a M2 c'è solo
-  `api`, con l'impianto nel suo processo. Da M7b la dashboard del birraio ha un'immagine sua,
-  con il solo gruppo `dashboard`: è un client dell'API, non una parte dell'app (sopra).
+- **Un solo package, un'immagine per l'app**: nel compose `api`, con l'impianto nel suo
+  processo. Con M2, dopo il corso, si aggiunge `plant-sim` (stessa immagine, comando diverso,
+  un solo worker). Da M7b la dashboard del birraio ha un'immagine sua, con il solo gruppo
+  `dashboard`: è un client dell'API, non una parte dell'app (sopra).
 - **Il simulatore vive in `adapters/plant_sim/`.** Per il backend l'impianto è un servizio
   esterno, e il template vieta già alle feature di importare gli adapter: per toccare
   l'impianto devono passare dalle porte, e la CI lo controlla.
-- **Porte e vocabolario in `core/plant/`**, come `core/auth/` per il login.
-- **Errori**: l'adapter REST traduce gli errori di httpx nelle eccezioni del template (ADR 0006).
-  Al posto del `PlantUnavailableError` del prototipo si usa `ServiceUnavailableError`.
+- **Porte e vocabolario in `core/plant/`**.
+- **Errori**: ogni adapter traduce gli errori della sua libreria nelle eccezioni del template
+  (ADR 0006); l'adapter REST dell'impianto, con M2, userà `ServiceUnavailableError`.
 - **Impostazioni** in `core/config/plant.py`. `production_problems()` rifiuta i token di
   sviluppo e il controllo della simulazione fuori dallo sviluppo (ADR 0007).
-- **I processi restano separati**: nel compose il backend parla con `plant-sim` solo via REST,
-  con il token dell'esecutore per i comandi.
+- **Con M2 i processi restano separati**: il backend parlerà con `plant-sim` solo via REST, con
+  il token dell'esecutore per i comandi.
 - **Alternativa scartata**: workspace uv con due package. Separazione più netta, ma va
   adattato tutto il tooling del template (Dockerfile, CI, test su lockfile e package).
-- **L'esempio `features/notes` resta**, anche dopo M4 e la sua prima feature nostra a tre strati
-  (14 novembre): su di lui poggiano due contract, il test e2e e lo smoke test della CI. Si toglie
-  solo se avanza tempo.
+- **I documenti del template sono usciti** (M10, 17 novembre): `docs/architecture.md` e
+  `docs/database.md` spiegavano il template con i suoi esempi, il login e le note, che non ci
+  sono più. Le regole che servono stanno in `AGENTS.md`, "Convenzioni del codice". Le ADR di
+  `docs/adr/` restano: sono le decisioni del template, e il codice le segue ancora. Una
+  decisione nuova del progetto va qui, non in un'ADR. *Perché*: un repo più corto, che parla
+  del progetto.
+- **L'esempio `features/notes` è uscito** (M10, 17 novembre): la forma di una feature a tre
+  strati la dà `features/approvals`. Una migrazione toglie la tabella `notes`, ma solo se è
+  vuota: con una riga si ferma, e non si perde niente. Le migrazioni vecchie restano come sono.
 
 ## Ancora aperte
 
 - Un'interfaccia per leggere i trace (Langfuse o Phoenix): solo se serve alla demo.
-- Approvazione con identità verificata (Keycloak, un ruolo `brewer`): solo se avanza tempo.
+- Approvazione con identità verificata (un provider di identità, un ruolo `brewer`): dopo il
+  corso. Il login del template è uscito in M10.
 - Claude Desktop come client MCP: i suoi connettori partono dal cloud di Anthropic e non
   raggiungono `localhost`; la configurazione locale lancia programmi, quindi servirebbe un ponte
   (`npx mcp-remote http://localhost:8000/mcp`). La demo di M4 usava Claude Code, che parla HTTP;
@@ -533,10 +485,11 @@ agenti.
 | M7b | Dashboard del birraio in Streamlit, sopra l'API: impianto, simulazione, diagnosi, coda con proponi, approva e rifiuta | La demo si fa tutta dalla dashboard, senza `curl` né Claude Code; una proposta di Claude Code via MCP compare nella coda della dashboard (il video per la slide) |
 | M8 | Parte A: immagini e CI, con lo scan. Parte B: README del progetto, e prova della demo da zero seguendolo | La demo gira da zero seguendo il README |
 | M9 | RAG leggero sui manuali: testo estratto una volta, BM25 con il filtro per sigla, il tool `search_manuals`, acceso di default nello stack dopo gli eval | L'eval del retrieval verde nella CI (hit@3 su tutte, hit@1 almeno all'80%); S6 passa su Claude e su Gemini, e S1–S5 non peggiorano |
+| M10 | Pulizia prima del repo pubblico: via il login con Keycloak, le note, rilasci, produzione, Dependabot, i prompt e i documenti del template; un e2e che percorre la demo | I controlli della CI verdi, e lo stack da zero, anche con un `.env` di prima |
 
 Ordine: dopo M1b viene M5, con l'impianto in-process; dopo M5 viene M4 (deciso il 14 novembre,
 a fine M5). A fine M4 (15 novembre): M6, M7 e M8 prima del discorso, con il 18 novembre tenuto
 per M8 e la prova della demo. A fine M6 (15 novembre): M7 il 16, il pannello (M7b) il 17, M8 il
-18. Il 17 novembre, M9: il RAG leggero sui manuali. Dopo il corso: M2, M3, il RAG ibrido con
+18. Il 17 novembre, M9: il RAG leggero sui manuali, poi M10, la pulizia. Dopo il corso: M2, M3, il RAG ibrido con
 rerank e RAGAS, multi-agente con l'orchestratore e la baseline, red teaming, eval in CI,
 interfaccia completa.

@@ -3,7 +3,8 @@
 Every test in this folder gets the ``e2e`` marker. A plain ``pytest``
 leaves them out (addopts in pyproject.toml); ``pytest -m e2e`` runs only
 them, against the API at E2E_API_URL (http://localhost:8000 by default)
-after ``docker compose up --build --wait``.
+and the dashboard at E2E_DASHBOARD_URL (http://localhost:8501), after
+``docker compose up --build --wait``.
 """
 
 import os
@@ -29,5 +30,13 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
 def api() -> Iterator[httpx.Client]:
     """A client of the running API."""
     base_url = os.environ.get("E2E_API_URL", "http://localhost:8000")
+    with httpx.Client(base_url=base_url, timeout=10) as client:
+        yield client
+
+
+@pytest.fixture
+def dashboard() -> Iterator[httpx.Client]:
+    """A client of the running dashboard."""
+    base_url = os.environ.get("E2E_DASHBOARD_URL", "http://localhost:8501")
     with httpx.Client(base_url=base_url, timeout=10) as client:
         yield client
