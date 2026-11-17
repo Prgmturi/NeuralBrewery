@@ -37,7 +37,7 @@ src/neuralbrewery/
   core/config/plant.py       impostazioni: partenza, seme, controllo della simulazione
   core/config/approvals.py   APPROVAL_TOKEN, il token di chi approva
   core/manuals/              ManualSearch e ManualPassage: la ricerca nei manuali, solo testo
-  core/config/manuals.py     MANUALS_ENABLED (spento di default) e la cartella del testo
+  core/config/manuals.py     MANUALS_ENABLED (acceso nello stack) e la cartella del testo
   adapters/plant_sim/        l'impianto simulato: processo, dispositivi, controllore
                              (interlock, programma, allarmi), guasti, adattatore
                              in-process (test ed eval)

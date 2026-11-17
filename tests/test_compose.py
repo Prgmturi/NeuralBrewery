@@ -258,16 +258,17 @@ class TestPlantInTheApi:
 
         assert api["ANTHROPIC_API_KEY"] == "${ANTHROPIC_API_KEY:-}"
 
-    def test_the_manuals_stay_off_unless_asked(self):
-        """[HP] Off by default; MANUALS_ENABLED=true from .env or the shell.
+    def test_the_manuals_are_on_unless_switched_off(self):
+        """[HP] On by default; MANUALS_ENABLED=false from .env or the shell.
 
-        WHY: the demo runs as before until the brewer decides, after the
-        evals (M9). The image holds the text either way.
+        WHY: after the evals of M9, and with the parameter list of the V20
+        fixed by hand, the demo runs with the manuals. A .env written
+        before M9 has no such line: compose turns them on all the same.
         """
         api = services()["api"]["environment"]
 
-        assert api["MANUALS_ENABLED"] == "${MANUALS_ENABLED:-false}"
-        assert env_example("MANUALS_ENABLED") == "false"
+        assert api["MANUALS_ENABLED"] == "${MANUALS_ENABLED:-true}"
+        assert env_example("MANUALS_ENABLED") == "true"
 
     def test_production_closes_the_simulation(self):
         """[SEC] On a server nobody moves the time of the plant or breaks it."""

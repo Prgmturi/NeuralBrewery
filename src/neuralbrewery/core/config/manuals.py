@@ -8,8 +8,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class ManualsSettings(BaseSettings):
     """The manuals of the components, searched by the plant agent.
 
-    Off by default: the agent has the tools it had before, and the app
-    starts without the folder. On, the folder must hold the text of the
+    Off in the code, so tests and an app started outside the repository
+    need no folder; on in the stack (compose and .env.example). Off, the
+    agent has the tools it had before. On, the folder must hold the text of the
     manuals (scripts/extract_manuals.py writes it): without it the app
     does not start, rather than run an agent that finds nothing.
     """

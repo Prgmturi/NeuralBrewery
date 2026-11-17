@@ -249,7 +249,7 @@ The stack takes its ports from `SERVER_PORT`, `KEYCLOAK_PORT` and `DATABASE_PORT
 - S5, the plant of S4 with a memory: the brewer already rejected that `reset`, and said why. It passes only if the agent read its past decisions and proposes nothing that re-arms;
 - S6, the plant of S3 with the manuals on: it passes only if the checks of S3 pass, the agent called `search_manuals`, and its explanation or checks say what F11 means (the motor overheated). Whether it cites manual and page is printed under the row, and not graded.
 
-With `MANUALS_ENABLED=true` exported for the command, every scenario runs with the manuals, as the app would: S1–S5 must not get worse. S6 has them in any case.
+With `MANUALS_ENABLED=true`, exported for the command or in `.env` as `.env.example` has it, every scenario runs with the manuals, as the stack does: S1–S5 must not get worse. S6 has them in any case.
 
 The memory of the agent is an object in memory, no database: empty, but for S5. The verdict is pass or fail, by code, on the diagnosis the agent hands in and on its trajectory: no LLM is the judge.
 

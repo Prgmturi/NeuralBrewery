@@ -133,11 +133,12 @@ girano gli eval.
 
 ### Con i manuali dei componenti
 
-In `.env` scrivi `MANUALS_ENABLED=true`, poi di nuovo `docker compose up --build --wait`.
-L'agente riceve un tool in più, `search_manuals`, e una riga in più nel prompt: un codice o un
-segnale di cui non è sicuro lo cerca nei manuali, e la spiegazione dice che cosa dice il
-manuale e dove. Il testo dei manuali è già nell'immagine. La ricerca gira nell'API, senza rete
-e senza chiavi in più. Con `false`, il default, l'agente è quello di prima.
+Sono accesi di default. L'agente ha un tool in più, `search_manuals`, e una riga in più nel
+prompt: un codice o un segnale di cui non è sicuro lo cerca nei manuali, e la spiegazione dice
+che cosa dice il manuale e dove. Il testo dei manuali è già nell'immagine. La ricerca gira
+nell'API, senza rete e senza chiavi in più. Per spegnerli, in `.env` scrivi
+`MANUALS_ENABLED=false`, poi di nuovo `docker compose up --build --wait`: l'agente torna quello
+di prima.
 
 ## La demo dalla dashboard
 
@@ -197,7 +198,7 @@ Sempre in `docs/development.md`:
 | Audit trail | Ogni proposta, decisione ed esecuzione in una tabella a cui si aggiunge e basta: un trigger rifiuta UPDATE, DELETE e TRUNCATE. Ogni passo dell'agente nel tracing di datapizza (`ContextTracing`): la dashboard mostra quello dell'ultima diagnosi, e gli eval lo scrivono su file | [la migrazione](alembic/versions/00b0ef650519_create_approval_events_table.py), [plant_agent.py](src/neuralbrewery/features/agents/plant_agent.py) |
 | Eval pass/fail | Sei scenari di guasto con seed fisso; il sesto è F11 con i manuali. Il verdetto è codice, sulla diagnosi e sulla traiettoria: nessun LLM fa da giudice. Girano su Claude e su Gemini, e una tabella li confronta | [tests/evals/](tests/evals/) |
 | README che gira | Questo file: Docker e una chiave API | [Accenderlo](#accenderlo) |
-| RAG (facoltativo) | Leggero: BM25 in Python puro sui manuali dei componenti, con il filtro per sigla. Il testo è estratto una volta e sta nel repo, con le tabelle dei codici e la lista dei parametri del V20 sistemate a mano. Un eval del retrieval (hit@1, hit@3) gira con i test. Spento di default: [come si accende](#con-i-manuali-dei-componenti) | [adapters/manuals/](src/neuralbrewery/adapters/manuals/), [test_retrieval.py](tests/adapters/manuals/test_retrieval.py) |
+| RAG (facoltativo) | Leggero: BM25 in Python puro sui manuali dei componenti, con il filtro per sigla. Il testo è estratto una volta e sta nel repo, con le tabelle dei codici e la lista dei parametri del V20 sistemate a mano. Un eval del retrieval (hit@1, hit@3) gira con i test. Acceso di default: [come si spegne](#con-i-manuali-dei-componenti) | [adapters/manuals/](src/neuralbrewery/adapters/manuals/), [test_retrieval.py](tests/adapters/manuals/test_retrieval.py) |
 | Un server MCP usato da un altro host | `/mcp` nell'API: quattro tool di lettura e `propose_action`, che mette in coda come `mcp`. Claude Code lo usa | [mcp_server.py](src/neuralbrewery/features/agents/mcp_server.py) |
 
 ## Com'è fatto
@@ -272,7 +273,7 @@ uv sync
 uv run pytest                                        # i test, e l'eval del retrieval: niente rete, niente database
 uv run pytest -m eval                                # l'agente su Claude, sei scenari: circa 18 centesimi
 AGENT_PROVIDER=openai_compat uv run pytest -m eval   # lo stesso su Gemini, gratis: circa 8 minuti
-MANUALS_ENABLED=true uv run pytest -m eval           # tutti gli scenari con i manuali, come l'app accesa
+MANUALS_ENABLED=true uv run pytest -m eval           # tutti gli scenari con i manuali, come lo stack
 ```
 
 Gli eval leggono la chiave dal `.env`. In PowerShell, prima dell'ultimo comando:

@@ -21,7 +21,7 @@ agenti.
 | Audit trail | Tracing di ogni passo + tabella di audit append-only (proposte, approvazioni, esecuzioni) |
 | Eval pass/fail | Scenari di guasto con seed fisso (trajectory), su Claude e su Gemini |
 | README, deve girare | `README.md`, in italiano: Docker e una chiave API, poi `docker compose up`. Parla solo del progetto e rimanda ai documenti (M8) |
-| RAG (facoltativo) | Leggero (M9): BM25 sui manuali dei componenti, con il filtro per sigla, misurato con hit@k; spento di default (`MANUALS_ENABLED`). Dopo il corso: ricerca ibrida, rerank e RAGAS |
+| RAG (facoltativo) | Leggero (M9): BM25 sui manuali dei componenti, con il filtro per sigla, misurato con hit@k; acceso di default nello stack (`MANUALS_ENABLED`). Dopo il corso: ricerca ibrida, rerank e RAGAS |
 
 ## Scelte fatte
 
@@ -119,9 +119,10 @@ agenti.
     l'agente non è sicuro si cerca, e la spiegazione dice che cosa dice il manuale e dove. Il
     testo dei manuali è un dato, non un'istruzione. Spenti, il prompt e i tool sono quelli di
     prima;
-  - **spento di default**: `MANUALS_ENABLED=false`. Acceso senza il testo, l'app non parte e dice
-    perché. Il compose passa `MANUALS_ENABLED` dalla shell o dal `.env`, false se manca: la demo
-    resta com'era finché non si decide di accenderlo.
+  - **acceso di default nello stack**, dal 17 novembre: il compose passa `MANUALS_ENABLED` dalla
+    shell o dal `.env`, true se manca, e `.env.example` dice true. Nel codice il default resta
+    false: i test e un'app avviata fuori dal repo non hanno bisogno del testo. Acceso senza il
+    testo, l'app non parte e dice perché. Con `false` la demo torna com'era prima di M9.
 
   L'eval del retrieval gira nei test normali (`tests/adapters/manuals/test_retrieval.py`): una
   domanda per ogni guasto iniettabile su cui un manuale dice qualcosa, scritta come la scriverebbe
@@ -520,7 +521,7 @@ agenti.
 | M7 | Memoria persistente: le decisioni del birraio, lette dalla coda | Un eval in cui l'agente usa una decisione passata |
 | M7b | Dashboard del birraio in Streamlit, sopra l'API: impianto, simulazione, diagnosi, coda con proponi, approva e rifiuta | La demo si fa tutta dalla dashboard, senza `curl` né Claude Code; una proposta di Claude Code via MCP compare nella coda della dashboard (il video per la slide) |
 | M8 | Parte A: immagini e CI, con lo scan. Parte B: README del progetto, e prova della demo da zero seguendolo | La demo gira da zero seguendo il README |
-| M9 | RAG leggero sui manuali: testo estratto una volta, BM25 con il filtro per sigla, il tool `search_manuals`, spento di default | L'eval del retrieval verde nella CI (hit@3 su tutte, hit@1 almeno all'80%); S6 passa su Claude e su Gemini, e S1–S5 non peggiorano |
+| M9 | RAG leggero sui manuali: testo estratto una volta, BM25 con il filtro per sigla, il tool `search_manuals`, acceso di default nello stack dopo gli eval | L'eval del retrieval verde nella CI (hit@3 su tutte, hit@1 almeno all'80%); S6 passa su Claude e su Gemini, e S1–S5 non peggiorano |
 
 Ordine: dopo M1b viene M5, con l'impianto in-process; dopo M5 viene M4 (deciso il 14 novembre,
 a fine M5). A fine M4 (15 novembre): M6, M7 e M8 prima del discorso, con il 18 novembre tenuto

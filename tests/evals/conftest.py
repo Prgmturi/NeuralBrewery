@@ -7,8 +7,9 @@ has no key. ``uv run pytest -m eval`` runs only them, by hand.
 The provider is AGENT_PROVIDER, as for the app: claude by default, or
 openai_compat (Gemini on its free tier). Provider and keys come exported or
 from .env, although the autouse fixture of tests/conftest.py switches both
-off for every other test. So does MANUALS_ENABLED: exported for the
-command, every scenario runs with the manuals, as the app would.
+off for every other test. So does MANUALS_ENABLED: true, exported or in
+.env as .env.example has it, every scenario runs with the manuals, as the
+stack does.
 
 The cost is measured on the answers of the API, through a hook of the HTTP
 client: datapizza keeps the tokens read from Claude's prompt cache but not
