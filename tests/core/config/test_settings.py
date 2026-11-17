@@ -50,8 +50,8 @@ class TestAppSettings:
         """[HP] /health/live and OpenAPI show the version that runs.
 
         WHY: the default was "0.1.0" in the code and in .env.example, while
-        release-please bumps pyproject.toml: from 0.2.0 on, every release
-        still answered 0.1.0.
+        the version lives in pyproject.toml: a new version would still have
+        answered 0.1.0.
         """
         assert AppSettings().version == importlib.metadata.version("neuralbrewery")
 

@@ -284,7 +284,7 @@ end-to-end e la CI: [Tests](docs/development.md#tests).
 ## Per chi sviluppa
 
 - Le regole del progetto e come ci si lavora: [AGENTS.md](AGENTS.md).
-- Strumenti, test, CI e rilasci: [docs/development.md](docs/development.md).
+- Strumenti, test e CI: [docs/development.md](docs/development.md).
 - Ogni scelta, con il suo perché: [docs/decisioni.md](docs/decisioni.md).
 
 ---

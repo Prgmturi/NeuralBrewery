@@ -1,14 +1,12 @@
 """Tests that keep uv.lock in step with pyproject.toml.
 
-WHY these tests exist: release-please bumps the version in pyproject.toml
-but not in uv.lock, so after every release the lock named the previous
-version. CI installed with --frozen, which never compares the two: the
-release PR of 0.6.1 passed with a lock that said 0.6.0. Three uv versions
+WHY these tests exist: a version bumped in pyproject.toml and not in
+uv.lock left the lock naming the previous version, and CI installed with
+--frozen, which never compares the two. Three uv versions
 (CI, the Dockerfile, a developer's machine) also wrote the lock in
 different formats.
 """
 
-import json
 import re
 import tomllib
 from pathlib import Path
@@ -67,23 +65,6 @@ class TestLockfile:
         locked = [p["version"] for p in lock["package"] if p["name"] == project_name()]
 
         assert locked == [pyproject()["project"]["version"]]
-
-    def test_release_bumps_the_lock_too(self):
-        """[HP] release-please writes the new version into uv.lock as well.
-
-        WHY ".value": release-please reads the TOML into values wrapped with
-        their position in the file, so the name sits in name.value. With
-        @.name the filter matches nothing, and release-please only logs a
-        warning (tried with release-please 17.6.0, the one in
-        release-please-action v5, on 25 October 2026).
-        """
-        config = json.loads((ROOT / "release-please-config.json").read_text())
-
-        assert {
-            "type": "toml",
-            "path": "uv.lock",
-            "jsonpath": f"$.package[?(@.name.value=='{project_name()}')].version",
-        } in config["packages"]["."].get("extra-files", [])
 
 
 class TestUvVersion:

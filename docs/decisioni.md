@@ -457,11 +457,11 @@ agenti.
   non fa altro. *Perché*: è il flusso completo della demo: allarme, diagnosi, proposta,
   approvazione, esecuzione.
 - **Base del codice**: template `fastapi_starter` (FastAPI, PostgreSQL, Alembic, structlog,
-  SQLAlchemy async, Keycloak, uv, import-linter, CI, release-please).
+  SQLAlchemy async, Keycloak, uv, import-linter, CI).
 - **Nome**: il progetto si chiama NeuralBrewery. Repo `NeuralBrewery`; package Python, immagine
   Docker e nomi tecnici (realm e client Keycloak) `neuralbrewery`, una sola forma minuscola
-  senza trattini né underscore, come richiedono package e immagini. La versione riparte da 0.1.0
-  con un CHANGELOG vuoto: la storia del template non è la storia di questo progetto.
+  senza trattini né underscore, come richiedono package e immagini. La versione è 0.1.0, e non
+  ci sono rilasci né changelog (tolti in M10): il progetto si prova dal repo, con il compose.
 
 ## Come si innesta nel template
 

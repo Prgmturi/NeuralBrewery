@@ -1,6 +1,6 @@
 # Development
 
-The tools, the tests, the checks of CI, the releases, and the care taken with what the project takes from others.
+The tools, the tests, the checks of CI, the commits, and the care taken with what the project takes from others.
 
 ## Tools
 
@@ -299,19 +299,9 @@ python scripts/extract_manuals.py    # the text of each document that has none y
 | Log in through the whole stack | `docker compose up` of the stack, then the end-to-end test |
 | Lint commit messages | Every commit of a pull request, and its title, through commitlint |
 
-## Releases
+## Commits
 
-Commits follow [Conventional Commits](https://www.conventionalcommits.org/). commitlint checks every commit of a pull request, and its title, which becomes the commit on `master` when the pull request is squashed.
-
-[release-please](https://github.com/googleapis/release-please) keeps a release pull request open, with the next version and the changelog. Merging it:
-
-- tags `vX.Y.Z` and publishes the GitHub release;
-- publishes the image `ghcr.io/prgmturi/neuralbrewery:X.Y.Z`, and `:latest`;
-- has already raised the version in `pyproject.toml`, `uv.lock` and the `image:` lines of `compose.prod.yaml`.
-
-Under 1.0, `feat` and `fix` raise the patch number, and a breaking change (`!`) the minor one.
-
-Only a change to what runs makes a release: `feat`, `fix`, `perf`, `deps` and `revert`, and a breaking change of any type. `docs`, `refactor`, `test`, `build`, `ci` and `chore` wait for the next release, with no line in the changelog (`changelog-sections` in `release-please-config.json`).
+Commits follow [Conventional Commits](https://www.conventionalcommits.org/). commitlint checks every commit of a pull request, and its title, which becomes the commit on `master` when the pull request is squashed. There are no releases: the project runs from the repository, with `compose.yaml`.
 
 ## Supply chain
 
