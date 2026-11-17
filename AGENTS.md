@@ -9,17 +9,17 @@ simulato. Monitora l'impianto, diagnostica i problemi usando i manuali tecnici d
 (RAG) e la memoria delle cotte passate, e propone azioni che vengono eseguite solo dopo
 l'approvazione del birraio.
 
-Il repo nasce dal template `fastapi_starter`: le sue regole valgono anche qui.
+Il repo nasce dal template `fastapi_starter`: le sue regole valgono anche qui. Quelle che
+servono stanno in "Convenzioni del codice", sotto, e nelle ADR di `docs/adr/`.
 
 ## Leggi prima di iniziare
 
 - `docs/decisioni.md`: cosa è deciso, come si innesta nel template, cosa è aperto, roadmap.
 - `docs/impianto.md`: il controllore e cosa espone, componenti, sigle, percorsi, interlock,
   programma della cotta, guasti, controlli di plausibilità.
-- `docs/architecture.md`, almeno il livello 1: dove va il codice e perché.
 - `docs/development.md`: strumenti, test, CI.
-- `docs/adr/`: le decisioni del template. Una decisione architetturale nuova diventa un ADR
-  con il numero successivo, nello stesso formato.
+- `docs/adr/`: le decisioni del template da cui il progetto è nato. Quelle del progetto, nuove
+  comprese, vanno in `docs/decisioni.md`.
 - `_reference/gateway-demo/`: prototipo funzionante del confine AI–impianto. È un riferimento
   da adattare alle convenzioni di questo repo, non da copiare. Non va modificato.
 

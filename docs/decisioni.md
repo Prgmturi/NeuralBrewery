@@ -476,6 +476,12 @@ agenti.
   con il token dell'esecutore per i comandi.
 - **Alternativa scartata**: workspace uv con due package. Separazione più netta, ma va
   adattato tutto il tooling del template (Dockerfile, CI, test su lockfile e package).
+- **I documenti del template sono usciti** (M10, 17 novembre): `docs/architecture.md` e
+  `docs/database.md` spiegavano il template con i suoi esempi, il login e le note, che non ci
+  sono più. Le regole che servono stanno in `AGENTS.md`, "Convenzioni del codice". Le ADR di
+  `docs/adr/` restano: sono le decisioni del template, e il codice le segue ancora. Una
+  decisione nuova del progetto va qui, non in un'ADR. *Perché*: un repo più corto, che parla
+  del progetto.
 - **L'esempio `features/notes` è uscito** (M10, 17 novembre): la forma di una feature a tre
   strati la dà `features/approvals`. Una migrazione toglie la tabella `notes`, ma solo se è
   vuota: con una riga si ferma, e non si perde niente. Le migrazioni vecchie restano come sono.

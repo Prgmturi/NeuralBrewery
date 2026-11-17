@@ -294,7 +294,7 @@ python scripts/extract_manuals.py    # the text of each document that has none y
 
 | Job | What it does |
 |---|---|
-| `ci` | ruff, the format, mypy, the import contracts ([What checks each rule](architecture.md#what-checks-each-rule)), the unit tests with coverage, then the tests again in a production-like environment |
+| `ci` | ruff, the format, mypy, the import contracts (`[tool.importlinter]` in `pyproject.toml`), the unit tests with coverage, then the tests again in a production-like environment |
 | Integration tests | The migrations up, checked against the models, down and up again; then the integration tests, on a Postgres of their own |
 | Build container image | The image of `docker/Dockerfile`, a smoke test of the app inside it, the check that the app cannot change its own code, and the Grype scan, with what it found in the summary of the run |
 | Build dashboard image | The image of `docker/dashboard.Dockerfile` and its Grype scan, with the same thresholds |
