@@ -87,20 +87,28 @@ agenti.
   di M1 l'agente vedeva solo `inverter in guasto: F11`. Claude chiedeva al birraio di guardare il
   manuale, Gemini tirava a indovinare; il manuale del V20, a pagina 55, dice "Motor
   overtemperature". Fatto così:
-  - **i manuali nel repo** (regola 8): otto documenti in `data/manuals/`, con il nome dell'id del
-    manifest. Pompa, chiller e fermentatore non si scaricano (403 e 429): restano fuori, e le loro
-    sigle (P1, P2, `CHILLER`, `FERM`) non hanno manuali;
+  - **i manuali nel repo** (regola 8): dieci documenti in `data/manuals/`, con il nome dell'id del
+    manifest. Il chiller non si scarica (429): resta fuori, e `CHILLER` non ha manuali. Pompa e
+    fermentatore vengono dalle copie di manualslib (il distributore risponde 403, il sito Blichmann
+    429), e il loro testo è senza l'intestazione del sito. Il sistema di raffreddamento del G4 non
+    ha un manuale: è uscito dal manifest;
+  - **la valvola ha un documento scritto da noi** (17 novembre), `data/manuals/<id>.md`: l'unico
+    manuale trovato era una pagina di manuals.plus, riscritta dal sito, per un altro modello
+    (USS-MSV102F6C, 1 pollice). Il documento traduce in inglese specifiche, domande e avvertenze
+    della pagina del prodotto U.S. Solid USS-MSV00001 (1/2 pollice, 3 fili), senza aggiungere
+    niente, e in testa dice che l'impianto usa la variante a 5 fili con i fine corsa. Serve
+    soprattutto il tempo di apertura e chiusura, 3–5 s: una valvola che dopo non è a fine corsa è
+    bloccata;
   - **il testo si estrae una volta** (`scripts/extract_manuals.py`, con pdftotext di poppler, in
     modalità normale, una pagina alla volta) e sta nel repo, in `data/manuals/text/<id>.md`: in
     testa id, prodotto, componente e sigle dal manifest, poi un segno per pagina. L'app legge solo
     questi file, e l'immagine dell'API contiene solo loro, non i PDF;
   - **le tabelle da cui dipendono i guasti iniettabili sono sistemate a mano**, una voce per riga,
     controllate sul PDF: codici di guasto e di allarme del V20 (pagine 55 e 56), il segnale di
-    allarme del TMT80 (pagina 2), le sezioni 11.3 e 11.4 delle istruzioni SICK (pagina 54) e la
-    tabella dei problemi della valvola (pagina 8). *Perché*: `pdftotext -layout` sfasa le colonne
-    del V20 e legge "F11 = DC ripple too high", che è F20. Anche in modalità normale la SICK
-    metteva la schiuma accanto al livello che salta a 0 mm, e la valvola il rimedio di una perdita
-    accanto all'attuatore che fa rumore. Un RAG che cita il significato sbagliato, con la pagina, è
+    allarme del TMT80 (pagina 2), le sezioni 11.3 e 11.4 delle istruzioni SICK (pagina 54), i
+    ricambi della pompa (pagina 3) e le capacità del fermentatore (pagina 8). *Perché*:
+    `pdftotext -layout` sfasa le colonne del V20 e legge "F11 = DC ripple too high", che è F20.
+    Anche in modalità normale la SICK metteva la schiuma accanto al livello che salta a 0 mm. Un RAG che cita il significato sbagliato, con la pagina, è
     peggio di niente;
   - **i pezzi**: per pagina, poi per paragrafi fino a circa 1.000 caratteri; ogni riga di una
     tabella è un pezzo, con il titolo e l'intestazione della tabella. Ogni pezzo porta documento,
@@ -126,11 +134,13 @@ agenti.
 
   L'eval del retrieval gira nei test normali (`tests/adapters/manuals/test_retrieval.py`): una
   domanda per ogni guasto iniettabile su cui un manuale dice qualcosa, scritta come la scriverebbe
-  l'agente, con la pagina che risponde controllata sul PDF. Sono 8; restano fuori i guasti senza
-  manuale (pompa, glicole, fermentazione) e quelli su cui il manuale tace (relè in corto e
-  resistenza interrotta: la scheda del Crydom non ne parla; livello bloccato: SICK non ne
-  parla). Soglie: hit@3 su tutte, hit@1 almeno all'80%. Più due asserzioni secche: F11 con la
-  sigla M1 dà per primo "Motor overtemperature", F20 "DC ripple too high".
+  l'agente, con la pagina che risponde controllata sul PDF. Sono 9, con la pompa bloccata (la
+  RipTide si innesca e non va mai a secco, pagina 4); restano fuori il glicole, senza manuale, e i
+  guasti su cui il manuale tace (fermentazione ferma: il manuale del G4 parla di montaggio,
+  pulizia e pressione; relè in corto e resistenza interrotta: la scheda del Crydom non ne parla;
+  livello bloccato: SICK non ne parla). Soglie: hit@3 su tutte, hit@1 almeno all'80%. Più le
+  asserzioni secche: F11 con la sigla M1 dà per primo "Motor overtemperature", F20 "DC ripple too
+  high"; la valvola, che ha una pagina sola, dà per prima la riga del tempo di apertura.
 
   Eval del 17 novembre, con i manuali accesi:
   - **retrieval**: hit@1 8 su 8, hit@3 8 su 8;

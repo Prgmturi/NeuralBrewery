@@ -125,7 +125,8 @@ FIXED_BY_HAND = {
     "vfd-siemens-v20-getting-started": 11,
     "transmitter-itemp-tmt80": 1,  # signal on alarm, p. 2
     "level-sick-lfp-cubic-instructions": 2,  # 11.3 and 11.4, p. 54
-    "valve-ussolid-motorized": 1,  # troubleshooting, p. 8
+    "pump-blichmann-riptide": 1,  # parts list, p. 3
+    "fermenter-blichmann-g4": 1,  # maximum fermentables capacity, p. 8
 }
 
 

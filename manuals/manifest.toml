@@ -53,7 +53,7 @@ doc_type = "operating_instructions"
 source = "terzi"
 auto = false
 page = "https://manualmachine.com/sick/lfpcubic/20309393-operating-instructions-manual"
-note = "Cercare l'originale su sick.com (pagina prodotto LFP Cubic, sezione Downloads)."
+note = "Il PDF è l'originale SICK (IM0065204): il sito di manuali lo ospita così com'è."
 
 [[doc]]
 id = "hydrometer-ispindel"
@@ -71,20 +71,21 @@ component = "Pompa a trascinamento magnetico per mosto caldo"
 product = "Blichmann RipTide"
 tags = ["P1", "P2"]
 doc_type = "operation_maintenance"
-source = "distributore"
-auto = true
-url = "https://www.buyfittingsonline.com/content/Manual-Blichmann-RipTide-Pump-V4-0.pdf"
+source = "terzi"
+auto = false
+page = "https://www.manualslib.com/manual/1478189/Blichmann-Riptide.html"
+note = "Il manuale Blichmann, dalla copia di manualslib: la copia del distributore risponde 403. Il testo è senza l'intestazione di manualslib."
 
 [[doc]]
 id = "valve-ussolid-motorized"
 component = "Valvola a sfera motorizzata inox"
 product = "U.S. Solid motorized ball valve"
 tags = ["EV2a", "EV2b", "EV3", "EV4", "EV5", "EV6", "EV7", "EV9"]
-doc_type = "user_manual"
-source = "terzi"
-auto = true
-url = "https://manuals.plus/asin/B0BQBV93S5.pdf"
+doc_type = "product_page"
+source = "ufficiale"
+auto = false
 page = "https://ussolid.com/collections/motorized-ball-valves-html"
+note = "Scritto da noi, in data/manuals/<id>.md: specifiche, domande e avvertenze della pagina del prodotto USS-MSV00001 (1/2 pollice, 3 fili), tradotte in inglese. L'unico manuale trovato (manuals.plus) descriveva un altro modello. L'impianto usa la variante a 5 fili con i fine corsa: il documento lo dice in testa."
 
 [[doc]]
 id = "ssr-crydom-d2425"
@@ -95,7 +96,7 @@ doc_type = "datasheet"
 source = "terzi"
 auto = false
 page = "https://www.datasheets.com/crydom/d2425"
-note = "Cercare l'originale su sensata.com (Crydom Series 1)."
+note = "Il PDF è il datasheet originale Sensata Crydom (Series 1): l'archivio di datasheet lo ospita così com'è."
 
 [[doc]]
 id = "vfd-siemens-v20-getting-started"
@@ -123,16 +124,7 @@ component = "Fermentatore"
 product = "Blichmann Fermenator G4"
 tags = ["FERM", "LT4", "TT5a", "TT5b", "DT1"]
 doc_type = "operation_maintenance"
-source = "ufficiale"
-auto = true
-url = "https://blichmannengineering.com/media/manuals/g4-fermenator.pdf"
-
-[[doc]]
-id = "fermenter-blichmann-g4-cooling"
-component = "Sistema di raffreddamento del fermentatore"
-product = "Blichmann Fermenator G4 Cooling System"
-tags = ["FERM", "EV9"]
-doc_type = "operation_maintenance"
-source = "ufficiale"
-auto = true
-url = "https://blichmannengineering.com/media/manuals/g4-cooling-system.pdf"
+source = "terzi"
+auto = false
+page = "https://www.manualslib.com/manual/2534414/Blichmann-Engineering-Fermenator-G4.html"
+note = "Il manuale Blichmann, dalla copia di manualslib: il sito Blichmann risponde 429. Il testo è senza l'intestazione di manualslib."
