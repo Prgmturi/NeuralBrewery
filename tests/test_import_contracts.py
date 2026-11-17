@@ -108,15 +108,15 @@ def test_patterns_are_read_as_import_linter_does():
     """
     one_part = matching_modules("neuralbrewery.features.*.router")
     assert "neuralbrewery.features.auth.router" in one_part
-    assert "neuralbrewery.features.notes.api.router" not in one_part
+    assert "neuralbrewery.features.approvals.api.router" not in one_part
 
     any_depth = matching_modules("neuralbrewery.**.router")
-    assert "neuralbrewery.features.notes.api.router" in any_depth
+    assert "neuralbrewery.features.approvals.api.router" in any_depth
 
     # The ports that "Ports import no adapter" covers, the feature's included
     assert {
         "neuralbrewery.core.auth.protocols",
         "neuralbrewery.core.database.protocols",
         "neuralbrewery.core.protocols",
-        "neuralbrewery.features.notes.domain.protocols",
+        "neuralbrewery.features.approvals.domain.protocols",
     } <= set(matching_modules("neuralbrewery.**.protocols"))

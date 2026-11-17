@@ -167,7 +167,7 @@ define a port in core/auth/protocols.py and wire its adapter in bootstrap.py."""
 [[tool.importlinter.contracts]]
 name = "Routers reach external services only through ports"
 type = "forbidden"
-# Any depth: features/auth/router.py, features/notes/api/router.py
+# Any depth: features/auth/router.py, features/approvals/api/router.py
 source_modules = ["neuralbrewery.features.**.router"]
 forbidden_modules = ["httpx"]
 broken_contract_guidance = """

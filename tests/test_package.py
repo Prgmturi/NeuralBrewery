@@ -120,7 +120,7 @@ class TestImportDomain:
 
         assert result.returncode == 0, result.stderr
         report = json.loads(result.stdout)
-        assert "neuralbrewery.features.notes.domain" in report["domains"]
+        assert "neuralbrewery.features.approvals.domain" in report["domains"]
         assert [
             name
             for name in report["loaded"]

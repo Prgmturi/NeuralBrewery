@@ -97,7 +97,7 @@ src/neuralbrewery/
   (503), risposta inutilizzabile → `ExternalServiceError` (502). Un comando rifiutato da un
   interlock non è un errore: è un `CommandResult` con il motivo.
 - **Wiring solo in `bootstrap.py`**, con uno `StateKey` per porta (`core/state.py`).
-- **Una feature** copia la forma di `features/notes`: `api/` → `persistence/` → `domain/`, con il
+- **Una feature** copia la forma di `features/approvals`: `api/` → `persistence/` → `domain/`, con il
   dominio in Python puro. Senza regole proprie può restare piatta, come `features/auth`.
 - **Impostazioni** in `core/config/`, una sezione per argomento. Un valore di sviluppo
   pericoloso va aggiunto a `production_problems()` (ADR 0007).

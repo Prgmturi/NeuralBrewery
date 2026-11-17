@@ -476,9 +476,9 @@ agenti.
   con il token dell'esecutore per i comandi.
 - **Alternativa scartata**: workspace uv con due package. Separazione più netta, ma va
   adattato tutto il tooling del template (Dockerfile, CI, test su lockfile e package).
-- **L'esempio `features/notes` resta**, anche dopo M4 e la sua prima feature nostra a tre strati
-  (14 novembre): su di lui poggiano due contract, il test e2e e lo smoke test della CI. Si toglie
-  solo se avanza tempo.
+- **L'esempio `features/notes` è uscito** (M10, 17 novembre): la forma di una feature a tre
+  strati la dà `features/approvals`. Una migrazione toglie la tabella `notes`, ma solo se è
+  vuota: con una riga si ferma, e non si perde niente. Le migrazioni vecchie restano come sono.
 
 ## Ancora aperte
 

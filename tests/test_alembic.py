@@ -59,7 +59,7 @@ class TestAutogenerateSeesTheModels:
 
         WHY: env.py imports every module called models under features. Had it
         found none, the guard would stop autogenerate ("Base.metadata has no
-        table"). With the notes model found, autogenerate goes on and fails
+        table"). With the model of the approvals found, autogenerate goes on and fails
         only when it connects to port 1, which refuses connections. No
         migration is written either way. The guard itself:
         tests/core/database/test_migrations.py.

@@ -38,7 +38,7 @@ class TestSmokeTest:
         exec(smoke_test(), {})
 
         assert capsys.readouterr().out == (
-            "routes found: / /health/live /auth/me /notes /plant /approvals\n"
+            "routes found: / /health/live /auth/me /plant /approvals\n"
         )
 
     def test_fails_without_the_routes_of_the_app(self, monkeypatch):

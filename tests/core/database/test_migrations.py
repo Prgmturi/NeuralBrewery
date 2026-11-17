@@ -98,15 +98,15 @@ class TestRefuseEmptyAutogenerate:
         refuse_empty_autogenerate(metadata)
 
 
-def test_finds_the_model_of_notes():
-    """[HP] On the real features: the notes table reaches Base.metadata.
+def test_finds_the_model_of_the_approvals():
+    """[HP] On the real features: the audit table reaches Base.metadata.
 
     A membership, not the whole list: adding a feature must not break it.
     """
     found = import_models(neuralbrewery.features)
 
-    assert "neuralbrewery.features.notes.persistence.models" in found
-    assert "notes" in Base.metadata.tables
+    assert "neuralbrewery.features.approvals.persistence.models" in found
+    assert "approval_events" in Base.metadata.tables
 
 
 def test_every_model_is_in_a_module_alembic_imports():
@@ -131,7 +131,7 @@ def test_every_model_is_in_a_module_alembic_imports():
 
     assert not misplaced, (
         f"Alembic never sees {misplaced}: move each to a module called models "
-        "under features/, such as features/notes/persistence/models.py"
+        "under features/, such as features/approvals/persistence/models.py"
     )
 
 
