@@ -8,8 +8,17 @@ the one port it may use, and mypy reports a watcher that calls
 activate_route(). That is a check on the code, not a wall at run time: the
 wall is the token of the executor, at the border of the plant-sim service
 (milestone M2).
+
+restart() builds a new simulator inside the same object, so whoever holds
+the plant already, readers, agent, MCP server and executor, sees the new
+one with no wiring again. No method awaits anything, so on the one event
+loop of the API a command and a restart never interleave: a command is all
+on the old plant or all on the new one.
 """
 
+from collections.abc import Callable
+
+from neuralbrewery.adapters.plant_sim.controller.controller import Controller
 from neuralbrewery.adapters.plant_sim.simulator import PlantSimulator
 from neuralbrewery.core.plant.schemas import (
     CommandResult,
@@ -23,9 +32,24 @@ from neuralbrewery.core.plant.schemas import (
 
 
 class InProcessPlant:
-    def __init__(self, simulator: PlantSimulator) -> None:
+    def __init__(
+        self,
+        simulator: PlantSimulator,
+        *,
+        start: Callable[[], PlantSimulator] | None = None,
+    ) -> None:
+        """The plant of that simulator.
+
+        start builds a new simulator from the named start and the seed of
+        this one: without it there is nothing to restart from.
+        """
         self._simulator = simulator
-        self._controller = simulator.controller
+        self._start = start
+
+    @property
+    def _controller(self) -> Controller:
+        # Through the simulator: after a restart, the new one's
+        return self._simulator.controller
 
     # PlantReader
 
@@ -88,3 +112,8 @@ class InProcessPlant:
 
     async def clear_faults(self) -> None:
         self._simulator.clear_faults()
+
+    async def restart(self) -> None:
+        if self._start is None:
+            raise RuntimeError("this plant was built with no start to restart from")
+        self._simulator = self._start()

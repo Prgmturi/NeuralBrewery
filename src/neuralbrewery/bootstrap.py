@@ -10,6 +10,7 @@ mypy checks there that the adapter still matches the port.
 
 from collections.abc import Awaitable, Callable
 from contextlib import AsyncExitStack
+from functools import partial
 from typing import Any
 
 from fastapi import FastAPI
@@ -74,12 +75,14 @@ MCP_PATH = "/mcp"
 def init_plant(app: FastAPI, settings: Settings) -> None:
     """The simulated plant in this process, each consumer with its own port.
 
-    Until M2 the plant lives here, built from a named start: a restart
-    builds a new one. The in-process adapter implements the three ports in
-    one object, so nobody gets it as it is: readers a ReadOnlyPlant, the
-    executor alone the buttons, and the routes of the simulation a
-    SimulationOnly, only when PLANT_SIMULATION_CONTROL is on. Nothing runs
-    in the background: time moves only through those routes.
+    Until M2 the plant lives here, built from a named start and its seed.
+    The plant keeps that start, so POST /simulation/restart builds a new
+    one inside the same object, as a restart of the container would. The
+    in-process adapter implements the three ports in one object, so nobody
+    gets it as it is: readers a ReadOnlyPlant, the executor alone the
+    buttons, and the routes of the simulation a SimulationOnly, only when
+    PLANT_SIMULATION_CONTROL is on. Nothing runs in the background: time
+    moves only through those routes.
 
     The MCP server gets the reader and the inbox of proposals, never the
     executor. The MCP server answers at /mcp, and start_services() runs
@@ -89,7 +92,8 @@ def init_plant(app: FastAPI, settings: Settings) -> None:
     the key of its provider (init_plant_agent).
     """
     plant_settings = settings.plant
-    plant = InProcessPlant(STARTS[plant_settings.start](seed=plant_settings.seed))
+    start = partial(STARTS[plant_settings.start], seed=plant_settings.seed)
+    plant = InProcessPlant(start(), start=start)
     reader = ReadOnlyPlant(plant)
     PLANT_READER.set(app.state, reader)
     EXECUTOR.set(app.state, Executor(plant))

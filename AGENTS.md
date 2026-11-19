@@ -57,7 +57,8 @@ src/neuralbrewery/
 - Le tre porte sono l'interfaccia del controllore dell'impianto, non dei singoli dispositivi:
   - `PlantReader`: lettura. La usano agenti, server MCP, sorvegliante.
   - `PlantCommander`: comandi ad alto livello. La usa **solo** l'esecutore delle azioni approvate.
-  - `SimulationControl`: tempo e guasti. La usano **solo** test, eval e demo; mai in produzione.
+  - `SimulationControl`: tempo, guasti e restart dalla partenza. La usano **solo** test, eval e
+    demo; mai in produzione.
 
 ## Regole non negoziabili
 

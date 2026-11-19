@@ -111,6 +111,21 @@ class TestSimulation:
 
         assert_problem(response, 422)
 
+    async def test_restart_starts_the_plant_over(self, client):
+        """[HP] Riparti da zero: time 0, program idle, the fault gone."""
+        await client.post(
+            "/simulation/faults", json={"kind": "probe_broken", "target": "TT1"}
+        )
+        await client.post("/simulation/advance", json={"seconds": 600})
+
+        restarted = await client.post("/simulation/restart")
+        advanced = await client.post("/simulation/advance", json={"seconds": 60})
+
+        assert restarted.status_code == 204
+        assert advanced.json() == {"sim_time_s": 60, "alarms": [], "judgements": []}
+        plant = (await client.get("/plant")).json()
+        assert plant["program"]["status"] == "idle"
+
     async def test_time_moves_by_whole_steps(self, client):
         """[EC] Half a second on a brew day of 1 s steps: 422, from the simulator."""
         response = await client.post("/simulation/advance", json={"seconds": 0.5})
@@ -127,6 +142,7 @@ class TestClosedUnlessAskedFor:
             ("POST", "/simulation/advance"),
             ("POST", "/simulation/faults"),
             ("DELETE", "/simulation/faults"),
+            ("POST", "/simulation/restart"),
         ],
     )
     async def test_the_routes_do_not_exist(self, method, path):
