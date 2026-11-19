@@ -121,6 +121,18 @@ def clear(api: Api) -> Notice:
     )
 
 
+def restart(api: Api) -> Notice:
+    """Riparti da zero: what the page shows of the old plant goes with it."""
+    api.restart()
+    st.session_state.restart_confirm = False  # one confirm, one restart
+    st.session_state.judgements = []
+    st.session_state.diagnosis = None
+    return (
+        "success",
+        "Impianto ripartito da zero: tempo simulato 0:00:00. La coda resta com'era.",
+    )
+
+
 # ---------------------------------------------------------------------------
 # What the page shows
 # ---------------------------------------------------------------------------
@@ -180,6 +192,18 @@ def sidebar(api: Api, simulation: bool) -> None:
         )
         st.button(
             "Togli i guasti", key="clear", on_click=act, args=(partial(clear, api),)
+        )
+        confirmed = st.checkbox(
+            "Sì, cancella lo stato dell'impianto", key="restart_confirm"
+        )
+        st.button(
+            "Riparti da zero",
+            key="restart",
+            disabled=not confirmed,
+            on_click=act,
+            args=(partial(restart, api),),
+            help="Stessa partenza e stesso seed, come dopo un riavvio dell'API. "
+            "La coda e l'audit restano.",
         )
 
 

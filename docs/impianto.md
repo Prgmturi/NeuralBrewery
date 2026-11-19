@@ -345,6 +345,10 @@ Non fa parte del controllore: è la mano di chi prova. Solo test, eval e demo, m
   *giorno di cotta* (HLT con 35 L, tino con 4,5 kg di grani asciutti, bollitore e
   fermentatore vuoti, iSpindel spento) e *fermentazione* (lato caldo vuoto e spento,
   fermentatore con 20 L a 19 °C, avanzamento come parametro).
+- **Riparti da zero**: `restart()` ricostruisce l'impianto dalla stessa partenza e dallo stesso
+  seed: tempo 0, nessun guasto, nessun allarme né evento, lo storico di un impianto nuovo.
+  Stesso seed e stesse azioni, stesso stato. La coda delle proposte non è dell'impianto, e
+  resta (M11).
 
 ## Processo (valori veri)
 

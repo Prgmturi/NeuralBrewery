@@ -86,6 +86,10 @@ class Api:
     def clear_faults(self) -> None:
         self._send("DELETE", "/simulation/faults")
 
+    def restart(self) -> None:
+        """The plant from its start and seed again; the queue stays as it is."""
+        self._send("POST", "/simulation/restart")
+
     def diagnose(self) -> JSON:
         """The run of the agent and, if it proposed a button, its place in the queue."""
         result: JSON = self._send(

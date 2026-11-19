@@ -8,10 +8,12 @@ through these ports. The adapter that calls the plant over REST (milestone
 M2) has to pass the same tests as the one that runs it in process.
 """
 
+from functools import partial
+
 import pytest
 
 from neuralbrewery.adapters.plant_sim.adapter import InProcessPlant
-from neuralbrewery.adapters.plant_sim.starts import fermentation
+from neuralbrewery.adapters.plant_sim.starts import brew_day, fermentation
 from neuralbrewery.core.exceptions import NotFoundError
 from neuralbrewery.core.plant.protocols import (
     PlantCommander,
@@ -21,6 +23,8 @@ from neuralbrewery.core.plant.protocols import (
 from neuralbrewery.core.plant.schemas import (
     AlarmCode,
     EventKind,
+    Fault,
+    FaultKind,
     Program,
     ProgramStatus,
     Quality,
@@ -270,3 +274,74 @@ class TestEventsAndHistory:
         """[EC] The valves of the routes are not recorded: only EV9 is."""
         with pytest.raises(NotFoundError):
             await plant.history("EV3")
+
+
+STARTS = {
+    "brew_day": partial(brew_day, seed=42),
+    "fermentation": partial(fermentation, seed=42),
+}
+
+
+async def seen(plant) -> tuple:
+    """What the reader port shows: the plant, its events, a history."""
+    return await plant.snapshot(), await plant.events(), await plant.history("TT1")
+
+
+async def round_of(plant) -> None:
+    """The same actions on any plant: the program, a broken probe, an hour."""
+    await plant.start_program()
+    await plant.inject_fault(Fault(kind=FaultKind.PROBE_BROKEN, target="TT1"))
+    await plant.advance(3600)
+
+
+@pytest.mark.parametrize("name", STARTS)
+class TestRestart:
+    """Riparti da zero: a new plant from the same start and seed (M11)."""
+
+    async def test_starts_over_as_a_new_plant_would(self, name):
+        """[HP] After a round, restart shows what a plant built just now shows."""
+        start = STARTS[name]
+        plant = InProcessPlant(start(), start=start)
+        await round_of(plant)
+        assert (await plant.snapshot()).alarms
+
+        await plant.restart()
+
+        state = await plant.snapshot()
+        assert state.sim_time_s == 0
+        assert state.program.status is ProgramStatus.IDLE
+        assert state.alarms == ()
+        assert await seen(plant) == await seen(InProcessPlant(start()))
+
+    async def test_no_fault_survives_the_restart(self, name):
+        """[HP] The broken probe was injected before: an hour on, no alarm."""
+        start = STARTS[name]
+        plant = InProcessPlant(start(), start=start)
+        await round_of(plant)
+
+        await plant.restart()
+        await plant.advance(3600)
+
+        assert (await plant.snapshot()).alarms == ()
+
+    async def test_same_seed_same_actions_same_plant(self, name):
+        """[HP] Rule 6: two rounds after two restarts, and a new plant, agree."""
+        start = STARTS[name]
+        plant = InProcessPlant(start(), start=start)
+        rounds = []
+        for _ in range(2):
+            await plant.restart()
+            await round_of(plant)
+            rounds.append(await seen(plant))
+        fresh = InProcessPlant(start())
+        await round_of(fresh)
+
+        assert rounds[0] == rounds[1] == await seen(fresh)
+
+
+async def test_without_a_start_there_is_nothing_to_restart_from():
+    """[EC] A plant built from a simulator alone: a mistake of the code."""
+    plant = InProcessPlant(brew_day())
+
+    with pytest.raises(RuntimeError):
+        await plant.restart()
