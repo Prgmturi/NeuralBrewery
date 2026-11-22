@@ -287,6 +287,16 @@ agenti.
   comando gira tutto sull'impianto vecchio o tutto su quello nuovo; con l'adapter REST di M2 va
   rivisto. *Perché*: la demo si rifà da capo, e il passo 9 si fa, senza `docker compose
   restart api`.
+- **Il giro della demo in due cotte** (22 novembre). Fino al 19 novembre TT1 si rompeva due
+  volte nella stessa cotta, e al secondo guasto l'agente doveva riproporre `reset`. Il 22
+  novembre, sul codice di M11 con i manuali accesi, al secondo guasto l'agente ha letto nello
+  storico che il guasto era tornato e non ha proposto niente ("la causa non è risolta"):
+  prudente, ma così non c'era niente da rifiutare, e la memoria non si vedeva. Ora TT1 si rompe
+  una volta per cotta, con **Riparti da zero** in mezzo: nella cotta 1 il birraio approva il
+  `reset`, nella cotta 2 lo rifiuta, e alla diagnosi dopo l'agente non lo ripropone. Provato due
+  volte su una coda vuota: 8 diagnosi su 8 come previsto. *Perché*: ogni diagnosi del giro è il
+  caso di S4 o di S5, un guasto solo con il blocco ancora attivo, che gli eval coprono. Due
+  guasti nella stessa cotta non li copre nessun eval: la demo è uno scenario anche lei.
 - **Server MCP dentro l'API**, su HTTP: i tool di lettura e uno per proporre un'azione, che mette
   la proposta in coda. Non approva e non comanda. *Perché*: vede lo stesso impianto e la stessa
   coda, senza un secondo processo. `mcp` è una dipendenza diretta (`>=2.3.0,<3`, dentro i

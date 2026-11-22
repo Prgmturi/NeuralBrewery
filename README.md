@@ -149,9 +149,9 @@ di prima.
 
 ## La demo dalla dashboard
 
-![La dashboard al passo 4 del giro: il blocco della HLT dopo il guasto di TT1, la diagnosi dell'agente con la proposta reset, e reset in attesa nella coda, con Approva e Rifiuta](docs/images/dashboard.png)
+![La dashboard nella cotta 1 del giro: il blocco della HLT dopo il guasto di TT1, la diagnosi dell'agente con la proposta reset, e reset in attesa nella coda, con Approva e Rifiuta](docs/images/dashboard.png)
 
-*Il passo 4 del giro: l'agente ha proposto `reset`, e la proposta aspetta il birraio.*
+*La cotta 1 del giro: l'agente ha proposto `reset`, e la proposta aspetta il birraio.*
 
 Nella barra a sinistra il birraio:
 - scrive il suo nome, che l'audit registra;
@@ -169,22 +169,28 @@ Nella pagina, dall'alto:
 
 La pagina non si aggiorna da sola: si ridisegna quando premi o scrivi qualcosa.
 
-Il giro della demo racconta una cotta in cui la sonda TT1 si rompe due volte:
-1. Il birraio propone e approva `start_program`: la cotta parte.
+Il giro della demo racconta due cotte, e in ognuna la sonda TT1 si rompe una volta:
+1. **Cotta 1.** Il birraio propone e approva `start_program`: la cotta parte.
 2. TT1 si rompe. Il controllore sospende la regolazione della HLT, e il programma va in pausa.
    Tolto il guasto, il blocco resta, e il suo testo finisce con *(bloccato: serve reset)*.
 3. *Diagnostica adesso*: l'agente riconosce un guasto di misura su TT1 e propone `reset`. Il
    birraio approva, poi propone e approva `resume_program`, e la cotta riprende.
-4. TT1 si rompe di nuovo. L'agente ripropone `reset`, perché l'ultima volta era stato approvato.
-   Questa volta il birraio rifiuta, con il motivo: la sonda ha un contatto intermittente, e va
-   sostituita.
+4. **Cotta 2**, dopo **Riparti da zero**: l'impianto riparte dalla partenza, la coda resta.
+   TT1 si rompe allo stesso modo. L'agente ripropone `reset`, e scrive che l'altra volta era
+   andato bene. Questa volta il birraio rifiuta, con il motivo: la sonda ha un contatto
+   intermittente, e va sostituita.
 5. Alla diagnosi successiva l'agente non propone niente, e cita il rifiuto con il suo motivo. Se
-   ne ricorda anche dopo **Riparti da zero**, con l'impianto ripartito dalla partenza, e dopo
+   ne ricorda anche in una cotta 3, dopo un altro **Riparti da zero**, e dopo
    `docker compose restart api`.
+
+Perché due cotte e non due guasti nella stessa: al secondo guasto della stessa cotta l'agente
+vede nello storico che il guasto è tornato, e di solito non ripropone il `reset`. È prudente, ma
+non lascia niente da rifiutare. Ogni diagnosi del giro in due cotte è invece un caso che gli
+eval coprono (S4 e S5).
 
 I passi esatti, con i secondi da avanzare e i guasti da iniettare, sono in
 [The round of the speech](docs/development.md#the-round-of-the-speech), in inglese. Su Claude
-le tre diagnosi costano circa 8 centesimi, in tutto. Per rifare il giro basta **Riparti da
+le quattro diagnosi costano circa 8 centesimi, in tutto. Per rifare il giro basta **Riparti da
 zero**, che lascia la coda com'è. Solo per svuotare la coda: `docker compose down -v`, poi di
 nuovo `docker compose up --build --wait`.
 
