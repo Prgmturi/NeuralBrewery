@@ -397,8 +397,10 @@ agenti.
   - **la base**: nessun `python:3.13-slim` aveva lo `zlib1g` che corregge due High
     (CVE-2026-76844 e CVE-2026-85091). Lo stadio runtime delle due immagini lo aggiorna da
     `trixie-security` (`apt-get install --only-upgrade`, che non aggiunge pacchetti). *Perché*:
-    la soglia della scansione non si abbassa e non si ignora una CVE. Il passo si toglie
-    quando una base nuova, spostata a mano nei due Dockerfile, ha la correzione;
+    la soglia della scansione non si abbassa e non si ignora una CVE. Il 22 novembre lo stesso
+    caso con la libreria C (`libc6` e `libc-bin`, CVE-2026-19499 e CVE-2026-5435, corrette
+    nella 2.41-12+deb13u5): il passo aggiorna anche loro. Un pacchetto esce dal passo quando
+    una base nuova, spostata a mano nei due Dockerfile, ha la sua correzione;
   - **il rapporto della scansione** va nella scheda Security solo da repo pubblico; quello che
     la scansione trova va comunque nel riepilogo del job;
   - **l'immagine della dashboard** si scansiona in un job suo, con le stesse soglie: il
