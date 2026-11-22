@@ -53,10 +53,11 @@ ENV PYTHONUNBUFFERED=1 \
     STREAMLIT_BROWSER_GATHER_USAGE_STATS=false \
     STREAMLIT_SERVER_FILE_WATCHER_TYPE=none
 
-# The same Debian fixes as the API's image: zlib1g from trixie-security,
-# until the base brings it (docker/Dockerfile)
+# The same Debian fixes as the API's image, zlib1g and the C library, until
+# the base brings them (docker/Dockerfile)
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends --only-upgrade zlib1g \
+    && apt-get install -y --no-install-recommends --only-upgrade \
+       zlib1g libc6 libc-bin \
     && rm -rf /var/lib/apt/lists/*
 
 # As in the API's image, the user owns nothing: code and packages are root's
