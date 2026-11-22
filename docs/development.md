@@ -80,7 +80,9 @@ What to know about it:
 
 ### The round of the speech
 
-On a clean queue ([below](#a-clean-queue-before-a-demo)), `brew_day` with seed 42. TT1 breaks twice in the same brew, with no restart.
+On a clean queue ([below](#a-clean-queue-before-a-demo)), `brew_day` with seed 42. TT1 breaks once in each of two brews, with **Riparti da zero** between them.
+
+Brew 1:
 
 1. Write your name. Propose `start_program`, with *cotta di riferimento* as why, and approve it: the program runs, step 1, *Scalda l'acqua*.
 2. Advance 600 s. Inject `probe_broken` on `TT1`, then advance 300 s. Three alarms:
@@ -90,17 +92,23 @@ On a clean queue ([below](#a-clean-queue-before-a-demo)), `brew_day` with seed 4
 3. Clear the faults and advance 300 s. `signal_fault` goes. The block stays, and its text ends with *(bloccato: serve reset)*: the controller does not restart by itself.
 4. Press *Diagnostica adesso*. The agent names TT1, a fault of measure, and proposes `reset`: it is in the queue, from `agent`. Approve it. The alarm goes at the controller's next turn, the next time you move the time.
 5. The program still waits. Propose `resume_program` and approve it, then advance 300 s: the program runs, and TT1 climbs towards 72 °C.
-6. TT1 breaks again: inject the fault, advance 300 s, clear the faults, advance 300 s. Diagnose: the agent proposes `reset` again, because the brewer approved it last time, and it notes that the fault came back.
-7. Reject that `reset`, with the reason *TT1 ha un contatto intermittente: va sostituita prima di riarmare*.
+
+Brew 2:
+
+6. Tick the confirm and press **Riparti da zero**. The plant starts over from zero, and the queue stays in Postgres. Repeat steps 1 to 3.
+7. Diagnose: the agent proposes `reset` again, and writes that a reset like it was executed before. Reject it, with the reason *TT1 ha un contatto intermittente: va sostituita prima di riarmare*. Type the reason and press Enter before *Rifiuta*: a text box of Streamlit takes its value on Enter.
 8. Diagnose again. The agent proposes nothing. Its explanation cites the rejection and its reason, and its checks include replacing TT1 before re-arming.
-9. If there is time: tick the confirm and press **Riparti da zero**. The plant starts over from zero, and the queue stays in Postgres. Repeat steps 1 to 3, then diagnose: the agent still recalls the rejection, and proposes no `reset`. The memory outlives the plant. `docker compose restart api` does the same, and shows that it outlives the process too.
+9. If there is time: **Riparti da zero** again, steps 1 to 3, then diagnose: the agent still recalls the rejection, and proposes no `reset`. The memory outlives the plant. `docker compose restart api` does the same, and shows that it outlives the process too.
+
+Why two brews: until 19 November the round broke TT1 twice in the same brew, and the agent had to propose `reset` again at the second fault. On 22 November it read in the history that the fault had come back, and proposed nothing: prudent, but it left nothing to reject. No eval covers two faults in one brew. Each diagnosis of this round is the case of S4 or S5: one fault, gone, with the block still on.
 
 A proposal left waiting from before **Riparti da zero** stays in the queue: approved later, it is pressed on the new plant, behind the guardrail and the interlocks like any other. Decide it, or reject it, before you start over.
 
-How the round went on 15 November, live on Claude:
-- the three diagnoses took 17, 11 and 10 s;
-- in the third the agent wrote *Il birraio ha già rifiutato il reset (…), quindi non lo ripropongo*;
-- the three cost about 8 cents together. That is an estimate from what the evals measured on S4 and S5, since the API does not report the tokens written into the cache.
+How the round went on 22 November, on Claude with the manuals on, twice on a clean queue, through the calls the dashboard makes:
+- every diagnosis went as above, 8 of 8: `reset` in brew 1, `reset` again in brew 2, nothing after the rejection, nothing in brew 3;
+- each took 7 to 10 s;
+- in brew 2 the agent wrote *Un reset simile era già stato eseguito con esito ok*, and after the rejection *Il birraio aveva già rifiutato un reset per questa causa*;
+- the four diagnoses of a round cost about 8 cents together. That is an estimate from what the evals measured on S4 and S5, since the API does not report the tokens written into the cache.
 
 ### A clean queue before a demo
 
