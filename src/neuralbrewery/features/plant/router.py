@@ -2,6 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request, status
 
+from neuralbrewery.core.logging import get_logger
 from neuralbrewery.core.plant import watcher
 from neuralbrewery.core.plant.dependencies import PlantReaderDep
 from neuralbrewery.core.plant.protocols import SimulationControl
@@ -12,6 +13,8 @@ from neuralbrewery.features.plant.schemas import (
     FaultRequest,
     PlantResponse,
 )
+
+logger = get_logger(__name__)
 
 # Set by bootstrap.py only when PLANT_SIMULATION_CONTROL is on: a
 # SimulationOnly, which can neither read nor command
@@ -65,3 +68,19 @@ async def inject_fault(payload: FaultRequest, control: SimulationControlDep) -> 
 )
 async def clear_faults(control: SimulationControlDep) -> None:
     await control.clear_faults()
+
+
+@simulation_router.post(
+    "/restart",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Start the plant over",
+)
+async def restart(control: SimulationControlDep) -> None:
+    """From PLANT_START and PLANT_SEED, as a restart of the API would.
+
+    Time 0, no fault, no alarm. The queue of proposals and its audit stay:
+    they are the agent's memory. A proposal still waiting, if approved, is
+    pressed on the new plant, behind the guardrail and the interlocks.
+    """
+    await control.restart()
+    logger.info("plant_restarted")

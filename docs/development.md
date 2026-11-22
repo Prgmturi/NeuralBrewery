@@ -41,7 +41,7 @@ An action reaches the plant only after the brewer approves it. Until M2 the simu
 
 The demo runs from the brewer's dashboard, one Streamlit page over the API: no `curl` and no Claude Code. The `curl` commands at the end stay as a reference of the API.
 
-- **A restart builds a new plant.** It starts from `PLANT_START` (`brew_day` or `fermentation`) with `PLANT_SEED`, and what happened to the old plant is gone. The queue stays in Postgres.
+- **Riparti da zero builds a new plant**, and so does a restart of the API. It starts from `PLANT_START` (`brew_day` or `fermentation`) with `PLANT_SEED`, at simulated time 0, and what happened to the old plant is gone. The queue and its audit stay in Postgres.
 - **Time moves only when you move it**, from the dashboard or with `/simulation/advance`.
 
 The stack of `compose.yaml` has everything the demo needs:
@@ -62,7 +62,7 @@ Then open http://localhost:8501.
 On the left, the brewer's own controls:
 - **their name**, which the audit records as declared, for every proposal, approval and rejection;
 - **a button to propose**, among those that take no argument, such as `start_program` and `resume_program`. It goes into the queue as from `user`, and waits for an approval like any other;
-- **the simulation**: move the time, inject a fault, clear the faults. Only when the API exposes these routes, that is in development with `PLANT_SIMULATION_CONTROL` on.
+- **the simulation**: move the time, inject a fault, clear the faults, and **Riparti da zero**, which waits for a tick in *Sì, cancella lo stato dell'impianto*. It takes the plant back to its start and seed, and clears the watcher's judgements and the diagnosis on the page; the queue stays. Only when the API exposes these routes, that is in development with `PLANT_SIMULATION_CONTROL` on.
 
 In the page, from the top:
 - **the outcome of the last action**, in words: what the controller answered, or what the API refused and why, a 401 or a 409 included;
@@ -93,7 +93,9 @@ On a clean queue ([below](#a-clean-queue-before-a-demo)), `brew_day` with seed 4
 6. TT1 breaks again: inject the fault, advance 300 s, clear the faults, advance 300 s. Diagnose: the agent proposes `reset` again, because the brewer approved it last time, and it notes that the fault came back.
 7. Reject that `reset`, with the reason *TT1 ha un contatto intermittente: va sostituita prima di riarmare*.
 8. Diagnose again. The agent proposes nothing. Its explanation cites the rejection and its reason, and its checks include replacing TT1 before re-arming.
-9. If there is time: `docker compose restart api`. The plant starts over from zero, and the queue stays in Postgres. Repeat steps 1 to 3, then diagnose: the agent still recalls the rejection, and proposes no `reset`. The memory outlives the process.
+9. If there is time: tick the confirm and press **Riparti da zero**. The plant starts over from zero, and the queue stays in Postgres. Repeat steps 1 to 3, then diagnose: the agent still recalls the rejection, and proposes no `reset`. The memory outlives the plant. `docker compose restart api` does the same, and shows that it outlives the process too.
+
+A proposal left waiting from before **Riparti da zero** stays in the queue: approved later, it is pressed on the new plant, behind the guardrail and the interlocks like any other. Decide it, or reject it, before you start over.
 
 How the round went on 15 November, live on Claude:
 - the three diagnoses took 17, 11 and 10 s;
@@ -102,7 +104,7 @@ How the round went on 15 November, live on Claude:
 
 ### A clean queue before a demo
 
-Every round writes into the queue, and the agent reads its own past proposals. Before the speech, start from an empty database:
+Every round writes into the queue, and the agent reads its own past proposals. **Riparti da zero** starts the plant over but keeps the queue, on purpose: it is the agent's memory. Only to empty the queue, before the speech, start from an empty database:
 
 ```bash
 docker compose down
@@ -178,6 +180,7 @@ curl -s -X POST localhost:8000/simulation/advance \
 curl -s -X POST localhost:8000/simulation/faults \
   -H "Content-Type: application/json" -d '{"kind": "drive_fault", "target": "M1", "value": 11}'
 curl -s -X DELETE localhost:8000/simulation/faults
+curl -s -X POST localhost:8000/simulation/restart     # Riparti da zero: 204, the queue stays
 ```
 
 `advance` answers with the new simulated time, the controller's alarms, and the watcher's judgements.

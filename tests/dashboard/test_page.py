@@ -160,16 +160,56 @@ class TestSimulation:
         assert any("(HTTP 422)" in error for error in errors(page))
         assert not page.exception
 
+    def test_restart_waits_for_a_confirm(self, page):
+        """[SEC] It wipes the plant: the button does nothing until confirmed."""
+        assert page.button(key="restart").disabled
+        assert page.checkbox(key="restart_confirm").value is False
+
+    def test_restart_starts_the_plant_over_and_keeps_the_queue(self, page, agent):
+        """[HP] Riparti da zero: time 0, no judgement, no diagnosis; the queue stays.
+
+        WHY: the queue and the audit are the agent's memory, and step 9 of
+        the demo relies on them outliving the plant. What the page shows of
+        the old plant, the judgements and the diagnosis, must go with it.
+        """
+        sign(page)
+        propose(page, "start_program", "dal giro di prima")
+        break_plant(page, "probe_offset", "TT5a")
+        page.number_input(key="fault_value").set_value(2.0).run()
+        page.button(key="inject").click().run()
+        advance(page, 1200)
+        page.button(key="diagnose").click().run()
+        assert page.warning and CHECK in text_of(page)
+        waiting = proposal_ids(page)  # start_program, and the agent's reset
+        assert len(waiting) == 2
+
+        page.checkbox(key="restart_confirm").check().run()
+        page.button(key="restart").click().run()
+
+        assert "ripartito da zero" in page.success[0].value
+        metrics = {m.label: m.value for m in page.metric}
+        assert (metrics["Tempo simulato"], metrics["Programma"]) == ("0:00:00", "fermo")
+        assert not page.warning
+        assert EXPLANATION not in [info.value for info in page.info]
+        assert CHECK not in text_of(page)
+        assert proposal_ids(page) == waiting
+        assert page.checkbox(key="restart_confirm").value is False
+        assert page.button(key="restart").disabled
+        assert agent.calls == 1
+        assert not page.exception
+
     @pytest.mark.parametrize("simulation", [False])
     def test_off_the_page_has_no_commands_and_still_works(self, page):
         """[SEC] Simulation off: no command; plant, diagnosis and queue still there."""
         keys = {
             w.key
-            for kind in ("button", "number_input", "selectbox")
+            for kind in ("button", "number_input", "selectbox", "checkbox")
             for w in getattr(page, kind)
         }
 
-        assert {"advance", "inject", "clear", "fault_kind", "advance_s"} & keys == set()
+        simulation = {"advance", "inject", "clear", "fault_kind", "advance_s"}
+        restart = {"restart", "restart_confirm"}
+        assert (simulation | restart) & keys == set()
         assert {"diagnose", "propose"} <= keys
         assert {m.label for m in page.metric} >= {"Tempo simulato", "Programma"}
         assert not page.exception

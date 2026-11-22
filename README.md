@@ -126,6 +126,11 @@ docker compose down -v        # spegne e cancella i volumi: si riparte con la co
 docker compose restart api    # un impianto nuovo, dalla partenza; la coda resta
 ```
 
+Per rifare la demo da capo non serve riavviare niente: nella dashboard, sotto *Simulazione*,
+spunta la conferma e premi **Riparti da zero**. L'impianto torna alla partenza e al seed di
+`.env`, al tempo simulato 0, senza guasti né allarmi; la coda e l'audit restano. Una proposta
+rimasta in attesa, se la approvi dopo, va sull'impianto nuovo: decidila prima.
+
 ### Con Gemini invece di Claude
 
 In `.env` scrivi `AGENT_PROVIDER=openai_compat`, e la chiave di Google AI Studio dopo
@@ -174,12 +179,14 @@ Il giro della demo racconta una cotta in cui la sonda TT1 si rompe due volte:
    Questa volta il birraio rifiuta, con il motivo: la sonda ha un contatto intermittente, e va
    sostituita.
 5. Alla diagnosi successiva l'agente non propone niente, e cita il rifiuto con il suo motivo. Se
-   ne ricorda anche dopo `docker compose restart api`, con l'impianto ripartito da zero.
+   ne ricorda anche dopo **Riparti da zero**, con l'impianto ripartito dalla partenza, e dopo
+   `docker compose restart api`.
 
 I passi esatti, con i secondi da avanzare e i guasti da iniettare, sono in
 [The round of the speech](docs/development.md#the-round-of-the-speech), in inglese. Su Claude
-le tre diagnosi costano circa 8 centesimi, in tutto. Per ripartire con la coda vuota:
-`docker compose down -v`, poi di nuovo `docker compose up --build --wait`.
+le tre diagnosi costano circa 8 centesimi, in tutto. Per rifare il giro basta **Riparti da
+zero**, che lascia la coda com'è. Solo per svuotare la coda: `docker compose down -v`, poi di
+nuovo `docker compose up --build --wait`.
 
 Sempre in `docs/development.md`:
 - [il server MCP con Claude Code](docs/development.md#the-mcp-server-for-the-video): la
@@ -222,7 +229,7 @@ Il codice sta in `src/neuralbrewery/`:
 Il controllore ha tre porte, e ognuno riceve solo la sua:
 - `PlantReader`, per leggere: l'agente, il server MCP, il sorvegliante;
 - `PlantCommander`, per premere i pulsanti: solo l'esecutore, dopo l'approvazione;
-- `SimulationControl`, per il tempo e i guasti: solo test, eval e demo.
+- `SimulationControl`, per il tempo, i guasti e **Riparti da zero**: solo test, eval e demo.
 
 Gli import scendono: feature e adapter non si importano a vicenda, e la CI lo controlla con
 import-linter. L'agente è scritto con datapizza-ai, la dashboard con Streamlit, l'API con
@@ -242,8 +249,10 @@ FastAPI.
 - **`/mcp` e la diagnosi non chiedono login.** Chi raggiunge l'API legge l'impianto, mette
   proposte in coda e spende diagnosi; approvare no, serve il token. Per questo lo stack di
   sviluppo risponde solo su 127.0.0.1.
-- **L'impianto vive nel processo dell'API.** Un riavvio lo fa ripartire da zero, e muovere il
-  tempo blocca l'API per circa 0,16 s per ora simulata.
+- **L'impianto vive nel processo dell'API.** **Riparti da zero**, o un riavvio, lo fa ripartire
+  dalla partenza, e muovere il tempo blocca l'API per circa 0,16 s per ora simulata.
+- **Riparti da zero non guarda la coda**: una proposta rimasta in attesa dal giro prima, se
+  approvata dopo, va sull'impianto nuovo, dietro il guardrail e gli interlock.
 - **La dashboard non conta i token scritti nella cache**: il costo di una diagnosi lo misurano
   gli eval, da 1 a 3 centesimi su Claude.
 - **Dopo un `reset` approvato** l'allarme resta sulla pagina fino al prossimo avanzamento del

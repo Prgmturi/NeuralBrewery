@@ -6,6 +6,7 @@ all three: each consumer receives it typed as the one port it may use.
 - PlantReader: agents, the MCP server, the watcher.
 - PlantCommander: only the executor of approved actions. Never an agent.
 - SimulationControl: only tests, evals and the demo. Never in production.
+  It moves time, breaks the plant, and starts it over.
 
 An adapter that cannot reach the plant raises ServiceUnavailableError, and
 ExternalServiceError when the answer cannot be used (ADR 0006). A command
@@ -94,7 +95,7 @@ class PlantCommander(Protocol):
 
 @runtime_checkable
 class SimulationControl(Protocol):
-    """The hand of whoever runs a test: time and faults."""
+    """The hand of whoever runs a test: time, faults, and a new start."""
 
     async def advance(self, seconds: float) -> None:
         """Move the simulated time on.
@@ -109,3 +110,13 @@ class SimulationControl(Protocol):
         ...
 
     async def clear_faults(self) -> None: ...
+
+    async def restart(self) -> None:
+        """Start the plant over, from the start and the seed it was built from.
+
+        Simulated time back to 0, the program idle, no fault, no alarm, no
+        event, the history as at the start: as a new plant would be. What
+        lives outside the plant, the queue of proposals and its audit, is
+        not touched.
+        """
+        ...

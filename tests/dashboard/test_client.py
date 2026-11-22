@@ -72,8 +72,9 @@ class TestToken:
         api.advance(60)
         api.inject_fault("probe_broken", "TT1", None)
         api.clear_faults()
+        api.restart()
 
-        assert len(recorder.requests) == 7
+        assert len(recorder.requests) == 8
         assert [r for r in recorder.requests if TOKEN_HEADER in r.headers] == []
 
     def test_proposing_and_deciding_carry_it(self):
@@ -232,6 +233,14 @@ class TestSimulation:
         api.clear_faults()
         api.advance(60)
         assert api.plant()["readings"]["TT1"]["quality"] == "good"
+
+    def test_restarts_the_plant_of_the_app(self, api):
+        """[HP] Riparti da zero: the plant of the app back at time 0."""
+        api.advance(600)
+
+        api.restart()
+
+        assert api.plant()["sim_time_s"] == 0
 
 
 class TestConnect:

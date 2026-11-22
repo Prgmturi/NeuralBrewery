@@ -270,10 +270,23 @@ agenti.
   tempo avanza solo con un comando di `SimulationControl` esposto dall'API in sviluppo, e dopo
   ogni avanzamento si chiama il sorvegliante; nessun ciclo in background. Un solo worker: con più
   worker ci sarebbero più impianti, ognuno diverso: `SERVER_WORKERS` diverso da 1 ferma l'avvio.
-  Un riavvio costruisce un impianto nuovo dalla stessa partenza; la coda resta in Postgres. Il
-  timeout dell'esecutore c'è, ma con l'impianto nel processo un comando risponde subito: conta
-  dal servizio di M2. *Perché*: un processo solo e deterministico, e la demo si guida a passi;
-  il tempo che scorre da solo è il lavoro di M2.
+  Un riavvio, o **Riparti da zero** (M11, sotto), costruisce un impianto nuovo dalla stessa
+  partenza; la coda resta in Postgres. Il timeout dell'esecutore c'è, ma con l'impianto nel
+  processo un comando risponde subito: conta dal servizio di M2. *Perché*: un processo solo e
+  deterministico, e la demo si guida a passi; il tempo che scorre da solo è il lavoro di M2.
+- **Riparti da zero senza riavviare il container** (19 novembre, M11): `SimulationControl` ha
+  `restart()`, esposto come `POST /simulation/restart` (204) solo con la simulazione accesa, e un
+  pulsante nella dashboard, dietro una casella di conferma. `InProcessPlant` riceve da
+  `bootstrap.py` la funzione che costruisce il simulatore dalla partenza (`PLANT_START`) e dal
+  seed (`PLANT_SEED`), e al restart sostituisce il simulatore dentro lo stesso oggetto: lettori,
+  agente, server MCP ed esecutore lo vedono senza rifare il wiring. Si riparte da `sim_time_s` 0,
+  senza guasti, allarmi né eventi, e con lo storico di un impianto nuovo: stesso seed e stesse
+  azioni danno lo stesso stato. La coda e l'audit non si toccano: sono la memoria dell'agente.
+  La partenza non si sceglie dalla dashboard (KISS). Nessun comando resta a metà: i metodi
+  dell'impianto in-process non attendono niente, quindi sull'unico event loop dell'API un
+  comando gira tutto sull'impianto vecchio o tutto su quello nuovo; con l'adapter REST di M2 va
+  rivisto. *Perché*: la demo si rifà da capo, e il passo 9 si fa, senza `docker compose
+  restart api`.
 - **Server MCP dentro l'API**, su HTTP: i tool di lettura e uno per proporre un'azione, che mette
   la proposta in coda. Non approva e non comanda. *Perché*: vede lo stesso impianto e la stessa
   coda, senza un secondo processo. `mcp` è una dipendenza diretta (`>=2.3.0,<3`, dentro i
@@ -451,7 +464,14 @@ agenti.
   chiederebbe un secondo token, perché quello del birraio non arriva mai all'AI.
 - Limite noto (15 novembre): se l'API cade tra il pulsante premuto e la scrittura dell'esito, la
   proposta resta approvata senza esito e non si riesegue. Il pulsante non viene mai premuto due
-  volte, e l'impianto in-process riparte comunque da zero.
+  volte, e l'impianto in-process riparte comunque da zero, con un riavvio o con **Riparti da
+  zero**.
+- Limite noto (19 novembre, M11): **Riparti da zero** non guarda la coda. Una proposta rimasta
+  in attesa dal giro prima, se approvata dopo, viene eseguita sull'impianto nuovo, dietro il
+  guardrail e gli interlock come ogni altra. Rifiutare il restart con proposte in attesa
+  vorrebbe che la rotta della simulazione (`features/plant`) leggesse la coda
+  (`features/approvals`), e le feature non si importano a vicenda: servirebbero una porta in
+  `core` e altro wiring.
 - Limiti noti finché l'impianto vive nell'API (15 novembre): il timeout dell'esecutore c'è ed è
   testato, ma dal vivo non scatta, perché l'impianto risponde nello stesso processo; far
   avanzare il tempo blocca l'API per circa 0,16 s per ora simulata. M2 non si fa per il corso.
@@ -464,8 +484,9 @@ agenti.
   - dopo un `reset` approvato l'allarme resta sulla pagina fino al prossimo avanzamento del
     tempo: il controllore lo toglie al suo giro successivo. Nella demo si avanza il tempo
     subito dopo.
-- M2, dopo il corso: tempo a passi e un comando di `SimulationControl` per ripartire da una
-  partenza con nome, invece di riavviare il container (preferenze, da confermare).
+- M2, dopo il corso: tempo a passi (preferenza, da confermare). Ripartire da una partenza
+  con nome senza riavviare il container è fatto in M11, per l'impianto in-process: con M2 il
+  servizio `plant-sim` dovrà esporre lo stesso `restart()`.
 - Adattatore verso un controllore vero (per esempio OPC UA): le letture hanno già la sua forma
   (valore, qualità, tempo). Non serve al corso: solo se avanza tempo.
 
@@ -486,10 +507,12 @@ agenti.
 | M8 | Parte A: immagini e CI, con lo scan. Parte B: README del progetto, e prova della demo da zero seguendolo | La demo gira da zero seguendo il README |
 | M9 | RAG leggero sui manuali: testo estratto una volta, BM25 con il filtro per sigla, il tool `search_manuals`, acceso di default nello stack dopo gli eval | L'eval del retrieval verde nella CI (hit@3 su tutte, hit@1 almeno all'80%); S6 passa su Claude e su Gemini, e S1–S5 non peggiorano |
 | M10 | Pulizia prima del repo pubblico: via il login con Keycloak, le note, rilasci, produzione, Dependabot, i prompt e i documenti del template; un e2e che percorre la demo | I controlli della CI verdi, e lo stack da zero, anche con un `.env` di prima |
+| M11 | **Riparti da zero** dalla dashboard: `SimulationControl.restart()`, `POST /simulation/restart` e il pulsante, con la conferma; coda e audit intatti | Dalla dashboard l'impianto torna a sim_time 0 con la coda intatta, senza riavviare il container; stesso seed e stesse azioni, stesso stato |
 
 Ordine: dopo M1b viene M5, con l'impianto in-process; dopo M5 viene M4 (deciso il 14 novembre,
 a fine M5). A fine M4 (15 novembre): M6, M7 e M8 prima del discorso, con il 18 novembre tenuto
 per M8 e la prova della demo. A fine M6 (15 novembre): M7 il 16, il pannello (M7b) il 17, M8 il
-18. Il 17 novembre, M9: il RAG leggero sui manuali, poi M10, la pulizia. Dopo il corso: M2, M3, il RAG ibrido con
+18. Il 17 novembre, M9: il RAG leggero sui manuali, poi M10, la pulizia. Il 19 novembre, M11:
+ripartire da zero dalla dashboard. Dopo il corso: M2, M3, il RAG ibrido con
 rerank e RAGAS, multi-agente con l'orchestratore e la baseline, red teaming, eval in CI,
 interfaccia completa.

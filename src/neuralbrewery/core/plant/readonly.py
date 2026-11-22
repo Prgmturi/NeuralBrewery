@@ -5,7 +5,7 @@ an agent typed as PlantReader, it can still be commanded at run time, and
 mypy is the only check. Until the plant-sim service puts a token between
 the agents and the commands (milestone M2), these wrappers are the wall:
 ReadOnlyPlant has the three reading methods and no other, SimulationOnly
-the three of the hand of a test.
+the four of the hand of a test.
 """
 
 from neuralbrewery.core.plant.protocols import PlantReader, SimulationControl
@@ -38,3 +38,6 @@ class SimulationOnly:
 
     async def clear_faults(self) -> None:
         await self._control.clear_faults()
+
+    async def restart(self) -> None:
+        await self._control.restart()
