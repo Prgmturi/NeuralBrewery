@@ -53,11 +53,10 @@ ENV PYTHONUNBUFFERED=1 \
     STREAMLIT_BROWSER_GATHER_USAGE_STATS=false \
     STREAMLIT_SERVER_FILE_WATCHER_TYPE=none
 
-# The same Debian fixes as the API's image, zlib1g and the C library, until
-# the base brings them (docker/Dockerfile)
+# The same Debian upgrade as the API's image, for the same reason
+# (docker/Dockerfile)
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends --only-upgrade \
-       zlib1g libc6 libc-bin \
+    && apt-get upgrade -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # As in the API's image, the user owns nothing: code and packages are root's

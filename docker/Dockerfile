@@ -61,19 +61,15 @@ ENV PYTHONUNBUFFERED=1 \
     PATH="/app/.venv/bin:$PATH" \
     APP_ENVIRONMENT=production
 
-# Debian's fixes the base does not have yet, each a High that fails the
-# scan of CI:
-# - zlib1g: CVE-2026-76844 and CVE-2026-85091 (16 November 2026, then in
-#   trixie-security only);
-# - the C library, libc6 and libc-bin: CVE-2026-19499 and CVE-2026-5435,
-#   fixed in 2.41-12+deb13u5 (22 November 2026).
-# --only-upgrade moves a package the base already has, to the newest
-# version Debian serves, and installs nothing new. Drop a package once a
-# new digest of the base has its fix, moved by hand in both Dockerfiles.
-# The dashboard's image runs the same step (tests/test_dashboard_image.py).
+# The base image is pinned by digest, so it lags behind the Debian security
+# fixes that the image scan in CI fails on: zlib1g (CVE-2026-76844 and
+# CVE-2026-85091, 16 November 2026), the C library (CVE-2026-19499 and
+# CVE-2026-5435, 22 November 2026), and the next one. Upgrading what is
+# installed picks them up, with no list to keep; the image is then only as
+# reproducible as the Debian archive that day. The dashboard's image runs
+# the same step (tests/test_dashboard_image.py).
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends --only-upgrade \
-       zlib1g libc6 libc-bin \
+    && apt-get upgrade -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # The user the app runs as owns nothing in the image. The virtual
