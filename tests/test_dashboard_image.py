@@ -79,6 +79,7 @@ class TestBase:
         WHY: one base, the same vulnerabilities: on 16 November 2026 both
         images had the two High of zlib1g. A fix in one image only would
         leave the other one red in its scan (tests/test_dockerfile.py).
+        Both run the same upgrade of everything installed.
         """
         assert apt(DASHBOARD)
         assert apt(DASHBOARD) == apt(API)
